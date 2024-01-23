@@ -18,6 +18,12 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "src/**/*",
+    "/Users/rmack/Desktop/code/layer/x/oracle/types/**/*.ts"
+  ],
   "exclude": ["node_modules"]
 }

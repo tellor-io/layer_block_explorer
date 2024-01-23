@@ -51,13 +51,13 @@ const RefLinkItems: Array<LinkItemProps> = [
   {
     name: 'Github',
     icon: FiGithub,
-    route: 'https://github.com/arifintahu/dexplorer',
+    route: 'https://github.com/tellor-io/layer',
     isBlank: true,
   },
   {
     name: 'Report Issues',
     icon: FiAlertCircle,
-    route: 'https://github.com/arifintahu/dexplorer/issues',
+    route: 'https://github.com/tellor-io/layer/issues',
     isBlank: true,
   },
 ]
@@ -126,8 +126,8 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
             mx="8"
             justifyContent="space-between"
           >
-            <Text fontSize="2xl" fontFamily="monospace" fontWeight="bold">
-              Dexplorer
+            <Text fontSize="2xl" fontFamily="Cascadia Code" fontWeight="bold">
+              TellorScan
             </Text>
             <CloseButton
               display={{ base: 'flex', md: 'none' }}

@@ -3,6 +3,8 @@ import { MsgWithdrawDelegatorReward } from 'cosmjs-types/cosmos/distribution/v1b
 import { MsgDelegate } from 'cosmjs-types/cosmos/staking/v1beta1/tx'
 import { MsgUpdateClient } from 'cosmjs-types/ibc/core/client/v1/tx'
 import { MsgAcknowledgement } from 'cosmjs-types/ibc/core/channel/v1/tx'
+import { MsgCommitReport } from 'layer/x/oracle/types/message_commit_report'
+
 import {
   MsgExec,
   MsgGrant,
@@ -54,6 +56,9 @@ export const decodeMsg = (typeUrl: string, value: Uint8Array): DecodeMsg => {
       break
     case TYPE.MsgRevoke:
       data = MsgRevoke.decode(value)
+      break
+    case TYPE.MsgCommitReport:
+      data = MsgCommitReport.decode(value)
       break
     case TYPE.MsgTransfer:
       data = MsgTransfer.decode(value)

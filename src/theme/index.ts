@@ -8,9 +8,10 @@ const theme: Theme = extendTheme({
     useSystemColorMode: false,
   } as Theme['config'],
   fonts: {
-    heading: 'Inter, sans-serif',
-    body: 'Inter, sans-serif',
-    mono: 'IBM Plex Mono, monospace',
+    heading: 'Cascadia Code',
+    paragraph: 'Cascadia Code',
+    body: 'Cascadia Code',
+    mono: 'IBM Plex Mono, Cascadia Code',
   },
   styles: {},
   colors,

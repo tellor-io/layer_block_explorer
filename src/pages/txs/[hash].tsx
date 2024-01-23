@@ -39,6 +39,8 @@ import {
 import { decodeMsg, DecodeMsg } from '@/encoding'
 
 export default function DetailBlock() {
+  console.log('DetailBlock is rendering');
+
   const router = useRouter()
   const toast = useToast()
   const { hash } = router.query
@@ -51,7 +53,10 @@ export default function DetailBlock() {
   useEffect(() => {
     if (tmClient && hash) {
       getTx(tmClient, hash as string)
-        .then(setTx)
+        .then((data) => {
+          console.log('Fetched tx data:', data);
+          setTx(data);
+        })
         .catch(showError)
     }
   }, [tmClient, hash])
@@ -70,8 +75,12 @@ export default function DetailBlock() {
   }, [tx])
 
   useEffect(() => {
+    console.log('useEffect is running');
+    console.log('txData:', txData);
+    console.log('msgs:', msgs);
     if (txData?.body?.messages.length && !msgs.length) {
       for (const message of txData?.body?.messages) {
+        console.log('Decoding message:', message.typeUrl, message.value);
         const msg = decodeMsg(message.typeUrl, message.value)
         setMsgs((prevMsgs) => [...prevMsgs, msg])
       }
@@ -299,17 +308,17 @@ export default function DetailBlock() {
                         </Td>
                         <Td>{msg.typeUrl}</Td>
                       </Tr>
-                      {Object.keys(msg.data ?? {}).map((key) => (
-                        <Tr key={key}>
-                          <Td pl={0} width={150}>
-                            <b>{key}</b>
-                          </Td>
-                          <Td>
-                            {showMsgData(
-                              msg.data ? msg.data[key as keyof {}] : ''
-                            )}
-                          </Td>
-                        </Tr>
+                      {Object.keys(msg).map((key) => (
+  <Tr key={key}>
+    <Td pl={0} width={150}>
+      <b>{key}</b>
+    </Td>
+    <Td>
+      {typeof msg[key as keyof {}] === 'object' && msg[key as keyof {}] !== null
+        ? JSON.stringify(msg[key as keyof {}], null, 2)
+        : String(msg[key as keyof {}])}
+    </Td>
+  </Tr>
                       ))}
                     </Tbody>
                   </Table>
