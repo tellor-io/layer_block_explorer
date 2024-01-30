@@ -39,8 +39,6 @@ import {
 import { decodeMsg, DecodeMsg } from '@/encoding'
 
 export default function DetailBlock() {
-  console.log('DetailBlock is rendering');
-
   const router = useRouter()
   const toast = useToast()
   const { hash } = router.query
@@ -53,10 +51,7 @@ export default function DetailBlock() {
   useEffect(() => {
     if (tmClient && hash) {
       getTx(tmClient, hash as string)
-        .then((data) => {
-          console.log('Fetched tx data:', data);
-          setTx(data);
-        })
+        .then(setTx)
         .catch(showError)
     }
   }, [tmClient, hash])
@@ -75,12 +70,8 @@ export default function DetailBlock() {
   }, [tx])
 
   useEffect(() => {
-    console.log('useEffect is running');
-    console.log('txData:', txData);
-    console.log('msgs:', msgs);
     if (txData?.body?.messages.length && !msgs.length) {
       for (const message of txData?.body?.messages) {
-        console.log('Decoding message:', message.typeUrl, message.value);
         const msg = decodeMsg(message.typeUrl, message.value)
         setMsgs((prevMsgs) => [...prevMsgs, msg])
       }
@@ -276,6 +267,21 @@ export default function DetailBlock() {
                   </Td>
                   <Td>{txData?.body?.memo}</Td>
                 </Tr>
+                <Tr>
+                  <Td pl={0} width={150}>
+                    <b>Events</b>
+                  </Td>
+                  <Td>
+                    {tx?.events?.map((event, index) => (
+                      <Box key={index}>
+                        <Text fontWeight="bold">{event.type}</Text>
+                        {event.attributes.map((attribute, attrIndex) => (
+                          <Text key={attrIndex}>{attribute.key}: {attribute.value}</Text>
+                        ))}
+                      </Box>
+                    ))}
+                  </Td>
+                </Tr>
               </Tbody>
             </Table>
           </TableContainer>
@@ -308,17 +314,17 @@ export default function DetailBlock() {
                         </Td>
                         <Td>{msg.typeUrl}</Td>
                       </Tr>
-                      {Object.keys(msg).map((key) => (
-  <Tr key={key}>
-    <Td pl={0} width={150}>
-      <b>{key}</b>
-    </Td>
-    <Td>
-      {typeof msg[key as keyof {}] === 'object' && msg[key as keyof {}] !== null
-        ? JSON.stringify(msg[key as keyof {}], null, 2)
-        : String(msg[key as keyof {}])}
-    </Td>
-  </Tr>
+                      {Object.keys(msg.data ?? {}).map((key) => (
+                        <Tr key={key}>
+                          <Td pl={0} width={150}>
+                            <b>{key}</b>
+                          </Td>
+                          <Td>
+                            {showMsgData(
+                              msg.data ? msg.data[key as keyof {}] : ''
+                            )}
+                          </Td>
+                        </Tr>
                       ))}
                     </Tbody>
                   </Table>
@@ -327,6 +333,33 @@ export default function DetailBlock() {
             </Card>
           ))}
         </Box>
+        <Box
+  mt={8}
+  bg={useColorModeValue('light-container', 'dark-container')}
+  shadow={'base'}
+  borderRadius={4}
+  p={4}
+>
+  <Heading size={'md'} mb={4}>
+    New Report
+  </Heading>
+  <Divider borderColor={'gray'} mb={4} />
+  {tx?.events?.map((event, index) => {
+    if (event.type === 'NewReport') { // Replace with the actual event type you're looking for
+      return (
+        <Box key={index}>
+          <Text fontWeight="bold">Reporter:</Text>
+          <Text>{event.attributes.find(attr => attr.key === 'reporter')?.value}</Text>
+          <Text fontWeight="bold">Query Data:</Text>
+          <Text>{event.attributes.find(attr => attr.key === 'query_data')?.value}</Text>
+          <Text fontWeight="bold">Value:</Text>
+          <Text>{event.attributes.find(attr => attr.key === 'value')?.value}</Text>
+        </Box>
+      );
+    }
+    return null;
+  })}
+</Box>
       </main>
     </>
   )
