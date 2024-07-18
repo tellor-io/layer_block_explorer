@@ -30,13 +30,20 @@ import { Tx as TxData } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
 import { sha256 } from '@cosmjs/crypto'
 import { toHex } from '@cosmjs/encoding'
 import { timeFromNow, trimHash, displayDate, getTypeMsg } from '@/utils/helper'
+import { decodeData } from '@/utils/decodeHelper'; // Import the decoding function
+import ErrorBoundary from '../../components/ErrorBoundary';
+
+// Extend the Block type to include rawData
+interface ExtendedBlock extends Block {
+  rawData?: Uint8Array;
+}
 
 export default function DetailBlock() {
   const router = useRouter()
   const toast = useToast()
   const { height } = router.query
   const tmClient = useSelector(selectTmClient)
-  const [block, setBlock] = useState<Block | null>(null)
+  const [block, setBlock] = useState<ExtendedBlock | null>(null)
 
   interface Tx {
     data: TxData
@@ -47,26 +54,51 @@ export default function DetailBlock() {
   useEffect(() => {
     if (tmClient && height) {
       getBlock(tmClient, parseInt(height as string, 10))
-        .then(setBlock)
-        .catch(showError)
+        .then((blockData: Block) => {
+          const extendedBlockData = blockData as ExtendedBlock; // Type assertion
+          console.log("Function called, extendedBlockData:", extendedBlockData);
+
+          try {
+            if (extendedBlockData.rawData) {
+              console.log('Raw data before decoding:', extendedBlockData.rawData);
+              decodeData(extendedBlockData.rawData);
+            } else {
+              console.log('No rawData found in extendedBlockData');
+            }
+          } catch (error) {
+            console.error('Error decoding block data:', error);
+            console.error('Raw data:', extendedBlockData.rawData); // Log the raw data
+          }
+          setBlock(extendedBlockData);
+        })
+        .catch((error) => {
+          console.error('Error fetching or decoding block data:', error);
+        });
     }
-  }, [tmClient, height])
+  }, [tmClient, height]);
 
   useEffect(() => {
     if (block?.txs.length && !txs.length) {
       for (const rawTx of block.txs) {
-        const data = TxData.decode(rawTx)
-        const hash = sha256(rawTx)
-        setTxs((prevTxs) => [
-          ...prevTxs,
-          {
-            data,
-            hash,
-          },
-        ])
+        console.log("Raw transaction data:", rawTx); // Log the raw transaction data
+
+        try {
+          const data = TxData.decode(rawTx);
+          const hash = sha256(rawTx);
+          setTxs((prevTxs) => [
+            ...prevTxs,
+            {
+              data,
+              hash,
+            },
+          ]);
+        } catch (error) {
+          console.error('Error decoding transaction data:', error);
+          console.error('Raw transaction data:', rawTx); // Log the raw transaction data
+        }
       }
     }
-  }, [block])
+  }, [block]);
 
   const renderMessages = (messages: any) => {
     if (messages.length == 1) {
@@ -121,7 +153,7 @@ export default function DetailBlock() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <Head>
         <title>Detail Block | Dexplorer</title>
         <meta name="description" content="Block | Dexplorer" />
@@ -203,6 +235,25 @@ export default function DetailBlock() {
                     <b>Block Hash</b>
                   </Td>
                   <Td>{block?.id}</Td>
+                  <Td>{block?.header.height}</Td>
+                </Tr>
+                <Tr>
+                  <Td pl={0} width={150}>
+                    <b>Block Time</b>
+                  </Td>
+                  <Td>
+                    {block?.header.time
+                      ? `${timeFromNow(block?.header.time)} ( ${displayDate(
+                          block?.header.time
+                        )} )`
+                      : ''}
+                  </Td>
+                </Tr>
+                <Tr>
+                  <Td pl={0} width={150}>
+                    <b>Block Hash</b>
+                  </Td>
+                  <Td>{block?.id}</Td>
                 </Tr>
                 <Tr>
                   <Td pl={0} width={150}>
@@ -265,6 +316,6 @@ export default function DetailBlock() {
           </TableContainer>
         </Box>
       </main>
-    </>
+    </ErrorBoundary>
   )
 }
