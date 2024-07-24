@@ -30,12 +30,12 @@ import { Tx as TxData } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
 import { sha256 } from '@cosmjs/crypto'
 import { toHex } from '@cosmjs/encoding'
 import { timeFromNow, trimHash, displayDate, getTypeMsg } from '@/utils/helper'
-import { decodeData } from '@/utils/decodeHelper'; // Import the decoding function
-import ErrorBoundary from '../../components/ErrorBoundary';
+import { decodeData } from '@/utils/decodeHelper' // Import the decoding function
+import ErrorBoundary from '../../components/ErrorBoundary'
 
 // Extend the Block type to include rawData
 interface ExtendedBlock extends Block {
-  rawData?: Uint8Array;
+  rawData?: Uint8Array
 }
 
 export default function DetailBlock() {
@@ -55,50 +55,53 @@ export default function DetailBlock() {
     if (tmClient && height) {
       getBlock(tmClient, parseInt(height as string, 10))
         .then((blockData: Block) => {
-          const extendedBlockData = blockData as ExtendedBlock; // Type assertion
-          console.log("Function called, extendedBlockData:", extendedBlockData);
+          const extendedBlockData = blockData as ExtendedBlock // Type assertion
+          console.log('Function called, extendedBlockData:', extendedBlockData)
 
           try {
             if (extendedBlockData.rawData) {
-              console.log('Raw data before decoding:', extendedBlockData.rawData);
-              decodeData(extendedBlockData.rawData);
+              console.log(
+                'Raw data before decoding:',
+                extendedBlockData.rawData
+              )
+              decodeData(extendedBlockData.rawData)
             } else {
-              console.log('No rawData found in extendedBlockData');
+              console.log('No rawData found in extendedBlockData')
             }
           } catch (error) {
-            console.error('Error decoding block data:', error);
-            console.error('Raw data:', extendedBlockData.rawData); // Log the raw data
+            console.error('Error decoding block data:', error)
+            console.error('Raw data:', extendedBlockData.rawData) // Log the raw data
           }
-          setBlock(extendedBlockData);
+          setBlock(extendedBlockData)
         })
         .catch((error) => {
-          console.error('Error fetching or decoding block data:', error);
-        });
+          console.error('Error fetching or decoding block data:', error)
+        })
     }
-  }, [tmClient, height]);
+  }, [tmClient, height])
 
   useEffect(() => {
     if (block?.txs.length && !txs.length) {
       for (const rawTx of block.txs) {
-        console.log("Raw transaction data:", rawTx); // Log the raw transaction data
+        console.log('Raw transaction data:', rawTx) // Log the raw transaction data
 
         try {
-          const data = TxData.decode(rawTx);
-          const hash = sha256(rawTx);
+          const data = TxData.decode(rawTx)
+          const hash = sha256(rawTx)
           setTxs((prevTxs) => [
             ...prevTxs,
             {
               data,
               hash,
             },
-          ]);
+          ])
         } catch (error) {
-          console.error('Error decoding transaction data:', error);
-          console.error('Raw transaction data:', rawTx); // Log the raw transaction data
+          console.error('Error decoding transaction data:', error)
+          console.error('Raw transaction data:', rawTx) // Log the raw transaction data
         }
       }
     }
-  }, [block]);
+  }, [block])
 
   const renderMessages = (messages: any) => {
     if (messages.length == 1) {

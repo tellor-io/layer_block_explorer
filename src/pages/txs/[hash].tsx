@@ -276,7 +276,9 @@ export default function DetailBlock() {
                       <Box key={index}>
                         <Text fontWeight="bold">{event.type}</Text>
                         {event.attributes.map((attribute, attrIndex) => (
-                          <Text key={attrIndex}>{attribute.key}: {attribute.value}</Text>
+                          <Text key={attrIndex}>
+                            {attribute.key}: {attribute.value}
+                          </Text>
                         ))}
                       </Box>
                     ))}
@@ -334,32 +336,48 @@ export default function DetailBlock() {
           ))}
         </Box>
         <Box
-  mt={8}
-  bg={useColorModeValue('light-container', 'dark-container')}
-  shadow={'base'}
-  borderRadius={4}
-  p={4}
->
-  <Heading size={'md'} mb={4}>
-    New Report
-  </Heading>
-  <Divider borderColor={'gray'} mb={4} />
-  {tx?.events?.map((event, index) => {
-    if (event.type === 'NewReport') { // Replace with the actual event type you're looking for
-      return (
-        <Box key={index}>
-          <Text fontWeight="bold">Reporter:</Text>
-          <Text>{event.attributes.find(attr => attr.key === 'reporter')?.value}</Text>
-          <Text fontWeight="bold">Query Data:</Text>
-          <Text>{event.attributes.find(attr => attr.key === 'query_data')?.value}</Text>
-          <Text fontWeight="bold">Value:</Text>
-          <Text>{event.attributes.find(attr => attr.key === 'value')?.value}</Text>
+          mt={8}
+          bg={useColorModeValue('light-container', 'dark-container')}
+          shadow={'base'}
+          borderRadius={4}
+          p={4}
+        >
+          <Heading size={'md'} mb={4}>
+            New Report
+          </Heading>
+          <Divider borderColor={'gray'} mb={4} />
+          {tx?.events?.map((event, index) => {
+            if (event.type === 'NewReport') {
+              // Replace with the actual event type you're looking for
+              return (
+                <Box key={index}>
+                  <Text fontWeight="bold">Reporter:</Text>
+                  <Text>
+                    {
+                      event.attributes.find((attr) => attr.key === 'reporter')
+                        ?.value
+                    }
+                  </Text>
+                  <Text fontWeight="bold">Query Data:</Text>
+                  <Text>
+                    {
+                      event.attributes.find((attr) => attr.key === 'query_data')
+                        ?.value
+                    }
+                  </Text>
+                  <Text fontWeight="bold">Value:</Text>
+                  <Text>
+                    {
+                      event.attributes.find((attr) => attr.key === 'value')
+                        ?.value
+                    }
+                  </Text>
+                </Box>
+              )
+            }
+            return null
+          })}
         </Box>
-      );
-    }
-    return null;
-  })}
-</Box>
       </main>
     </>
   )
