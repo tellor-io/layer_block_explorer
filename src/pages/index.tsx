@@ -37,13 +37,42 @@ export default function Home() {
   const [validators, setValidators] = useState<number>()
   const [isLoaded, setIsLoaded] = useState(false)
   const [status, setStatus] = useState<StatusResponse | null>()
+  const [totalVotingPower, setTotalVotingPower] = useState<number>(0)
+  const [hasMovedFivePercent, setHasMovedFivePercent] = useState<string>('No')
 
   useEffect(() => {
     if (tmClient) {
       tmClient.status().then((response) => setStatus(response))
-      getValidators(tmClient).then((response) => setValidators(response.total))
+      getValidators(tmClient).then((response) => {
+        setValidators(response.total)
+        const totalPower = response.validators.reduce(
+          (acc, validator) => acc + BigInt(validator.votingPower),
+          BigInt(0)
+        )
+        setTotalVotingPower(Number(totalPower))
+      })
     }
   }, [tmClient])
+
+  /*useEffect(() => {
+    if (tmClient) {
+      tmClient.status().then((response) => setStatus(response))
+      getValidators(tmClient).then((response) => {
+        setValidators(response.total)
+        const totalPower = response.validators.reduce((acc, validator) => acc + BigInt(validator.votingPower), BigInt(0))
+        setTotalVotingPower(Number(totalPower))
+
+        // Fetch historical validator data from 12 hours ago
+        const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000
+        getHistoricalValidators(tmClient, twelveHoursAgo).then((historicalValidators) => {
+          const historicalPower = historicalValidators.reduce((acc, validator) => acc + BigInt(validator.votingPower), BigInt(0))
+          const totalChange = totalPower - historicalPower
+          const changePercentage = (Number(totalChange) / Number(totalPower)) * 100
+          setHasMovedFivePercent(changePercentage >= 5 ? 'Yes' : 'No')
+        })
+      })
+    }
+  }, [tmClient])*/
 
   useEffect(() => {
     if ((!isLoaded && newBlock) || (!isLoaded && status)) {
@@ -134,6 +163,16 @@ export default function Home() {
                 icon={FiUsers}
                 name="Validators"
                 value={validators}
+              />
+            </Skeleton>
+
+            <Skeleton isLoaded={isLoaded}>
+              <BoxInfo
+                bgColor="blue.200"
+                color="blue.600"
+                icon={FiUsers}
+                name="Total Voting Power (Validators)"
+                value={totalVotingPower}
               />
             </Skeleton>
           </SimpleGrid>
