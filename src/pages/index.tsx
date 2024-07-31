@@ -21,6 +21,8 @@ import {
   FiCpu,
   FiUsers,
 } from 'react-icons/fi'
+import { GiAncientSword, GiSwordBrandish } from 'react-icons/gi'
+import { LiaHourglassHalfSolid } from 'react-icons/lia'
 import { IconType } from 'react-icons'
 import NextLink from 'next/link'
 import { useEffect, useState } from 'react'
@@ -30,6 +32,8 @@ import { selectTmClient } from '@/store/connectSlice'
 import { selectNewBlock } from '@/store/streamSlice'
 import { displayDate } from '@/utils/helper'
 import { StatusResponse } from '@cosmjs/tendermint-rpc'
+import { getAllowedUnstakingAmount } from '@/rpc/query'
+import { getAllowedStakingAmount } from '@/rpc/query'
 
 export default function Home() {
   const tmClient = useSelector(selectTmClient)
@@ -38,10 +42,12 @@ export default function Home() {
   const [isLoaded, setIsLoaded] = useState(false)
   const [status, setStatus] = useState<StatusResponse | null>()
   const [totalVotingPower, setTotalVotingPower] = useState<number>(0)
-  const [hasMovedFivePercent, setHasMovedFivePercent] = useState<string>('No')
+  const [unstakingAmount, setUnstakingAmount] = useState<number>(0)
+  const [stakingAmount, setStakingAmount] = useState<number>(0)
 
   useEffect(() => {
     if (tmClient) {
+      console.log('Fetching status and validators')
       tmClient.status().then((response) => setStatus(response))
       getValidators(tmClient).then((response) => {
         setValidators(response.total)
@@ -54,25 +60,33 @@ export default function Home() {
     }
   }, [tmClient])
 
-  /*useEffect(() => {
-    if (tmClient) {
-      tmClient.status().then((response) => setStatus(response))
-      getValidators(tmClient).then((response) => {
-        setValidators(response.total)
-        const totalPower = response.validators.reduce((acc, validator) => acc + BigInt(validator.votingPower), BigInt(0))
-        setTotalVotingPower(Number(totalPower))
-
-        // Fetch historical validator data from 12 hours ago
-        const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000
-        getHistoricalValidators(tmClient, twelveHoursAgo).then((historicalValidators) => {
-          const historicalPower = historicalValidators.reduce((acc, validator) => acc + BigInt(validator.votingPower), BigInt(0))
-          const totalChange = totalPower - historicalPower
-          const changePercentage = (Number(totalChange) / Number(totalPower)) * 100
-          setHasMovedFivePercent(changePercentage >= 5 ? 'Yes' : 'No')
-        })
+  useEffect(() => {
+    getAllowedStakingAmount()
+      .then((parsedAmount) => {
+        if (parsedAmount !== undefined) {
+          setStakingAmount(parsedAmount)
+        } else {
+          console.log('Failed to fetch allowed amount')
+        }
       })
-    }
-  }, [tmClient])*/
+      .catch((error) => {
+        console.error('Error in getAllowedAmount:', error)
+      })
+  }, [])
+
+  useEffect(() => {
+    getAllowedUnstakingAmount()
+      .then((parsedAmounts) => {
+        if (parsedAmounts !== undefined) {
+          setUnstakingAmount(parsedAmounts)
+        } else {
+          console.log('Failed to fetch allowed amount')
+        }
+      })
+      .catch((error) => {
+        console.error('Error in getAllowedAmount:', error)
+      })
+  }, [])
 
   useEffect(() => {
     if ((!isLoaded && newBlock) || (!isLoaded && status)) {
@@ -173,6 +187,36 @@ export default function Home() {
                 icon={FiUsers}
                 name="Total Voting Power (Validators)"
                 value={totalVotingPower}
+              />
+            </Skeleton>
+
+            <Skeleton isLoaded={isLoaded}>
+              <BoxInfo
+                bgColor="blue.900"
+                color="white.600"
+                icon={GiAncientSword}
+                name="Allowed to Stake"
+                value={stakingAmount + ' TRB'}
+              />
+            </Skeleton>
+
+            <Skeleton isLoaded={isLoaded}>
+              <BoxInfo
+                bgColor="gray.200"
+                color="red.600"
+                icon={GiSwordBrandish}
+                name="Allowed to Unstake"
+                value={unstakingAmount + ' TRB'}
+              />
+            </Skeleton>
+
+            <Skeleton isLoaded={isLoaded}>
+              <BoxInfo
+                bgColor="gray.900"
+                color="red.200"
+                icon={LiaHourglassHalfSolid}
+                name="Time Until Reset"
+                value={'TBD'}
               />
             </Skeleton>
           </SimpleGrid>

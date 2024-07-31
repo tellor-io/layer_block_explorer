@@ -10,6 +10,7 @@ import {
   TxSearchResponse,
   ValidatorsResponse,
 } from '@cosmjs/tendermint-rpc'
+import axios from 'axios'
 
 export async function getChainId(
   tmClient: Tendermint37Client
@@ -77,4 +78,50 @@ export async function getTxsBySender(
     page: page,
     per_page: perPage,
   })
+}
+
+export const getAllowedUnstakingAmount = async (): Promise<
+  number | undefined
+> => {
+  const url = 'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount'
+  try {
+    const response = await axios.get(url)
+    console.log('Response headers:', response.headers)
+    console.log('Response data:', response.data)
+    const unstaking_amount =
+      Math.abs(response.data.unstaking_amount) / 1_000_000 // Get absolute value and move decimal left by 6
+    return unstaking_amount
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error('Axios error:', error.message)
+      if (error.response) {
+        // Server responded with a status other than 200 range
+        console.error('Response data:', error.response.data)
+        console.error('Response status:', error.response.status)
+        console.error('Response headers:', error.response.headers)
+      } else if (error.request) {
+        // Request was made but no response was received
+        console.error('Request data:', error.request)
+      } else {
+        // Something happened in setting up the request
+        console.error('Error message:', error.message)
+      }
+    } else {
+      // Non-Axios error
+      console.error('Unexpected error:', error)
+    }
+  }
+}
+
+export const getAllowedStakingAmount = async (): Promise<
+  number | undefined
+> => {
+  const url = 'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount'
+  try {
+    const response = await axios.get(url)
+    console.log('Response headers:', response.headers)
+    console.log('Response data:', response.data)
+    const unstaking_amount = Math.abs(response.data.staking_amount) / 1_000_000 // Get absolute value and move decimal left by 6
+    return unstaking_amount
+  } catch (error) {}
 }
