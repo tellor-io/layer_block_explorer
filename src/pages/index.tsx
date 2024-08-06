@@ -23,6 +23,7 @@ import {
 } from 'react-icons/fi'
 import { GiAncientSword, GiSwordBrandish } from 'react-icons/gi'
 import { LiaHourglassHalfSolid } from 'react-icons/lia'
+import { RiBearSmileFill } from 'react-icons/ri'
 import { IconType } from 'react-icons'
 import NextLink from 'next/link'
 import { useEffect, useState } from 'react'
@@ -34,6 +35,7 @@ import { displayDate } from '@/utils/helper'
 import { StatusResponse } from '@cosmjs/tendermint-rpc'
 import { getAllowedUnstakingAmount } from '@/rpc/query'
 import { getAllowedStakingAmount } from '@/rpc/query'
+import { getReporterCount } from '@/rpc/query'
 
 export default function Home() {
   const tmClient = useSelector(selectTmClient)
@@ -44,6 +46,7 @@ export default function Home() {
   const [totalVotingPower, setTotalVotingPower] = useState<number>(0)
   const [unstakingAmount, setUnstakingAmount] = useState<number>(0)
   const [stakingAmount, setStakingAmount] = useState<number>(0)
+  const [reporterCount, setReporterCount] = useState<number>(0)
 
   useEffect(() => {
     if (tmClient) {
@@ -79,6 +82,20 @@ export default function Home() {
       .then((parsedAmounts) => {
         if (parsedAmounts !== undefined) {
           setUnstakingAmount(parsedAmounts)
+        } else {
+          console.log('Failed to fetch allowed amount')
+        }
+      })
+      .catch((error) => {
+        console.error('Error in getAllowedAmount:', error)
+      })
+  }, [])
+
+  useEffect(() => {
+    getReporterCount()
+      .then((parsedAmounts) => {
+        if (parsedAmounts !== undefined) {
+          setReporterCount(parsedAmounts)
         } else {
           console.log('Failed to fetch allowed amount')
         }
@@ -217,6 +234,16 @@ export default function Home() {
                 icon={LiaHourglassHalfSolid}
                 name="Time Until Reset"
                 value={'TBD'}
+              />
+            </Skeleton>
+
+            <Skeleton isLoaded={isLoaded}>
+              <BoxInfo
+                bgColor="gray.400"
+                color="green.600"
+                icon={RiBearSmileFill}
+                name="Reporter Count"
+                value={reporterCount}
               />
             </Skeleton>
           </SimpleGrid>
