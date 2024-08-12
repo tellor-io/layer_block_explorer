@@ -52,13 +52,13 @@ const RefLinkItems: Array<LinkItemProps> = [
   {
     name: 'Github',
     icon: FiGithub,
-    route: 'https://github.com/tellor-io/layer',
+    route: 'https://github.com/tellor-io/layer_block_explorer',
     isBlank: true,
   },
   {
     name: 'Report Issues',
     icon: FiAlertCircle,
-    route: 'https://github.com/tellor-io/layer/issues',
+    route: 'https://github.com/tellor-io/layer_block_explorer/issues',
     isBlank: true,
   },
 ]
@@ -114,20 +114,6 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
     >
       <Flex flexDirection="column" h="full" justifyContent="space-between">
         <Box>
-          <Flex
-            h="20"
-            alignItems="center"
-            mx="8"
-            justifyContent="space-between"
-          >
-            <Text fontSize="2xl" fontWeight="bold">
-              TellorScan
-            </Text>
-            <CloseButton
-              display={{ base: 'flex', md: 'none' }}
-              onClick={onClose}
-            />
-          </Flex>
           {LinkItems.map((link) => (
             <NavItem key={link.name} icon={link.icon} route={link.route}>
               {link.name}
@@ -248,7 +234,7 @@ const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
       />
 
       <Text fontSize="2xl" ml="8" fontFamily="monospace" fontWeight="bold">
-        Dexplorer
+        LayerScan
       </Text>
     </Flex>
   )

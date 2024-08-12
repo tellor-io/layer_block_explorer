@@ -95,7 +95,7 @@ export default function Connect() {
   return (
     <>
       <Head>
-        <title>TellorScan | Connect</title>
+        <title>LayerScan | Connect</title>
         <meta name="description" content="Dexplorer | Connect to RPC Address" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />

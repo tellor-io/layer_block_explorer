@@ -111,10 +111,12 @@ export default function Blocks() {
     return ''
   }
 
+  const tabColor = useColorModeValue('light-theme', 'dark-theme')
+
   return (
     <>
       <Head>
-        <title>Blocks | Dexplorer</title>
+        <title>Blocks | Layer Explorer</title>
         <meta name="description" content="Blocks | Dexplorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -150,13 +152,17 @@ export default function Blocks() {
           <Tabs variant="unstyled">
             <TabList>
               <Tab
-                _selected={{ color: 'white', bg: 'cyan.400' }}
+                _selected={{ color: 'white', bg: tabColor }}
+                _hover={{ bg: useColorModeValue('gray.100', 'gray.700') }}
+                color={useColorModeValue('gray.600', 'gray.200')}
                 borderRadius={5}
               >
                 Blocks
               </Tab>
               <Tab
-                _selected={{ color: 'white', bg: 'cyan.400' }}
+                _selected={{ color: 'white', bg: tabColor }}
+                _hover={{ bg: useColorModeValue('gray.100', 'gray.700') }}
+                color={useColorModeValue('gray.600', 'gray.200')}
                 borderRadius={5}
               >
                 Transactions
@@ -184,7 +190,12 @@ export default function Blocks() {
                               style={{ textDecoration: 'none' }}
                               _focus={{ boxShadow: 'none' }}
                             >
-                              <Text color={'cyan.400'}>
+                              <Text
+                                color={useColorModeValue(
+                                  'light-theme',
+                                  'dark-theme'
+                                )}
+                              >
                                 {block.header.height}
                               </Text>
                             </Link>
@@ -224,7 +235,12 @@ export default function Blocks() {
                               style={{ textDecoration: 'none' }}
                               _focus={{ boxShadow: 'none' }}
                             >
-                              <Text color={'cyan.400'}>
+                              <Text
+                                color={useColorModeValue(
+                                  'light-theme',
+                                  'dark-theme'
+                                )}
+                              >
                                 {trimHash(tx.TxEvent.hash)}
                               </Text>
                             </Link>

@@ -1,24 +1,33 @@
-import { useColorModeValue, Flex, Spinner } from '@chakra-ui/react'
+import {
+  useColorModeValue,
+  Flex,
+  Spinner,
+  Box,
+  Text,
+  VStack,
+} from '@chakra-ui/react'
 import Head from 'next/head'
 
 export default function LoadingPage() {
   return (
     <>
       <Head>
-        <title>TellorScan</title>
+        <title>LayerScan</title>
         <meta name="description" content="Dexplorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <Flex
-        minH={'100vh'}
-        align={'center'}
-        justify={'center'}
-        w="100"
-        bg={useColorModeValue('gray.100', 'gray.900')}
+      <Box
+        height="100vh"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
       >
-        <Spinner size="xl" />
-      </Flex>
+        <VStack spacing={4}>
+          <Spinner size="xl" />
+          <Text>Connecting to LayerScan...</Text>
+        </VStack>
+      </Box>
     </>
   )
 }

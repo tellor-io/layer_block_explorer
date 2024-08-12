@@ -238,7 +238,7 @@ export default function Home() {
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
                 bgColor="blue.900"
-                color="white.600"
+                color="white"
                 icon={GiAncientSword}
                 name="Allowed to Stake"
                 value={stakingAmount + ' TRB'}
@@ -260,7 +260,7 @@ export default function Home() {
                 bgColor="gray.900"
                 color="red.200"
                 icon={LiaHourglassHalfSolid}
-                name="Time Until Reset"
+                name="Staking Allowance Reset"
                 value={
                   allowedAmountExp && new Date(allowedAmountExp).toUTCString()
                 }

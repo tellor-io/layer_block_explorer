@@ -1,9 +1,9 @@
 import { ReactNode, useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { Box } from '@chakra-ui/react'
 import Sidebar from '../Sidebar'
-import Connect from '../Connect'
-import LoadingPage from '../LoadingPage'
 import Navbar from '../Navbar'
+import LoadingPage from '../LoadingPage'
 import {
   selectConnectState,
   selectTmClient,
@@ -22,8 +22,8 @@ import {
 } from '@/store/streamSlice'
 import { NewBlockEvent } from '@cosmjs/tendermint-rpc'
 import { TxEvent } from '@cosmjs/tendermint-rpc'
-import { LS_RPC_ADDRESS, HARDCODED_RPC_ADDRESS } from '@/utils/constant'
-import { validateConnection, connectWebsocketClient } from '@/rpc/client'
+import { HARDCODED_RPC_ADDRESS } from '@/utils/constant'
+import { connectWebsocketClient } from '@/rpc/client'
 
 export default function Layout({ children }: { children: ReactNode }) {
   const connectState = useSelector(selectConnectState)
@@ -83,5 +83,12 @@ export default function Layout({ children }: { children: ReactNode }) {
     return <LoadingPage />
   }
 
-  return connectState ? <Sidebar>{children}</Sidebar> : <Connect />
+  return (
+    <Box>
+      <Navbar />
+      <Box pt="64px">
+        <Sidebar>{children}</Sidebar>
+      </Box>
+    </Box>
+  )
 }
