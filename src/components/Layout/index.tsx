@@ -22,7 +22,7 @@ import {
 } from '@/store/streamSlice'
 import { NewBlockEvent } from '@cosmjs/tendermint-rpc'
 import { TxEvent } from '@cosmjs/tendermint-rpc'
-import { LS_RPC_ADDRESS } from '@/utils/constant'
+import { LS_RPC_ADDRESS, HARDCODED_RPC_ADDRESS } from '@/utils/constant'
 import { validateConnection, connectWebsocketClient } from '@/rpc/client'
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -48,13 +48,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isLoading) {
-      const address = window.localStorage.getItem(LS_RPC_ADDRESS)
-      if (!address) {
-        setIsLoading(false)
-        return
-      }
-
-      connect(address)
+      connect(HARDCODED_RPC_ADDRESS)
     }
   }, [isLoading])
 
@@ -68,16 +62,8 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   const connect = async (address: string) => {
     try {
-      const isValid = await validateConnection(address)
-      if (!isValid) {
-        window.localStorage.removeItem(LS_RPC_ADDRESS)
-        setIsLoading(false)
-        return
-      }
-
       const tmClient = await connectWebsocketClient(address)
       if (!tmClient) {
-        window.localStorage.removeItem(LS_RPC_ADDRESS)
         setIsLoading(false)
         return
       }
@@ -89,24 +75,13 @@ export default function Layout({ children }: { children: ReactNode }) {
       setIsLoading(false)
     } catch (err) {
       console.error(err)
-      window.localStorage.removeItem(LS_RPC_ADDRESS)
       setIsLoading(false)
-      return
     }
   }
 
-  return (
-    <>
-      {isLoading ? <LoadingPage /> : <></>}
-      {connectState && !isLoading ? (
-        <Sidebar>
-          <Navbar />
-          {children}
-        </Sidebar>
-      ) : (
-        <></>
-      )}
-      {!connectState && !isLoading ? <Connect /> : <></>}
-    </>
-  )
+  if (isLoading) {
+    return <LoadingPage />
+  }
+
+  return connectState ? <Sidebar>{children}</Sidebar> : <Connect />
 }

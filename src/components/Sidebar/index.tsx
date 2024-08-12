@@ -44,6 +44,7 @@ const LinkItems: Array<LinkItemProps> = [
   { name: 'Home', icon: FiHome, route: '/' },
   { name: 'Blocks', icon: FiBox, route: '/blocks' },
   { name: 'Validators', icon: FiCompass, route: '/validators' },
+  { name: 'Reporters', icon: FiCompass, route: '/reporters' },
   { name: 'Proposals', icon: FiStar, route: '/proposals' },
   { name: 'Parameters', icon: FiSliders, route: '/parameters' },
 ]
@@ -101,13 +102,6 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
   const subsNewBlock = useSelector(selectSubsNewBlock)
   const subsTxEvent = useSelector(selectSubsTxEvent)
 
-  const handleDisconnect = () => {
-    subsNewBlock?.unsubscribe()
-    subsTxEvent?.unsubscribe()
-    window.localStorage.removeItem(LS_RPC_ADDRESS)
-    window.location.replace('/')
-  }
-
   return (
     <Box
       bg={useColorModeValue('light-container', 'dark-container')}
@@ -126,7 +120,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
             mx="8"
             justifyContent="space-between"
           >
-            <Text fontSize="2xl" fontFamily="Cascadia Code" fontWeight="bold">
+            <Text fontSize="2xl" fontWeight="bold">
               TellorScan
             </Text>
             <CloseButton
@@ -161,16 +155,6 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
             </NavItem>
           ))}
         </Box>
-        <Flex justifyContent="center" mb="4">
-          <Button
-            leftIcon={<FiLogOut />}
-            colorScheme="red"
-            variant="outline"
-            onClick={handleDisconnect}
-          >
-            Disconnect
-          </Button>
-        </Flex>
       </Flex>
     </Box>
   )

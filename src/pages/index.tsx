@@ -36,6 +36,7 @@ import { StatusResponse } from '@cosmjs/tendermint-rpc'
 import { getAllowedUnstakingAmount } from '@/rpc/query'
 import { getAllowedStakingAmount } from '@/rpc/query'
 import { getReporterCount } from '@/rpc/query'
+import { getAllowedAmountExp } from '@/rpc/query'
 
 export default function Home() {
   const tmClient = useSelector(selectTmClient)
@@ -45,6 +46,7 @@ export default function Home() {
   const [status, setStatus] = useState<StatusResponse | null>()
   const [totalVotingPower, setTotalVotingPower] = useState<number>(0)
   const [unstakingAmount, setUnstakingAmount] = useState<number>(0)
+  const [allowedAmountExp, setAllowedAmountExp] = useState<number>(0)
   const [stakingAmount, setStakingAmount] = useState<number>(0)
   const [reporterCount, setReporterCount] = useState<number>(0)
 
@@ -88,6 +90,20 @@ export default function Home() {
       })
       .catch((error) => {
         console.error('Error in getAllowedAmount:', error)
+      })
+  }, [])
+
+  useEffect(() => {
+    getAllowedAmountExp()
+      .then((parsedAmount) => {
+        if (parsedAmount !== undefined) {
+          setAllowedAmountExp(parsedAmount)
+        } else {
+          console.log('Failed to fetch allowed amount exp')
+        }
+      })
+      .catch((error) => {
+        console.error('Error in getAllowedAmountExp:', error)
       })
   }, [])
 
@@ -199,6 +215,16 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
+                bgColor="gray.400"
+                color="green.600"
+                icon={RiBearSmileFill}
+                name="Reporter Count"
+                value={reporterCount}
+              />
+            </Skeleton>
+
+            <Skeleton isLoaded={isLoaded}>
+              <BoxInfo
                 bgColor="blue.200"
                 color="blue.600"
                 icon={FiUsers}
@@ -233,17 +259,7 @@ export default function Home() {
                 color="red.200"
                 icon={LiaHourglassHalfSolid}
                 name="Time Until Reset"
-                value={'TBD'}
-              />
-            </Skeleton>
-
-            <Skeleton isLoaded={isLoaded}>
-              <BoxInfo
-                bgColor="gray.400"
-                color="green.600"
-                icon={RiBearSmileFill}
-                name="Reporter Count"
-                value={reporterCount}
+                value={allowedAmountExp}
               />
             </Skeleton>
           </SimpleGrid>

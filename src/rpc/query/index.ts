@@ -120,7 +120,44 @@ export const getAllowedStakingAmount = async (): Promise<
   } catch (error) {}
 }
 
+export const getAllowedAmountExp = async (): Promise<string | undefined> => {
+  const url =
+    'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount-expiration'
+  try {
+    const response = await axios.get(url)
+    const allowed_amount_exp = Math.abs(response.data.expiration)
+
+    // Convert timestamp to Date object
+    const date = new Date(allowed_amount_exp) // Multiply by 1000 if the timestamp is in seconds
+
+    // Format the date to a human-readable string in UTC
+    return date.toUTCString()
+  } catch (error) {
+    console.error('Error fetching allowed amount expiration:', error)
+    return undefined
+  }
+}
+
 export const getReporterCount = async (): Promise<number | undefined> => {
+  const url = 'https://tellorlayer.com/tellor-io/layer/reporter/reporters'
+  try {
+    const response = await axios.get(url)
+    console.log('Response headers:', response.headers)
+    console.log('Response data:', response.data)
+
+    if (response.data && Array.isArray(response.data.reporters)) {
+      return response.data.reporters.length
+    } else {
+      console.error('Unexpected response structure:', response.data)
+      return undefined
+    }
+  } catch (error) {
+    console.error('Error fetching reporter count:', error)
+    return undefined
+  }
+}
+
+export const getReporterList = async (): Promise<number | undefined> => {
   const url = 'https://tellorlayer.com/tellor-io/layer/reporter/reporters'
   try {
     const response = await axios.get(url)
