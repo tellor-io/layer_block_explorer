@@ -46,7 +46,9 @@ export default function Home() {
   const [status, setStatus] = useState<StatusResponse | null>()
   const [totalVotingPower, setTotalVotingPower] = useState<number>(0)
   const [unstakingAmount, setUnstakingAmount] = useState<number>(0)
-  const [allowedAmountExp, setAllowedAmountExp] = useState<number>(0)
+  const [allowedAmountExp, setAllowedAmountExp] = useState<number | undefined>(
+    undefined
+  )
   const [stakingAmount, setStakingAmount] = useState<number>(0)
   const [reporterCount, setReporterCount] = useState<number>(0)
 
@@ -259,7 +261,9 @@ export default function Home() {
                 color="red.200"
                 icon={LiaHourglassHalfSolid}
                 name="Time Until Reset"
-                value={allowedAmountExp}
+                value={
+                  allowedAmountExp && new Date(allowedAmountExp).toUTCString()
+                }
               />
             </Skeleton>
           </SimpleGrid>
@@ -274,8 +278,9 @@ interface BoxInfoProps extends FlexProps {
   color: string
   icon: IconType
   name: string
-  value: string | number | undefined
+  value: string | number | React.ReactNode | undefined
 }
+
 const BoxInfo = ({
   bgColor,
   color,
@@ -305,7 +310,9 @@ const BoxInfo = ({
       >
         <Icon fontSize="20" color={color} as={icon} />
       </Box>
-      <Heading size={'md'}>{value}</Heading>
+      <Box textAlign="center">
+        <Heading size={'md'}>{value}</Heading>
+      </Box>
       <Text size={'sm'}>{name}</Text>
     </VStack>
   )

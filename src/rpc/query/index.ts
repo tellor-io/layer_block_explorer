@@ -120,18 +120,15 @@ export const getAllowedStakingAmount = async (): Promise<
   } catch (error) {}
 }
 
-export const getAllowedAmountExp = async (): Promise<string | undefined> => {
+export const getAllowedAmountExp = async (): Promise<number | undefined> => {
   const url =
     'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount-expiration'
   try {
     const response = await axios.get(url)
     const allowed_amount_exp = Math.abs(response.data.expiration)
 
-    // Convert timestamp to Date object
-    const date = new Date(allowed_amount_exp) // Multiply by 1000 if the timestamp is in seconds
-
-    // Format the date to a human-readable string in UTC
-    return date.toUTCString()
+    // Return the timestamp as a number
+    return allowed_amount_exp
   } catch (error) {
     console.error('Error fetching allowed amount expiration:', error)
     return undefined
