@@ -77,7 +77,7 @@ export default function Home() {
     getAllowedStakingAmount()
       .then((parsedAmount) => {
         if (parsedAmount !== undefined) {
-          setStakingAmount(parsedAmount)
+          setStakingAmount(Number(parsedAmount))
         } else {
           console.log('Failed to fetch allowed amount')
         }
@@ -91,7 +91,7 @@ export default function Home() {
     getAllowedUnstakingAmount()
       .then((parsedAmounts) => {
         if (parsedAmounts !== undefined) {
-          setUnstakingAmount(parsedAmounts)
+          setUnstakingAmount(Number(parsedAmounts))
         } else {
           console.log('Failed to fetch allowed amount')
         }
