@@ -1,6 +1,19 @@
 import { Theme, extendTheme } from '@chakra-ui/react'
+import localFont from 'next/font/local'
 import { colors } from './colors'
 import { components } from './components'
+
+const ppNeueMontreal = localFont({
+  src: [
+    {
+      path: '../../public/fonts/PPNeueMontreal-Medium.woff2',
+      weight: '500',
+      style: 'normal',
+    },
+    // Add other weights/styles if needed
+  ],
+  variable: '--font-pp-neue-montreal',
+})
 
 const theme: Theme = extendTheme({
   config: {
@@ -8,14 +21,14 @@ const theme: Theme = extendTheme({
     useSystemColorMode: false,
   } as Theme['config'],
   fonts: {
-    heading: '"PPNeueMontreal-Medium", monospace',
-    paragraph: '"PPNeueMontreal-Medium", monospace',
-    body: '"PPNeueMontreal-Medium", monospace',
-    mono: '"PPNeueMontreal-Medium", monospace',
+    heading: `var(--font-pp-neue-montreal), monospace`,
+    paragraph: `var(--font-pp-neue-montreal), monospace`,
+    body: `var(--font-pp-neue-montreal), monospace`,
+    mono: `var(--font-pp-neue-montreal), monospace`,
   },
   styles: {},
   colors,
   components,
 }) as Theme
 
-export default theme
+export { ppNeueMontreal, theme as default }
