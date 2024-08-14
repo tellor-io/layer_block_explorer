@@ -81,7 +81,7 @@ export async function getTxsBySender(
 }
 
 export const getAllowedUnstakingAmount = async (): Promise<
-  number | undefined
+  string | undefined
 > => {
   const url = 'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount'
   try {
@@ -89,7 +89,12 @@ export const getAllowedUnstakingAmount = async (): Promise<
 
     const unstaking_amount =
       Math.abs(response.data.unstaking_amount) / 1_000_000 // Get absolute value and move decimal left by 6
-    return unstaking_amount
+
+    // Format the number with commas and 2 decimal places
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(unstaking_amount)
   } catch (error) {
     if (axios.isAxiosError(error)) {
       console.error('Axios error:', error.message)
@@ -110,14 +115,22 @@ export const getAllowedUnstakingAmount = async (): Promise<
 }
 
 export const getAllowedStakingAmount = async (): Promise<
-  number | undefined
+  string | undefined
 > => {
   const url = 'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount'
   try {
     const response = await axios.get(url)
-    const unstaking_amount = Math.abs(response.data.staking_amount) / 1_000_000 // Get absolute value and move decimal left by 6
-    return unstaking_amount
-  } catch (error) {}
+    const staking_amount = Math.abs(response.data.staking_amount) / 1_000_000 // Get absolute value and move decimal left by 6
+
+    // Format the number with commas and 2 decimal places
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(staking_amount)
+  } catch (error) {
+    console.error('Error fetching allowed staking amount:', error)
+    return undefined
+  }
 }
 
 export const getAllowedAmountExp = async (): Promise<number | undefined> => {

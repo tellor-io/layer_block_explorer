@@ -24,6 +24,8 @@ import {
 import { GiAncientSword, GiSwordBrandish } from 'react-icons/gi'
 import { LiaHourglassHalfSolid } from 'react-icons/lia'
 import { RiBearSmileFill } from 'react-icons/ri'
+import { FaUserCheck } from 'react-icons/fa'
+import { HiUserGroup } from 'react-icons/hi2'
 import { IconType } from 'react-icons'
 import NextLink from 'next/link'
 import { useEffect, useState } from 'react'
@@ -44,7 +46,7 @@ export default function Home() {
   const [validators, setValidators] = useState<number>()
   const [isLoaded, setIsLoaded] = useState(false)
   const [status, setStatus] = useState<StatusResponse | null>()
-  const [totalVotingPower, setTotalVotingPower] = useState<number>(0)
+  const [totalVotingPower, setTotalVotingPower] = useState<string>('0')
   const [unstakingAmount, setUnstakingAmount] = useState<number>(0)
   const [allowedAmountExp, setAllowedAmountExp] = useState<number | undefined>(
     undefined
@@ -62,7 +64,11 @@ export default function Home() {
           (acc, validator) => acc + BigInt(validator.votingPower),
           BigInt(0)
         )
-        setTotalVotingPower(Number(totalPower))
+        // Format the number with commas
+        const formattedTotalPower = new Intl.NumberFormat().format(
+          Number(totalPower)
+        )
+        setTotalVotingPower(formattedTotalPower)
       })
     }
   }, [tmClient])
@@ -162,8 +168,8 @@ export default function Home() {
           <SimpleGrid minChildWidth="200px" spacing="40px">
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="cyan.200"
-                color="cyan.600"
+                bgColor="#156b75"
+                color="#ecfaff"
                 icon={FiBox}
                 name="Latest Block Height"
                 value={
@@ -175,8 +181,8 @@ export default function Home() {
             </Skeleton>
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="green.200"
-                color="green.600"
+                bgColor="#156b75"
+                color="#ecfaff"
                 icon={FiClock}
                 name="Latest Block Time"
                 value={
@@ -193,8 +199,8 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="orange.200"
-                color="orange.600"
+                bgColor="#156b75"
+                color="#ecfaff"
                 icon={FiCpu}
                 name="Network"
                 value={
@@ -207,9 +213,9 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="purple.200"
-                color="purple.600"
-                icon={FiUsers}
+                bgColor="#156b75"
+                color="#ecfaff"
+                icon={FaUserCheck}
                 name="Validators"
                 value={validators}
               />
@@ -217,28 +223,28 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="gray.400"
-                color="green.600"
+                bgColor="#156b75"
+                color="#ecfaff"
                 icon={RiBearSmileFill}
-                name="Reporter Count"
+                name="Reporters"
                 value={reporterCount}
               />
             </Skeleton>
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="blue.200"
-                color="blue.600"
-                icon={FiUsers}
+                bgColor="#156b75"
+                color="#ecfaff"
+                icon={HiUserGroup}
                 name="Total Voting Power (Validators)"
-                value={totalVotingPower}
+                value={totalVotingPower + ' TRB'}
               />
             </Skeleton>
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="blue.900"
-                color="white"
+                bgColor="#156b75"
+                color="#ecfaff"
                 icon={GiAncientSword}
                 name="Allowed to Stake"
                 value={stakingAmount + ' TRB'}
@@ -247,8 +253,8 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="gray.200"
-                color="red.600"
+                bgColor="#156b75"
+                color="#ecfaff"
                 icon={GiSwordBrandish}
                 name="Allowed to Unstake"
                 value={unstakingAmount + ' TRB'}
@@ -257,8 +263,8 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="gray.900"
-                color="red.200"
+                bgColor="#156b75"
+                color="#ecfaff"
                 icon={LiaHourglassHalfSolid}
                 name="Staking Allowance Reset"
                 value={
