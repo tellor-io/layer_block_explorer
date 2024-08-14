@@ -117,7 +117,7 @@ export default function Blocks() {
     <>
       <Head>
         <title>Blocks | Layer Explorer</title>
-        <meta name="description" content="Blocks | Dexplorer" />
+        <meta name="description" content="Blocks | Layer Explorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>

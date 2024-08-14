@@ -122,8 +122,8 @@ export default function Proposals() {
   return (
     <>
       <Head>
-        <title>Proposals | Dexplorer</title>
-        <meta name="description" content="Proposals | Dexplorer" />
+        <title>Proposals | Layer Explorer</title>
+        <meta name="description" content="Proposals | Layer Explorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>

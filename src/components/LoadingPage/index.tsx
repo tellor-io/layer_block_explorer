@@ -13,7 +13,7 @@ export default function LoadingPage() {
     <>
       <Head>
         <title>LayerScan</title>
-        <meta name="description" content="Dexplorer" />
+        <meta name="description" content="Layer Explorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>

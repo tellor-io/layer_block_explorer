@@ -141,8 +141,8 @@ export default function DetailBlock() {
   return (
     <>
       <Head>
-        <title>Detail Transaction | Dexplorer</title>
-        <meta name="description" content="Txs | Dexplorer" />
+        <title>Detail Transaction | Layer Explorer</title>
+        <meta name="description" content="Txs | Layer Explorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>

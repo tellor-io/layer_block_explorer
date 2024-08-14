@@ -145,8 +145,8 @@ export default function DetailAccount() {
   return (
     <>
       <Head>
-        <title>Detail Account | Dexplorer</title>
-        <meta name="description" content="Account | Dexplorer" />
+        <title>Detail Account | Layer Explorer</title>
+        <meta name="description" content="Account | Layer Explorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
