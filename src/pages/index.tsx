@@ -47,11 +47,11 @@ export default function Home() {
   const [isLoaded, setIsLoaded] = useState(false)
   const [status, setStatus] = useState<StatusResponse | null>()
   const [totalVotingPower, setTotalVotingPower] = useState<string>('0')
-  const [unstakingAmount, setUnstakingAmount] = useState<number>(0)
+  const [stakingAmount, setStakingAmount] = useState<string>('0 TRB')
+  const [unstakingAmount, setUnstakingAmount] = useState<string>('0 TRB')
   const [allowedAmountExp, setAllowedAmountExp] = useState<number | undefined>(
     undefined
   )
-  const [stakingAmount, setStakingAmount] = useState<number>(0)
   const [reporterCount, setReporterCount] = useState<number>(0)
 
   useEffect(() => {
@@ -75,29 +75,35 @@ export default function Home() {
 
   useEffect(() => {
     getAllowedStakingAmount()
-      .then((parsedAmount) => {
-        if (parsedAmount !== undefined) {
-          setStakingAmount(Number(parsedAmount))
+      .then((amount) => {
+        if (amount !== undefined) {
+          const formattedAmount =
+            new Intl.NumberFormat().format(amount) + ' TRB'
+          setStakingAmount(formattedAmount)
         } else {
-          console.log('Failed to fetch allowed amount')
+          setStakingAmount('0 TRB')
         }
       })
       .catch((error) => {
-        console.error('Error in getAllowedAmount:', error)
+        console.error('Error in getAllowedStakingAmount:', error)
+        setStakingAmount('0 TRB')
       })
   }, [])
 
   useEffect(() => {
     getAllowedUnstakingAmount()
-      .then((parsedAmounts) => {
-        if (parsedAmounts !== undefined) {
-          setUnstakingAmount(Number(parsedAmounts))
+      .then((amount) => {
+        if (amount !== undefined) {
+          const formattedAmount =
+            new Intl.NumberFormat().format(amount) + ' TRB'
+          setUnstakingAmount(formattedAmount)
         } else {
-          console.log('Failed to fetch allowed amount')
+          setUnstakingAmount('0 TRB')
         }
       })
       .catch((error) => {
-        console.error('Error in getAllowedAmount:', error)
+        console.error('Error in getAllowedUnstakingAmount:', error)
+        setUnstakingAmount('0 TRB')
       })
   }, [])
 
@@ -238,6 +244,7 @@ export default function Home() {
                 icon={HiUserGroup}
                 name="Total Voting Power (Validators)"
                 value={totalVotingPower + ' TRB'}
+                formatNumber={true}
               />
             </Skeleton>
 
@@ -247,7 +254,7 @@ export default function Home() {
                 color="#ecfaff"
                 icon={GiAncientSword}
                 name="Allowed to Stake"
-                value={stakingAmount + ' TRB'}
+                value={stakingAmount}
               />
             </Skeleton>
 
@@ -257,7 +264,7 @@ export default function Home() {
                 color="#ecfaff"
                 icon={GiSwordBrandish}
                 name="Allowed to Unstake"
-                value={unstakingAmount + ' TRB'}
+                value={unstakingAmount}
               />
             </Skeleton>
 
@@ -285,6 +292,8 @@ interface BoxInfoProps extends FlexProps {
   icon: IconType
   name: string
   value: string | number | React.ReactNode | undefined
+  formatNumber?: boolean
+  suffix?: string
 }
 
 const BoxInfo = ({
@@ -293,8 +302,22 @@ const BoxInfo = ({
   icon,
   name,
   value,
+  formatNumber = false,
+  suffix = '',
   ...rest
 }: BoxInfoProps) => {
+  let formattedValue = value
+  if (formatNumber && typeof value === 'number') {
+    formattedValue = new Intl.NumberFormat('en-US', {
+      maximumFractionDigits: 0,
+      notation: 'compact',
+      compactDisplay: 'short',
+    }).format(value)
+    if (suffix) {
+      formattedValue = `${formattedValue}${suffix}`
+    }
+  }
+
   return (
     <VStack
       bg={useColorModeValue('light-container', 'dark-container')}
@@ -317,7 +340,7 @@ const BoxInfo = ({
         <Icon fontSize="20" color={color} as={icon} />
       </Box>
       <Box textAlign="center">
-        <Heading size={'md'}>{value}</Heading>
+        <Heading size={'md'}>{formattedValue}</Heading>
       </Box>
       <Text size={'sm'}>{name}</Text>
     </VStack>

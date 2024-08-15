@@ -81,52 +81,28 @@ export async function getTxsBySender(
 }
 
 export const getAllowedUnstakingAmount = async (): Promise<
-  string | undefined
+  number | undefined
 > => {
   const url = 'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount'
   try {
     const response = await axios.get(url)
-
     const unstaking_amount =
       Math.abs(response.data.unstaking_amount) / 1_000_000 // Get absolute value and move decimal left by 6
-
-    // Format the number with commas and 2 decimal places
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(unstaking_amount)
+    return unstaking_amount
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error('Axios error:', error.message)
-      if (error.response) {
-        // Server responded with a status other than 200 range
-      } else if (error.request) {
-        // Request was made but no response was received
-        console.error('Request data:', error.request)
-      } else {
-        // Something happened in setting up the request
-        console.error('Error message:', error.message)
-      }
-    } else {
-      // Non-Axios error
-      console.error('Unexpected error:', error)
-    }
+    console.error('Error fetching allowed unstaking amount:', error)
+    return undefined
   }
 }
 
 export const getAllowedStakingAmount = async (): Promise<
-  string | undefined
+  number | undefined
 > => {
   const url = 'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount'
   try {
     const response = await axios.get(url)
     const staking_amount = Math.abs(response.data.staking_amount) / 1_000_000 // Get absolute value and move decimal left by 6
-
-    // Format the number with commas and 2 decimal places
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(staking_amount)
+    return staking_amount
   } catch (error) {
     console.error('Error fetching allowed staking amount:', error)
     return undefined
