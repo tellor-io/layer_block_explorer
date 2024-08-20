@@ -6,30 +6,31 @@ import {
   Heading,
   Icon,
   Link,
-  useColorModeValue,
   Text,
-  useToast,
+  useColorModeValue,
 } from '@chakra-ui/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
 import NextLink from 'next/link'
 import { FiChevronRight, FiHome } from 'react-icons/fi'
 import { selectTmClient } from '@/store/connectSlice'
-import { queryActiveValidators } from '@/rpc/abci'
+import { queryAllValidators } from '@/rpc/abci'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
 import { convertRateToPercent, convertVotingPower } from '@/utils/helper'
+import { ColumnDef } from '@tanstack/react-table'
 
 type ValidatorData = {
   validator: string
   status: string
-  votingPower: string
+  votingPower: number
+  votingPowerPercentage: string
   commission: string
 }
 
 const columnHelper = createColumnHelper<ValidatorData>()
 
-const columns = [
+const columns: ColumnDef<ValidatorData, any>[] = [
   columnHelper.accessor('validator', {
     cell: (info) => info.getValue(),
     header: 'Validator',
@@ -39,7 +40,14 @@ const columns = [
     header: 'Status',
   }),
   columnHelper.accessor('votingPower', {
-    cell: (info) => info.getValue(),
+    cell: (info) => (
+      <Text>
+        {info.getValue().toLocaleString()}{' '}
+        <Text as="span" color="gray.500" fontSize="sm">
+          ({info.row.original.votingPowerPercentage})
+        </Text>
+      </Text>
+    ),
     header: 'Voting Power',
     meta: {
       isNumeric: true,
@@ -61,30 +69,48 @@ export default function Validators() {
   const [total, setTotal] = useState(0)
   const [data, setData] = useState<ValidatorData[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const toast = useToast()
+  const [totalVotingPower, setTotalVotingPower] = useState(0)
+
+  const validatorDataWithPercentage = useMemo(() => {
+    if (totalVotingPower === 0) return data
+    return data.map((validator) => ({
+      ...validator,
+      votingPowerPercentage: `${(
+        (validator.votingPower / totalVotingPower) *
+        100
+      ).toFixed(2)}%`,
+    }))
+  }, [data, totalVotingPower])
 
   useEffect(() => {
     if (tmClient) {
       setIsLoading(true)
-      queryActiveValidators(tmClient, page, perPage)
+      queryAllValidators(tmClient, page, perPage)
         .then((response) => {
           setTotal(response.pagination?.total.low ?? 0)
           const validatorData: ValidatorData[] = response.validators.map(
             (val) => {
               return {
                 validator: val.description?.moniker ?? '',
-                status: val.status === 3 ? 'Active' : '',
+                status: val.status === 3 ? 'Active' : 'Inactive',
                 votingPower: convertVotingPower(val.tokens),
+                votingPowerPercentage: '', // This will be calculated later
                 commission: convertRateToPercent(
                   val.commission?.commissionRates?.rate
                 ),
               }
             }
           )
+          const totalPower = validatorData.reduce(
+            (sum, validator) => sum + validator.votingPower,
+            0
+          )
+          setTotalVotingPower(totalPower)
           setData(validatorData)
           setIsLoading(false)
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error('Error fetching validators:', error)
           toast({
             title: 'Failed to fetch datatable',
             description: '',
@@ -102,6 +128,10 @@ export default function Validators() {
   }) => {
     setPage(value.pageIndex)
     setPerPage(value.pageSize)
+  }
+
+  const handleSort = (sortedData: ValidatorData[]) => {
+    setData(sortedData)
   }
 
   return (
@@ -140,12 +170,13 @@ export default function Validators() {
           borderRadius={4}
           p={4}
         >
-          <DataTable
+          <DataTable<ValidatorData>
             columns={columns}
-            data={data}
+            data={validatorDataWithPercentage}
             total={total}
             isLoading={isLoading}
             onChangePagination={onChangePagination}
+            onSort={handleSort}
           />
         </Box>
       </main>

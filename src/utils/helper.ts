@@ -52,8 +52,8 @@ export const isBech32Address = (address: string): Boolean => {
   }
 }
 
-export const convertVotingPower = (tokens: string): string => {
-  return Math.round(Number(tokens) / 10 ** 6).toLocaleString(undefined)
+export const convertVotingPower = (tokens: string): number => {
+  return Math.round(Number(tokens) / 10 ** 6)
 }
 
 export const convertRateToPercent = (rate: string | undefined): string => {

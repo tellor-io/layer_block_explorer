@@ -25,15 +25,16 @@ import {
   QueryParamsRequest as QuerySlashingParamsRequest,
   QueryParamsResponse as QuerySlashingParamsResponse,
 } from 'cosmjs-types/cosmos/slashing/v1beta1/query'
+import { BondStatus } from 'cosmjs-types/cosmos/staking/v1beta1/staking'
 
-export async function queryActiveValidators(
+export async function queryAllValidators(
   tmClient: Tendermint37Client,
   page: number,
   perPage: number
 ): Promise<QueryValidatorsResponse> {
   const queryClient = new QueryClient(tmClient)
   const req = QueryValidatorsRequest.encode({
-    status: 'BOND_STATUS_BONDED',
+    status: BondStatus.BOND_STATUS_UNSPECIFIED,
     pagination: PageRequest.fromJSON({
       offset: page * perPage,
       limit: perPage,
