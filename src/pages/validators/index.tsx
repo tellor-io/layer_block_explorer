@@ -8,6 +8,7 @@ import {
   Link,
   Text,
   useColorModeValue,
+  useToast,
 } from '@chakra-ui/react'
 import { useEffect, useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
@@ -64,6 +65,7 @@ const columns: ColumnDef<ValidatorData, any>[] = [
 
 export default function Validators() {
   const tmClient = useSelector(selectTmClient)
+  const toast = useToast()
   const [page, setPage] = useState(0)
   const [perPage, setPerPage] = useState(10)
   const [total, setTotal] = useState(0)
@@ -120,7 +122,7 @@ export default function Validators() {
           })
         })
     }
-  }, [tmClient, page, perPage])
+  }, [tmClient, page, perPage, toast])
 
   const onChangePagination = (value: {
     pageIndex: number
@@ -128,10 +130,6 @@ export default function Validators() {
   }) => {
     setPage(value.pageIndex)
     setPerPage(value.pageSize)
-  }
-
-  const handleSort = (sortedData: ValidatorData[]) => {
-    setData(sortedData)
   }
 
   return (
@@ -176,7 +174,6 @@ export default function Validators() {
             total={total}
             isLoading={isLoading}
             onChangePagination={onChangePagination}
-            onSort={handleSort}
           />
         </Box>
       </main>
