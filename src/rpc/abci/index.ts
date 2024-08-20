@@ -34,7 +34,7 @@ export async function queryAllValidators(
 ): Promise<QueryValidatorsResponse> {
   const queryClient = new QueryClient(tmClient)
   const req = QueryValidatorsRequest.encode({
-    status: BondStatus.BOND_STATUS_UNSPECIFIED,
+    status: '', // Use an empty string to query all validators
     pagination: PageRequest.fromJSON({
       offset: page * perPage,
       limit: perPage,
