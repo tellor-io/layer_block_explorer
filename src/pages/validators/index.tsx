@@ -173,6 +173,14 @@ export default function Validators() {
           shadow={'base'}
           borderRadius={4}
           p={4}
+          overflowX="auto"
+          width={['100%', '100%', '100%', 'auto']}
+          sx={{
+            '& table': {
+              minWidth: '100%',
+              width: 'max-content',
+            },
+          }}
         >
           <DataTable<ValidatorData>
             columns={columns}

@@ -143,21 +143,52 @@ export const getReporterCount = async (): Promise<number | undefined> => {
   }
 }
 
-export const getReporterList = async (): Promise<number | undefined> => {
+export const getReporterList = async (): Promise<string[] | undefined> => {
   const url = 'https://tellorlayer.com/tellor-io/layer/reporter/reporters'
   try {
     const response = await axios.get(url)
-    console.log('Response headers:', response.headers)
-    console.log('Response data:', response.data)
-
     if (response.data && Array.isArray(response.data.reporters)) {
-      return response.data.reporters.length
+      return response.data.reporters
     } else {
       console.error('Unexpected response structure:', response.data)
       return undefined
     }
   } catch (error) {
-    console.error('Error fetching reporter count:', error)
+    console.error('Error fetching reporter list:', error)
     return undefined
   }
+}
+
+export const getReporterSelectors = async (
+  reporter: string
+): Promise<number | undefined> => {
+  const url = `https://tellorlayer.com/tellor-io/layer/reporter/num-of-selectors-by-reporter/${reporter}`
+  try {
+    const response = await axios.get(url)
+    if (response.data && typeof response.data.num_of_selectors === 'number') {
+      return response.data.num_of_selectors
+    } else {
+      console.error('Unexpected response structure:', response.data)
+      return undefined
+    }
+  } catch (error) {
+    console.error('Error fetching reporter selectors:', error)
+    return undefined
+  }
+}
+
+export const getAllReportersWithSelectors = async (): Promise<
+  Array<{ reporter: string; selectors: number | undefined }> | undefined
+> => {
+  const reporters = await getReporterList()
+  if (!reporters) return undefined
+
+  const reportersWithSelectors = await Promise.all(
+    reporters.map(async (reporter) => ({
+      reporter,
+      selectors: await getReporterSelectors(reporter),
+    }))
+  )
+
+  return reportersWithSelectors
 }

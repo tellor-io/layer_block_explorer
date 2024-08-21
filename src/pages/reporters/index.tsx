@@ -15,6 +15,7 @@ import NextLink from 'next/link'
 import { FiChevronRight, FiHome } from 'react-icons/fi'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
+import { getReporterSelectors } from '@/rpc/query'
 
 // Update the type to match the new data structure
 type ReporterData = {
@@ -23,6 +24,7 @@ type ReporterData = {
   commission_rate: string
   jailed: string
   jailed_until: string
+  selectors: number
 }
 
 // Add this type definition
@@ -34,6 +36,7 @@ type APIReporter = {
     jailed: boolean
     jailed_until: string
   }
+  selectors: number
 }
 
 const columnHelper = createColumnHelper<ReporterData>()
@@ -68,6 +71,13 @@ const columns = [
         : new Date(info.getValue()).toLocaleString(),
     header: 'Jailed Until',
   }),
+  columnHelper.accessor('selectors', {
+    cell: (info) => info.getValue(),
+    header: 'Selectors',
+    meta: {
+      isNumeric: true,
+    },
+  }),
 ]
 
 export default function Reporters() {
@@ -96,24 +106,36 @@ export default function Reporters() {
             parseInt(responseData.pagination.total) ||
               responseData.reporters.length
           )
-          const formattedData = responseData.reporters.map(
-            (reporter: APIReporter) => ({
-              address: reporter.address,
-              min_tokens_required: reporter.metadata.min_tokens_required,
-              commission_rate: reporter.metadata.commission_rate,
-              jailed: reporter.metadata.jailed ? 'Yes' : 'No',
-              jailed_until: reporter.metadata.jailed_until,
-            })
+          const reporterAddresses = responseData.reporters.map(
+            (reporter: APIReporter) => reporter.address
           )
-          const start = page * perPage
-          const end = start + perPage
-          const paginatedData = formattedData.slice(start, end)
-          setData(paginatedData)
+
+          // Fetch selectors for all reporters
+          return Promise.all(
+            reporterAddresses.map((address: string) =>
+              getReporterSelectors(address)
+            )
+          ).then((selectorsData) => {
+            const formattedData = responseData.reporters.map(
+              (reporter: APIReporter, index: number) => ({
+                address: reporter.address,
+                min_tokens_required: reporter.metadata.min_tokens_required,
+                commission_rate: reporter.metadata.commission_rate,
+                jailed: reporter.metadata.jailed ? 'Yes' : 'No',
+                jailed_until: reporter.metadata.jailed_until,
+                selectors: selectorsData[index] ?? 0,
+              })
+            )
+            const start = page * perPage
+            const end = start + perPage
+            const paginatedData = formattedData.slice(start, end)
+            setData(paginatedData)
+          })
         } else {
           throw new Error('Unexpected data structure')
         }
-        setIsLoading(false)
       })
+      .then(() => setIsLoading(false))
       .catch((error) => {
         console.error('Error fetching reporters data:', error)
         toast({
@@ -170,6 +192,14 @@ export default function Reporters() {
           shadow={'base'}
           borderRadius={4}
           p={4}
+          overflowX="auto"
+          width={['100%', '100%', '100%', 'auto']}
+          sx={{
+            '& table': {
+              minWidth: '100%',
+              width: 'max-content',
+            },
+          }}
         >
           <DataTable
             columns={columns}
