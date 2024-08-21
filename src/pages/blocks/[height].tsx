@@ -238,25 +238,6 @@ export default function DetailBlock() {
                     <b>Block Hash</b>
                   </Td>
                   <Td>{block?.id}</Td>
-                  <Td>{block?.header.height}</Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Block Time</b>
-                  </Td>
-                  <Td>
-                    {block?.header.time
-                      ? `${timeFromNow(block?.header.time)} ( ${displayDate(
-                          block?.header.time
-                        )} )`
-                      : ''}
-                  </Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Block Hash</b>
-                  </Td>
-                  <Td>{block?.id}</Td>
                 </Tr>
                 <Tr>
                   <Td pl={0} width={150}>

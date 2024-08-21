@@ -11,13 +11,14 @@ import {
   useColorModeValue,
   Tag,
   Badge,
+  VStack,
 } from '@chakra-ui/react'
 import { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
 import NextLink from 'next/link'
 import { FiChevronRight, FiHome } from 'react-icons/fi'
 import { selectTmClient } from '@/store/connectSlice'
-import { queryProposals } from '@/rpc/abci'
+import { queryProposals, queryProposalVotes } from '@/rpc/abci'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
 import { getTypeMsg, displayDate } from '@/utils/helper'
@@ -30,6 +31,16 @@ type Proposal = {
   types: string
   status: proposalStatus | undefined
   votingEnd: string
+  voteResults: {
+    hasVotes: boolean
+    voteDistribution: {
+      yes: { value: number; percentage: string }
+      no: { value: number; percentage: string }
+      abstain: { value: number; percentage: string }
+      veto: { value: number; percentage: string }
+    } | null
+    totalPower: number
+  }
 }
 
 const columnHelper = createColumnHelper<Proposal>()
@@ -61,6 +72,48 @@ const columns = [
     cell: (info) => info.getValue(),
     header: 'Voting End',
   }),
+  columnHelper.accessor('voteResults', {
+    cell: (info) => {
+      const voteResults = info.getValue()
+      if (!voteResults.hasVotes) {
+        return <Text>No votes recorded</Text>
+      }
+      const { yes, no, abstain, veto } = voteResults.voteDistribution!
+      return (
+        <VStack align="start" spacing={1}>
+          <Text fontWeight="bold">
+            Total Power:{' '}
+            {voteResults.totalPower.toLocaleString(undefined, {
+              maximumFractionDigits: 6,
+            })}
+          </Text>
+          <Text>
+            Yes:{' '}
+            {yes.value.toLocaleString(undefined, { maximumFractionDigits: 6 })}{' '}
+            ({yes.percentage}%)
+          </Text>
+          <Text>
+            No:{' '}
+            {no.value.toLocaleString(undefined, { maximumFractionDigits: 6 })} (
+            {no.percentage}%)
+          </Text>
+          <Text>
+            Abstain:{' '}
+            {abstain.value.toLocaleString(undefined, {
+              maximumFractionDigits: 6,
+            })}{' '}
+            ({abstain.percentage}%)
+          </Text>
+          <Text>
+            Veto:{' '}
+            {veto.value.toLocaleString(undefined, { maximumFractionDigits: 6 })}{' '}
+            ({veto.percentage}%)
+          </Text>
+        </VStack>
+      )
+    },
+    header: 'Vote Results',
+  }),
 ]
 
 export default function Proposals() {
@@ -76,26 +129,38 @@ export default function Proposals() {
     if (tmClient) {
       setIsLoading(true)
       queryProposals(tmClient, page, perPage)
-        .then((response) => {
+        .then(async (response) => {
           setTotal(response.pagination?.total.low ?? 0)
-          const proposalsList: Proposal[] = response.proposals.map((val) => {
-            const votingEnd = val.votingEndTime?.nanos
-              ? new Date(val.votingEndTime?.seconds.low * 1000).toISOString()
-              : null
-            const content = decodeContentProposal(
-              val.content?.typeUrl ?? '',
-              val.content?.value ?? new Uint8Array()
-            )
-            return {
-              id: val.proposalId.low,
-              title: content.data?.title ?? '',
-              types: getTypeMsg(val.content?.typeUrl ?? ''),
-              status: proposalStatusList.find(
-                (item) => item.id === Number(val.status.toString())
-              ),
-              votingEnd: votingEnd ? displayDate(votingEnd) : '',
-            }
-          })
+          const proposalsList: Proposal[] = await Promise.all(
+            response.proposals.map(async (val) => {
+              const votingEnd = val.votingEndTime?.nanos
+                ? new Date(val.votingEndTime?.seconds.low * 1000).toISOString()
+                : null
+              const content = decodeContentProposal(
+                val.content?.typeUrl ?? '',
+                val.content?.value ?? new Uint8Array()
+              )
+              const voteResults = await queryProposalVotes(
+                tmClient,
+                val.proposalId.low
+              )
+              console.log(
+                `Vote results for proposal ${val.proposalId.low}:`,
+                voteResults
+              )
+
+              return {
+                id: val.proposalId.low,
+                title: content.data?.title ?? '',
+                types: getTypeMsg(val.content?.typeUrl ?? ''),
+                status: proposalStatusList.find(
+                  (item) => item.id === Number(val.status.toString())
+                ),
+                votingEnd: votingEnd ? displayDate(votingEnd) : '',
+                voteResults: voteResults,
+              }
+            })
+          )
           setProposals(proposalsList)
           setIsLoading(false)
         })

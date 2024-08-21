@@ -1,6 +1,13 @@
 import { Tendermint37Client } from '@cosmjs/tendermint-rpc'
 import { QueryClient } from '@cosmjs/stargate'
-import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination'
+import {
+  QueryVotesRequest,
+  QueryVotesResponse,
+  QueryProposalsRequest,
+  QueryProposalsResponse,
+  QueryProposalRequest,
+  QueryProposalResponse,
+} from 'cosmjs-types/cosmos/gov/v1beta1/query'
 import {
   QueryValidatorsRequest,
   QueryValidatorsResponse,
@@ -8,12 +15,14 @@ import {
   QueryParamsResponse as QueryStakingParamsResponse,
 } from 'cosmjs-types/cosmos/staking/v1beta1/query'
 import {
+  QueryParamsRequest as QuerySlashingParamsRequest,
+  QueryParamsResponse as QuerySlashingParamsResponse,
+} from 'cosmjs-types/cosmos/slashing/v1beta1/query'
+import {
   QueryParamsRequest as QueryMintParamsRequest,
   QueryParamsResponse as QueryMintParamsResponse,
 } from 'cosmjs-types/cosmos/mint/v1beta1/query'
 import {
-  QueryProposalsRequest,
-  QueryProposalsResponse,
   QueryParamsRequest as QueryGovParamsRequest,
   QueryParamsResponse as QueryGovParamsResponse,
 } from 'cosmjs-types/cosmos/gov/v1beta1/query'
@@ -21,11 +30,9 @@ import {
   QueryParamsRequest as QueryDistributionParamsRequest,
   QueryParamsResponse as QueryDistributionParamsResponse,
 } from 'cosmjs-types/cosmos/distribution/v1beta1/query'
-import {
-  QueryParamsRequest as QuerySlashingParamsRequest,
-  QueryParamsResponse as QuerySlashingParamsResponse,
-} from 'cosmjs-types/cosmos/slashing/v1beta1/query'
-import { BondStatus } from 'cosmjs-types/cosmos/staking/v1beta1/staking'
+import { Vote, VoteOption } from 'cosmjs-types/cosmos/gov/v1beta1/gov'
+import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination'
+import Long from 'long'
 
 export async function queryAllValidators(
   tmClient: Tendermint37Client,
@@ -82,6 +89,18 @@ export async function queryStakingParams(
   return QueryStakingParamsResponse.decode(value)
 }
 
+export async function querySlashingParams(
+  tmClient: Tendermint37Client
+): Promise<QuerySlashingParamsResponse> {
+  const queryClient = new QueryClient(tmClient)
+  const req = QuerySlashingParamsRequest.encode({}).finish()
+  const { value } = await queryClient.queryAbci(
+    '/cosmos.slashing.v1beta1.Query/Params',
+    req
+  )
+  return QuerySlashingParamsResponse.decode(value)
+}
+
 export async function queryMintParams(
   tmClient: Tendermint37Client
 ): Promise<QueryMintParamsResponse> {
@@ -121,14 +140,52 @@ export async function queryDistributionParams(
   return QueryDistributionParamsResponse.decode(value)
 }
 
-export async function querySlashingParams(
-  tmClient: Tendermint37Client
-): Promise<QuerySlashingParamsResponse> {
+export async function queryProposalVotes(
+  tmClient: Tendermint37Client,
+  proposalId: number
+) {
+  console.log(`Querying proposal ${proposalId}`)
   const queryClient = new QueryClient(tmClient)
-  const req = QuerySlashingParamsRequest.encode({}).finish()
-  const { value } = await queryClient.queryAbci(
-    '/cosmos.slashing.v1beta1.Query/Params',
-    req
+
+  const proposalPath = `/cosmos.gov.v1beta1.Query/Proposal`
+  const proposalRequest = QueryProposalRequest.encode({
+    proposalId: Long.fromNumber(proposalId),
+  }).finish()
+
+  const { value: proposalValue } = await queryClient.queryAbci(
+    proposalPath,
+    proposalRequest
   )
-  return QuerySlashingParamsResponse.decode(value)
+  const proposalResponse = QueryProposalResponse.decode(proposalValue)
+
+  if (!proposalResponse.proposal) {
+    console.log(`No proposal found for ID ${proposalId}`)
+    return { hasVotes: false, voteDistribution: null, totalPower: 0 }
+  }
+
+  const { yes, no, abstain, noWithVeto } =
+    proposalResponse.proposal.finalTallyResult || {}
+  const totalPower =
+    Number(yes) + Number(no) + Number(abstain) + Number(noWithVeto)
+
+  const formatVote = (vote: string | undefined) => {
+    const voteNumber = Number(vote) / 1_000_000
+    const percentage =
+      totalPower > 0 ? (voteNumber / (totalPower / 1_000_000)) * 100 : 0
+    return {
+      value: voteNumber,
+      percentage: percentage.toFixed(2),
+    }
+  }
+
+  return {
+    hasVotes: totalPower > 0,
+    voteDistribution: {
+      yes: formatVote(yes),
+      no: formatVote(no),
+      abstain: formatVote(abstain),
+      veto: formatVote(noWithVeto),
+    },
+    totalPower: totalPower / 1_000_000,
+  }
 }
