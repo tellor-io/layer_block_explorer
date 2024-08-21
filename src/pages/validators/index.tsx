@@ -87,27 +87,33 @@ export default function Validators() {
   useEffect(() => {
     if (tmClient) {
       setIsLoading(true)
-      queryAllValidators(tmClient, page, perPage)
+
+      // First, fetch the total voting power across all validators
+      queryAllValidators(tmClient, 0, 0) // Fetch all validators
         .then((response) => {
-          setTotal(response.pagination?.total.low ?? 0)
-          const validatorData: ValidatorData[] = response.validators.map(
-            (val) => {
-              return {
-                validator: val.description?.moniker ?? '',
-                status: val.status === 3 ? 'Active' : 'Inactive',
-                votingPower: convertVotingPower(val.tokens),
-                votingPowerPercentage: '', // This will be calculated later
-                commission: convertRateToPercent(
-                  val.commission?.commissionRates?.rate
-                ),
-              }
-            }
-          )
-          const totalPower = validatorData.reduce(
-            (sum, validator) => sum + validator.votingPower,
+          const allValidators = response.validators
+          const totalPower = allValidators.reduce(
+            (sum, val) => sum + convertVotingPower(val.tokens),
             0
           )
           setTotalVotingPower(totalPower)
+
+          // Now fetch the paginated data
+          return queryAllValidators(tmClient, page, perPage)
+        })
+        .then((response) => {
+          setTotal(response.pagination?.total.low ?? 0)
+          const validatorData: ValidatorData[] = response.validators.map(
+            (val) => ({
+              validator: val.description?.moniker ?? '',
+              status: val.status === 3 ? 'Active' : 'Inactive',
+              votingPower: convertVotingPower(val.tokens),
+              votingPowerPercentage: '', // This will be calculated in useMemo
+              commission: convertRateToPercent(
+                val.commission?.commissionRates?.rate
+              ),
+            })
+          )
           setData(validatorData)
           setIsLoading(false)
         })
