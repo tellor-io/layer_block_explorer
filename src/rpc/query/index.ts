@@ -194,7 +194,7 @@ export const getAllReportersWithSelectors = async (): Promise<
 }
 
 export const getBlockResults = async (height: number): Promise<any> => {
-  const url = `http://tellornode.com:26657/block_results?height=${height}`
+  const url = `https://tellorlayer.com/rpc/block_results?height=${height}`
   try {
     const response = await axios.get(url)
     return response.data.result
