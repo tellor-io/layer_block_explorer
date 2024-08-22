@@ -80,7 +80,9 @@ export default function DetailBlock() {
         })
 
       // Fetch block results
-      getBlockResults(parseInt(height)).then((results) => {
+      getBlockResults(
+        parseInt(Array.isArray(height) ? height[0] : height)
+      ).then((results) => {
         setBlockResults(results)
       })
     }
