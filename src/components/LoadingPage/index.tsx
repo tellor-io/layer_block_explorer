@@ -12,7 +12,7 @@ export default function LoadingPage() {
   return (
     <>
       <Head>
-        <title>LayerScan</title>
+        <title>Tellor Layer Block Explorer</title>
         <meta name="description" content="Layer Explorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -25,7 +25,7 @@ export default function LoadingPage() {
       >
         <VStack spacing={4}>
           <Spinner size="xl" />
-          <Text>Connecting to LayerScan...</Text>
+          <Text>Connecting to Tellor Layer Block Explorer...</Text>
         </VStack>
       </Box>
     </>

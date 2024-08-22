@@ -23,7 +23,7 @@ import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
-import { getBlock } from '@/rpc/query'
+import { getBlock, getBlockResults } from '@/rpc/query'
 import { selectTmClient } from '@/store/connectSlice'
 import { Block, Coin } from '@cosmjs/stargate'
 import { Tx as TxData } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
@@ -44,6 +44,7 @@ export default function DetailBlock() {
   const { height } = router.query
   const tmClient = useSelector(selectTmClient)
   const [block, setBlock] = useState<ExtendedBlock | null>(null)
+  const [blockResults, setBlockResults] = useState<any>(null)
 
   interface Tx {
     data: TxData
@@ -77,6 +78,11 @@ export default function DetailBlock() {
         .catch((error) => {
           console.error('Error fetching or decoding block data:', error)
         })
+
+      // Fetch block results
+      getBlockResults(parseInt(height)).then((results) => {
+        setBlockResults(results)
+      })
     }
   }, [tmClient, height])
 
@@ -299,6 +305,79 @@ export default function DetailBlock() {
             </Table>
           </TableContainer>
         </Box>
+
+        {blockResults && (
+          <Box mt={4}>
+            <Heading size="md">Block Results</Heading>
+            <Text>Height: {blockResults.height}</Text>
+            <Text>
+              Total Transactions: {blockResults.txs_results?.length || 0}
+            </Text>
+
+            {blockResults.txs_results &&
+              blockResults.txs_results.length > 0 && (
+                <Box mt={2}>
+                  <Heading size="sm">Transaction Results</Heading>
+                  {blockResults.txs_results.map((tx: any, index: number) => (
+                    <Box
+                      key={index}
+                      mt={2}
+                      p={2}
+                      borderWidth={1}
+                      borderRadius="md"
+                    >
+                      <Text>Code: {tx.code}</Text>
+                      <Text>Gas Wanted: {tx.gas_wanted}</Text>
+                      <Text>Gas Used: {tx.gas_used}</Text>
+                      {tx.events && tx.events.length > 0 && (
+                        <Box mt={1}>
+                          <Text fontWeight="bold">Events:</Text>
+                          {tx.events.map((event: any, eventIndex: number) => (
+                            <Box key={eventIndex} ml={2}>
+                              <Text>Type: {event.type}</Text>
+                              {event.attributes &&
+                                event.attributes.map(
+                                  (attr: any, attrIndex: number) => (
+                                    <Text key={attrIndex} ml={2}>
+                                      {attr.key}: {attr.value}
+                                    </Text>
+                                  )
+                                )}
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              )}
+
+            {blockResults.finalize_block_events && (
+              <Box mt={2}>
+                <Heading size="sm">Finalize Block Events</Heading>
+                {blockResults.finalize_block_events.map(
+                  (event: any, index: number) => (
+                    <Box
+                      key={index}
+                      mt={2}
+                      p={2}
+                      borderWidth={1}
+                      borderRadius="md"
+                    >
+                      <Text>Type: {event.type}</Text>
+                      {event.attributes &&
+                        event.attributes.map((attr: any, attrIndex: number) => (
+                          <Text key={attrIndex} ml={2}>
+                            {attr.key}: {attr.value}
+                          </Text>
+                        ))}
+                    </Box>
+                  )
+                )}
+              </Box>
+            )}
+          </Box>
+        )}
       </main>
     </ErrorBoundary>
   )

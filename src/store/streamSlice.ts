@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit'
+import { createSlice, Action } from '@reduxjs/toolkit'
 import { AppState } from './index'
 import { HYDRATE } from 'next-redux-wrapper'
 import { NewBlockEvent, TxEvent } from '@cosmjs/tendermint-rpc'
@@ -18,6 +18,11 @@ const initialState: StreamState = {
   txEvent: null,
   subsNewBlock: null,
   subsTxEvent: null,
+}
+
+// Define a type for the HYDRATE action
+type HydrateAction = Action<typeof HYDRATE> & {
+  payload: AppState
 }
 
 // Actual Slice
@@ -47,13 +52,13 @@ export const streamSlice = createSlice({
   },
 
   // Special reducer for hydrating the state. Special case for next-redux-wrapper
-  extraReducers: {
-    [HYDRATE]: (state, action) => {
+  extraReducers: (builder) => {
+    builder.addCase(HYDRATE, (state, action: HydrateAction) => {
       return {
         ...state,
         ...action.payload.stream,
       }
-    },
+    })
   },
 })
 

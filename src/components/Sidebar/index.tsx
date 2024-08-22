@@ -233,9 +233,12 @@ const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
         icon={<FiMenu />}
       />
 
-      <Text fontSize="2xl" ml="8" fontFamily="monospace" fontWeight="bold">
-        LayerScan
-      </Text>
+      <Text
+        fontSize="2xl"
+        ml="8"
+        fontFamily="monospace"
+        fontWeight="bold"
+      ></Text>
     </Flex>
   )
 }

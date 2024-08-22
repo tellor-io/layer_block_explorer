@@ -31,7 +31,7 @@ export const displayDurationSeconds = (seconds: number | undefined): string => {
 }
 
 export const replaceHTTPtoWebsocket = (url: string): string => {
-  return url.replace('http', 'ws')
+  return url.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:')
 }
 
 export const isBech32Address = (address: string): Boolean => {

@@ -192,3 +192,14 @@ export const getAllReportersWithSelectors = async (): Promise<
 
   return reportersWithSelectors
 }
+
+export const getBlockResults = async (height: number): Promise<any> => {
+  const url = `http://tellornode.com:26657/block_results?height=${height}`
+  try {
+    const response = await axios.get(url)
+    return response.data.result
+  } catch (error) {
+    console.error('Error fetching block results:', error)
+    return undefined
+  }
+}

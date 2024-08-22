@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit'
+import { createSlice, Action } from '@reduxjs/toolkit'
 import { AppState } from './index'
 import { HYDRATE } from 'next-redux-wrapper'
 import { Params as StakingParams } from 'cosmjs-types/cosmos/staking/v1beta1/staking'
@@ -33,6 +33,11 @@ const initialState: ParamsState = {
   govTallyParams: null,
 }
 
+// Define a type for the HYDRATE action
+type HydrateAction = Action<typeof HYDRATE> & {
+  payload: AppState
+}
+
 // Actual Slice
 export const paramsSlice = createSlice({
   name: 'params',
@@ -62,13 +67,13 @@ export const paramsSlice = createSlice({
   },
 
   // Special reducer for hydrating the state. Special case for next-redux-wrapper
-  extraReducers: {
-    [HYDRATE]: (state, action) => {
+  extraReducers: (builder) => {
+    builder.addCase(HYDRATE, (state, action: HydrateAction) => {
       return {
         ...state,
         ...action.payload.params,
       }
-    },
+    })
   },
 })
 
