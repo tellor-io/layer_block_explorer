@@ -106,7 +106,7 @@ export default function DetailBlock() {
           // Move the API call here
           axios
             .get(
-              `http://tellorlayer.com:26657/block?height=${extendedBlockData.header.height}`
+              `https://tellorlayer.com/rpc/block?height=${extendedBlockData.header.height}`
             )
             .then((response) => {
               const txData = response.data.result.block.data.txs[0]
