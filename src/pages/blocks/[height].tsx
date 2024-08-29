@@ -16,6 +16,21 @@ import {
   Tr,
   useColorModeValue,
   useToast,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  Button,
+  IconButton,
 } from '@chakra-ui/react'
 import { FiChevronRight, FiHome } from 'react-icons/fi'
 import NextLink from 'next/link'
@@ -33,10 +48,17 @@ import { toHex } from '@cosmjs/encoding'
 import { timeFromNow, trimHash, displayDate, getTypeMsg } from '@/utils/helper'
 import { decodeData } from '@/utils/decodeHelper' // Import the decoding function
 import ErrorBoundary from '../../components/ErrorBoundary'
+import axios from 'axios'
+import { Link as ChakraLink } from '@chakra-ui/react'
+import { FaExpand, FaCompress } from 'react-icons/fa'
 
 // Extend the Block type to include rawData
 interface ExtendedBlock extends Block {
   rawData?: Uint8Array
+}
+
+function decodeBase64ToUtf8(base64String: string) {
+  return Buffer.from(base64String, 'base64').toString('utf8')
 }
 
 export default function DetailBlock() {
@@ -52,6 +74,21 @@ export default function DetailBlock() {
     hash: Uint8Array
   }
   const [txs, setTxs] = useState<Tx[]>([])
+  const [decodedTxData, setDecodedTxData] = useState<any>(null)
+  const {
+    isOpen: isTxOpen,
+    onOpen: onTxOpen,
+    onClose: onTxClose,
+  } = useDisclosure()
+  const {
+    isOpen: isResultsOpen,
+    onOpen: onResultsOpen,
+    onClose: onResultsClose,
+  } = useDisclosure()
+  const [isFullScreen, setIsFullScreen] = useState(false)
+
+  // You might want to use a custom color scheme that matches your navbar
+  const buttonColorScheme = 'green' // or whatever color scheme your navbar uses
 
   useEffect(() => {
     if (tmClient && height) {
@@ -86,8 +123,26 @@ export default function DetailBlock() {
       ).then((results) => {
         setBlockResults(results)
       })
+
+      // Add this code to fetch and decode transaction data
+      if (block) {
+        axios
+          .get(
+            `http://tellorlayer.com:26657/block?height=${block.header.height}`
+          )
+          .then((response) => {
+            const txData = response.data.result.block.data.txs[0]
+            if (txData) {
+              const decodedData = JSON.parse(decodeBase64ToUtf8(txData))
+              setDecodedTxData(decodedData)
+            }
+          })
+          .catch((error) =>
+            console.error('Error fetching transaction data:', error)
+          )
+      }
     }
-  }, [tmClient, height])
+  }, [tmClient, height, block])
 
   useEffect(() => {
     if (block?.txs.length && !txs.length) {
@@ -162,6 +217,10 @@ export default function DetailBlock() {
       duration: 5000,
       isClosable: true,
     })
+  }
+
+  const toggleFullScreen = () => {
+    setIsFullScreen(!isFullScreen)
   }
 
   return (
@@ -254,6 +313,38 @@ export default function DetailBlock() {
                   </Td>
                   <Td>{block?.txs.length}</Td>
                 </Tr>
+                {decodedTxData && (
+                  <Tr>
+                    <Td pl={0} width={150}>
+                      <b>Vote Ext Tx</b>
+                    </Td>
+                    <Td>
+                      <Button
+                        onClick={onTxOpen}
+                        colorScheme={buttonColorScheme}
+                        size="sm"
+                      >
+                        View Vote Extension Transaction
+                      </Button>
+                    </Td>
+                  </Tr>
+                )}
+                {blockResults && (
+                  <Tr>
+                    <Td pl={0} width={150}>
+                      <b>Block Results</b>
+                    </Td>
+                    <Td>
+                      <Button
+                        onClick={onResultsOpen}
+                        colorScheme={buttonColorScheme}
+                        size="sm"
+                      >
+                        View Block Results
+                      </Button>
+                    </Td>
+                  </Tr>
+                )}
               </Tbody>
             </Table>
           </TableContainer>
@@ -308,80 +399,93 @@ export default function DetailBlock() {
             </Table>
           </TableContainer>
         </Box>
-
-        {blockResults && (
-          <Box mt={4}>
-            <Heading size="md">Block Results</Heading>
-            <Text>Height: {blockResults.height}</Text>
-            <Text>
-              Total Transactions: {blockResults.txs_results?.length || 0}
-            </Text>
-
-            {blockResults.txs_results &&
-              blockResults.txs_results.length > 0 && (
-                <Box mt={2}>
-                  <Heading size="sm">Transaction Results</Heading>
-                  {blockResults.txs_results.map((tx: any, index: number) => (
-                    <Box
-                      key={index}
-                      mt={2}
-                      p={2}
-                      borderWidth={1}
-                      borderRadius="md"
-                    >
-                      <Text>Code: {tx.code}</Text>
-                      <Text>Gas Wanted: {tx.gas_wanted}</Text>
-                      <Text>Gas Used: {tx.gas_used}</Text>
-                      {tx.events && tx.events.length > 0 && (
-                        <Box mt={1}>
-                          <Text fontWeight="bold">Events:</Text>
-                          {tx.events.map((event: any, eventIndex: number) => (
-                            <Box key={eventIndex} ml={2}>
-                              <Text>Type: {event.type}</Text>
-                              {event.attributes &&
-                                event.attributes.map(
-                                  (attr: any, attrIndex: number) => (
-                                    <Text key={attrIndex} ml={2}>
-                                      {attr.key}: {attr.value}
-                                    </Text>
-                                  )
-                                )}
-                            </Box>
-                          ))}
-                        </Box>
-                      )}
-                    </Box>
-                  ))}
-                </Box>
-              )}
-
-            {blockResults.finalize_block_events && (
-              <Box mt={2}>
-                <Heading size="sm">Finalize Block Events</Heading>
-                {blockResults.finalize_block_events.map(
-                  (event: any, index: number) => (
-                    <Box
-                      key={index}
-                      mt={2}
-                      p={2}
-                      borderWidth={1}
-                      borderRadius="md"
-                    >
-                      <Text>Type: {event.type}</Text>
-                      {event.attributes &&
-                        event.attributes.map((attr: any, attrIndex: number) => (
-                          <Text key={attrIndex} ml={2}>
-                            {attr.key}: {attr.value}
-                          </Text>
-                        ))}
-                    </Box>
-                  )
-                )}
-              </Box>
-            )}
-          </Box>
-        )}
       </main>
+
+      <Modal
+        isOpen={isTxOpen}
+        onClose={onTxClose}
+        size={isFullScreen ? 'full' : 'xl'}
+        scrollBehavior="inside"
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            Decoded Transaction Data for Block {block?.header.height}
+            <IconButton
+              icon={isFullScreen ? <FaCompress /> : <FaExpand />}
+              aria-label={isFullScreen ? 'Exit full screen' : 'Full screen'}
+              onClick={toggleFullScreen}
+              size="sm"
+              ml={2}
+              position="absolute"
+              right="40px"
+              top="10px"
+            />
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Box
+              bg={useColorModeValue('gray.50', 'gray.900')}
+              p={4}
+              borderRadius="md"
+              overflowX="auto"
+              height={isFullScreen ? 'calc(100vh - 150px)' : 'auto'}
+            >
+              <pre>{JSON.stringify(decodedTxData, null, 2)}</pre>
+            </Box>
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme={buttonColorScheme} mr={3} onClick={onTxClose}>
+              Close
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal
+        isOpen={isResultsOpen}
+        onClose={onResultsClose}
+        size={isFullScreen ? 'full' : 'xl'}
+        scrollBehavior="inside"
+      >
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            Block Results for Block {block?.header.height}
+            <IconButton
+              icon={isFullScreen ? <FaCompress /> : <FaExpand />}
+              aria-label={isFullScreen ? 'Exit full screen' : 'Full screen'}
+              onClick={toggleFullScreen}
+              size="sm"
+              ml={2}
+              position="absolute"
+              right="40px"
+              top="10px"
+            />
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Box
+              bg={useColorModeValue('gray.50', 'gray.900')}
+              p={4}
+              borderRadius="md"
+              overflowX="auto"
+              height={isFullScreen ? 'calc(100vh - 150px)' : 'auto'}
+            >
+              <pre>{JSON.stringify(blockResults, null, 2)}</pre>
+            </Box>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              colorScheme={buttonColorScheme}
+              mr={3}
+              onClick={onResultsClose}
+            >
+              Close
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </ErrorBoundary>
   )
 }
