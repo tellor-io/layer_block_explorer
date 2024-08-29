@@ -203,3 +203,14 @@ export const getBlockResults = async (height: number): Promise<any> => {
     return undefined
   }
 }
+
+export const getValidatorMoniker = async (address: string): Promise<string> => {
+  const url = `https://tellorlayer.com/cosmos/staking/v1beta1/validators/${address}`
+  try {
+    const response = await axios.get(url)
+    return response.data.validator.description.moniker
+  } catch (error) {
+    console.error('Error fetching validator moniker:', error)
+    return 'Unknown'
+  }
+}

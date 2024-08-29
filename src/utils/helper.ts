@@ -83,3 +83,14 @@ export const getTypeMsg = (typeUrl: string): string => {
   }
   return ''
 }
+
+/**
+ * Converts a given address to an operator address.
+ * This is a placeholder function. Replace the logic with your actual conversion logic.
+ * @param address - The address to convert.
+ * @returns The converted operator address.
+ */
+export function convertAddressToOperator(address: string): string {
+  // Replace this with your actual conversion logic
+  return `operator-${address}`
+}

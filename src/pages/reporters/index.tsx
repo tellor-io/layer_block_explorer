@@ -43,40 +43,61 @@ const columnHelper = createColumnHelper<ReporterData>()
 
 const columns = [
   columnHelper.accessor('address', {
-    cell: (info) => info.getValue(),
     header: 'Address',
+    cell: (props) => (
+      <div
+        style={{ width: '205px', overflow: 'hidden', textOverflow: 'ellipsis' }}
+      >
+        {props.getValue()}
+      </div>
+    ),
   }),
   columnHelper.accessor('min_tokens_required', {
-    cell: (info) => info.getValue(),
-    header: 'Min Tokens Required',
+    header: 'Min Tokens Reqd',
     meta: {
       isNumeric: true,
     },
+    cell: (props) => (
+      <div style={{ width: '70px', textAlign: 'right' }}>
+        {props.getValue()}
+      </div>
+    ),
   }),
   columnHelper.accessor('commission_rate', {
-    cell: (info) => parseFloat(info.getValue()).toFixed(2) + '%',
-    header: 'Commission Rate',
+    header: 'Commission',
     meta: {
       isNumeric: true,
     },
+    cell: (props) => (
+      <div style={{ width: '60px', textAlign: 'right' }}>
+        {parseFloat(props.getValue()).toFixed(2) + '%'}
+      </div>
+    ),
   }),
   columnHelper.accessor('jailed', {
-    cell: (info) => info.getValue(),
     header: 'Jailed',
+    cell: (props) => <div style={{ width: '50px' }}>{props.getValue()}</div>,
   }),
   columnHelper.accessor('jailed_until', {
-    cell: (info) =>
-      info.getValue() === '0001-01-01T00:00:00Z'
-        ? 'N/A'
-        : new Date(info.getValue()).toLocaleString(),
     header: 'Jailed Until',
+    cell: (props) => (
+      <div style={{ width: '30px' }}>
+        {props.getValue() === '0001-01-01T00:00:00Z'
+          ? 'N/A'
+          : new Date(props.getValue()).toLocaleString()}
+      </div>
+    ),
   }),
   columnHelper.accessor('selectors', {
-    cell: (info) => info.getValue(),
     header: 'Selectors',
     meta: {
       isNumeric: true,
     },
+    cell: (props) => (
+      <div style={{ width: '30px', textAlign: 'right' }}>
+        {props.getValue()}
+      </div>
+    ),
   }),
 ]
 

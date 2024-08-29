@@ -81,31 +81,31 @@ const columns = [
       const { yes, no, abstain, veto } = voteResults.voteDistribution!
       return (
         <VStack align="start" spacing={1}>
-          <Text fontWeight="bold">
-            Total Power:{' '}
+          <Text>
+            <strong>Total Power:</strong>{' '}
             {voteResults.totalPower.toLocaleString(undefined, {
               maximumFractionDigits: 6,
             })}
           </Text>
           <Text>
-            Yes:{' '}
+            <strong>Yes:</strong>{' '}
             {yes.value.toLocaleString(undefined, { maximumFractionDigits: 6 })}{' '}
             ({yes.percentage}%)
           </Text>
           <Text>
-            No:{' '}
+            <strong>No:</strong>{' '}
             {no.value.toLocaleString(undefined, { maximumFractionDigits: 6 })} (
             {no.percentage}%)
           </Text>
           <Text>
-            Abstain:{' '}
+            <strong>Abstain:</strong>{' '}
             {abstain.value.toLocaleString(undefined, {
               maximumFractionDigits: 6,
             })}{' '}
             ({abstain.percentage}%)
           </Text>
           <Text>
-            Veto:{' '}
+            <strong>Veto:</strong>{' '}
             {veto.value.toLocaleString(undefined, { maximumFractionDigits: 6 })}{' '}
             ({veto.percentage}%)
           </Text>

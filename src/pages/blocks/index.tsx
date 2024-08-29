@@ -1,5 +1,8 @@
 import Head from 'next/head'
 import { useEffect, useState } from 'react'
+import axios from 'axios'
+import { pubkeyToAddress as aminoPubkeyToAddress, Pubkey } from '@cosmjs/amino'
+import { fromBech32, fromBase64 } from '@cosmjs/encoding'
 import { useSelector } from 'react-redux'
 import { NewBlockEvent, TxEvent } from '@cosmjs/tendermint-rpc'
 import {
@@ -26,13 +29,16 @@ import {
   Tag,
   TagLeftIcon,
   TagLabel,
+  Tooltip,
+  useClipboard,
 } from '@chakra-ui/react'
 import NextLink from 'next/link'
-import { FiChevronRight, FiHome, FiCheck, FiX } from 'react-icons/fi'
+import { FiChevronRight, FiHome, FiCheck, FiX, FiCopy } from 'react-icons/fi'
 import { selectNewBlock, selectTxEvent } from '@/store/streamSlice'
 import { toHex } from '@cosmjs/encoding'
 import { TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
 import { timeFromNow, trimHash, getTypeMsg } from '@/utils/helper'
+import { sha256 } from '@cosmjs/crypto'
 
 const MAX_ROWS = 20
 
@@ -41,12 +47,46 @@ interface Tx {
   Timestamp: Date
 }
 
+interface Validator {
+  operator_address: string
+  consensus_pubkey: {
+    '@type': string
+    key: string
+  }
+  description: {
+    moniker: string
+  }
+}
+
+interface ValidatorMap {
+  [key: string]: string
+}
+
+const CopyableHash = ({ hash }: { hash: Uint8Array }) => {
+  const hexHash = toHex(hash)
+  const { hasCopied, onCopy } = useClipboard(hexHash)
+
+  return (
+    <Tooltip
+      label={hasCopied ? 'Copied!' : 'Click to copy full hash'}
+      closeOnClick={false}
+    >
+      <HStack spacing={1} cursor="pointer" onClick={onCopy}>
+        <Text>{trimHash(hexHash)}</Text>
+        <Icon as={FiCopy} boxSize={4} />
+      </HStack>
+    </Tooltip>
+  )
+}
+
 export default function Blocks() {
   const newBlock = useSelector(selectNewBlock)
   const txEvent = useSelector(selectTxEvent)
   const [blocks, setBlocks] = useState<NewBlockEvent[]>([])
 
   const [txs, setTxs] = useState<Tx[]>([])
+
+  const [validatorMap, setValidatorMap] = useState<ValidatorMap>({})
 
   useEffect(() => {
     if (newBlock) {
@@ -59,6 +99,116 @@ export default function Blocks() {
       updateTxs(txEvent)
     }
   }, [txEvent])
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        // Fetch validators
+        const validatorsResponse = await axios.get(
+          'https://tellorlayer.com/cosmos/staking/v1beta1/validators'
+        )
+        const validators = validatorsResponse.data.validators
+
+        const map: { [key: string]: string } = {}
+        validators.forEach((validator: Validator) => {
+          const hexAddress = pubkeyToAddress(validator.consensus_pubkey.key)
+          map[hexAddress] = validator.description.moniker
+          console.log(
+            `Validator: ${validator.description.moniker}, Hex Address: ${hexAddress}`
+          )
+        })
+        setValidatorMap(map)
+        console.log('Full Validator Map:', map)
+
+        // Fetch blocks
+        const blocksResponse = await axios.get(
+          'https://tellorlayer.com/cosmos/base/tendermint/v1beta1/blocks/latest'
+        )
+        const latestBlock = blocksResponse.data.block
+        const blocksData = [
+          {
+            header: {
+              version: { block: 0, app: 0 }, // Change to numbers
+              height: latestBlock.header.height,
+              time: new Date(latestBlock.header.time),
+              proposerAddress: fromBase64(latestBlock.header.proposer_address),
+              chainId: latestBlock.header.chain_id,
+              lastBlockId: latestBlock.header.last_block_id,
+              lastCommitHash: fromBase64(latestBlock.header.last_commit_hash),
+              dataHash: fromBase64(latestBlock.header.data_hash),
+              validatorsHash: fromBase64(latestBlock.header.validators_hash),
+              nextValidatorsHash: fromBase64(
+                latestBlock.header.next_validators_hash
+              ),
+              consensusHash: fromBase64(latestBlock.header.consensus_hash),
+              appHash: fromBase64(latestBlock.header.app_hash),
+              lastResultsHash: fromBase64(latestBlock.header.last_results_hash),
+              evidenceHash: fromBase64(latestBlock.header.evidence_hash),
+            },
+            txs: latestBlock.data.txs,
+            lastCommit: latestBlock.last_commit,
+            evidence: latestBlock.evidence,
+          },
+        ]
+
+        // Fetch a few more blocks
+        for (let i = 1; i < 10; i++) {
+          const prevBlockResponse = await axios.get(
+            `https://tellorlayer.com/cosmos/base/tendermint/v1beta1/blocks/${
+              parseInt(latestBlock.header.height) - i
+            }`
+          )
+          const prevBlock = prevBlockResponse.data.block
+          blocksData.push({
+            header: {
+              version: { block: 0, app: 0 }, // Change to numbers
+              height: prevBlock.header.height,
+              time: new Date(prevBlock.header.time),
+              proposerAddress: fromBase64(prevBlock.header.proposer_address),
+              chainId: prevBlock.header.chain_id,
+              lastBlockId: prevBlock.header.last_block_id,
+              lastCommitHash: fromBase64(prevBlock.header.last_commit_hash),
+              dataHash: fromBase64(prevBlock.header.data_hash),
+              validatorsHash: fromBase64(prevBlock.header.validators_hash),
+              nextValidatorsHash: fromBase64(
+                prevBlock.header.next_validators_hash
+              ),
+              consensusHash: fromBase64(prevBlock.header.consensus_hash),
+              appHash: fromBase64(prevBlock.header.app_hash),
+              lastResultsHash: fromBase64(prevBlock.header.last_results_hash),
+              evidenceHash: fromBase64(prevBlock.header.evidence_hash),
+            },
+            txs: prevBlock.data.txs,
+            lastCommit: prevBlock.last_commit,
+            evidence: prevBlock.evidence,
+          })
+        }
+
+        setBlocks(blocksData as NewBlockEvent[])
+      } catch (error) {
+        console.error('Error fetching data:', error)
+      }
+    }
+    fetchData()
+  }, [])
+
+  const fetchValidators = async () => {
+    try {
+      const response = await axios.get('https://tellorlayer.com/rpc/validators')
+      const validators = response.data.result.validators
+
+      const validatorMap: { [key: string]: string } = {}
+      validators.forEach((validator: any) => {
+        // Use the address directly without conversion
+        validatorMap[validator.address] = validator.moniker
+      })
+
+      console.log('Validator Map:', validatorMap)
+      setValidatorMap(validatorMap)
+    } catch (error) {
+      console.error('Error fetching validators:', error)
+    }
+  }
 
   const updateBlocks = (block: NewBlockEvent) => {
     if (blocks.length) {
@@ -84,6 +234,21 @@ export default function Blocks() {
       }
     } else {
       setTxs([tx])
+    }
+  }
+
+  const getProposerMoniker = (proposerAddress: Uint8Array) => {
+    try {
+      const hexAddress = Buffer.from(proposerAddress)
+        .toString('hex')
+        .toLowerCase()
+      console.log('Proposer Hex Address:', hexAddress)
+      const moniker = validatorMap[hexAddress] || 'Unknown'
+      console.log('Found Moniker:', moniker)
+      return moniker
+    } catch (error) {
+      console.error('Error converting proposer address:', error)
+      return 'Unknown'
     }
   }
 
@@ -176,13 +341,14 @@ export default function Blocks() {
                       <Tr>
                         <Th>Height</Th>
                         <Th>App Hash</Th>
+                        <Th>Proposer</Th>
                         <Th>Txs</Th>
                         <Th>Time</Th>
                       </Tr>
                     </Thead>
                     <Tbody>
-                      {blocks.map((block) => (
-                        <Tr key={block.header.height}>
+                      {blocks.map((block, index) => (
+                        <Tr key={`${block.header.height}-${index}`}>
                           <Td>
                             <Link
                               as={NextLink}
@@ -200,7 +366,26 @@ export default function Blocks() {
                               </Text>
                             </Link>
                           </Td>
-                          <Td noOfLines={1}>{toHex(block.header.appHash)}</Td>
+                          <Td noOfLines={1}>
+                            <CopyableHash hash={block.header.appHash} />
+                          </Td>
+                          <Td>
+                            {validatorMap[
+                              toHex(block.header.proposerAddress)
+                            ] || 'Unknown'}
+                            {(() => {
+                              console.log(
+                                `Block Proposer Address: ${toHex(
+                                  block.header.proposerAddress
+                                )}, Mapped Moniker: ${
+                                  validatorMap[
+                                    toHex(block.header.proposerAddress)
+                                  ] || 'Unknown'
+                                }`
+                              )
+                              return null
+                            })()}
+                          </Td>
                           <Td>{block.txs.length}</Td>
                           <Td>
                             {timeFromNow(block.header.time.toISOString())}
@@ -273,4 +458,9 @@ export default function Blocks() {
       </main>
     </>
   )
+}
+
+export function pubkeyToAddress(pubkey: string): string {
+  const hash = sha256(Buffer.from(pubkey, 'base64'))
+  return toHex(hash.slice(0, 20)).toLowerCase()
 }

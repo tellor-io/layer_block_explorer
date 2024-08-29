@@ -35,16 +35,13 @@ import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination'
 import Long from 'long'
 
 export async function queryAllValidators(
-  tmClient: Tendermint37Client,
-  page: number,
-  perPage: number
+  tmClient: Tendermint37Client
 ): Promise<QueryValidatorsResponse> {
   const queryClient = new QueryClient(tmClient)
   const req = QueryValidatorsRequest.encode({
     status: '', // Use an empty string to query all validators
     pagination: PageRequest.fromJSON({
-      offset: page * perPage,
-      limit: perPage,
+      limit: 1000, // Set a high limit to get all validators
       countTotal: true,
     }),
   }).finish()
@@ -52,7 +49,9 @@ export async function queryAllValidators(
     '/cosmos.staking.v1beta1.Query/Validators',
     req
   )
-  return QueryValidatorsResponse.decode(value)
+  const response = QueryValidatorsResponse.decode(value)
+  console.log('Fetched validators:', response.validators)
+  return response
 }
 
 export async function queryProposals(
@@ -174,7 +173,7 @@ export async function queryProposalVotes(
       totalPower > 0 ? (voteNumber / (totalPower / 1_000_000)) * 100 : 0
     return {
       value: voteNumber,
-      percentage: percentage.toFixed(2),
+      percentage: (Math.floor(percentage * 100) / 100).toFixed(2),
     }
   }
 

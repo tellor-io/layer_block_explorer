@@ -89,7 +89,7 @@ export default function Validators() {
       setIsLoading(true)
 
       // First, fetch the total voting power across all validators
-      queryAllValidators(tmClient, 0, 0) // Fetch all validators
+      queryAllValidators(tmClient)
         .then((response) => {
           const allValidators = response.validators
           const totalPower = allValidators.reduce(
@@ -99,12 +99,13 @@ export default function Validators() {
           setTotalVotingPower(totalPower)
 
           // Now fetch the paginated data
-          return queryAllValidators(tmClient, page, perPage)
+          return queryAllValidators(tmClient)
         })
         .then((response) => {
           setTotal(response.pagination?.total.low ?? 0)
-          const validatorData: ValidatorData[] = response.validators.map(
-            (val) => ({
+          const validatorData: ValidatorData[] = response.validators
+            .slice(page * perPage, (page + 1) * perPage)
+            .map((val) => ({
               validator: val.description?.moniker ?? '',
               status: val.status === 3 ? 'Active' : 'Inactive',
               votingPower: convertVotingPower(val.tokens),
@@ -112,8 +113,7 @@ export default function Validators() {
               commission: convertRateToPercent(
                 val.commission?.commissionRates?.rate
               ),
-            })
-          )
+            }))
           setData(validatorData)
           setIsLoading(false)
         })
