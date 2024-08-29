@@ -16,11 +16,6 @@ import {
   Tr,
   useColorModeValue,
   useToast,
-  Accordion,
-  AccordionItem,
-  AccordionButton,
-  AccordionPanel,
-  AccordionIcon,
   useDisclosure,
   Modal,
   ModalOverlay,
@@ -39,7 +34,6 @@ import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import { useSelector } from 'react-redux'
 import { getBlock, getBlockResults } from '@/rpc/query'
-import { getValidatorMoniker } from '@/rpc/query'
 import { selectTmClient } from '@/store/connectSlice'
 import { Block, Coin } from '@cosmjs/stargate'
 import { Tx as TxData } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
@@ -49,7 +43,6 @@ import { timeFromNow, trimHash, displayDate, getTypeMsg } from '@/utils/helper'
 import { decodeData } from '@/utils/decodeHelper' // Import the decoding function
 import ErrorBoundary from '../../components/ErrorBoundary'
 import axios from 'axios'
-import { Link as ChakraLink } from '@chakra-ui/react'
 import { FaExpand, FaCompress } from 'react-icons/fa'
 
 // Extend the Block type to include rawData
@@ -87,9 +80,6 @@ export default function DetailBlock() {
   } = useDisclosure()
   const [isFullScreen, setIsFullScreen] = useState(false)
 
-  // You might want to use a custom color scheme that matches your navbar
-  const buttonColorScheme = 'green' // or whatever color scheme your navbar uses
-
   useEffect(() => {
     if (tmClient && height) {
       getBlock(tmClient, parseInt(height as string, 10))
@@ -112,6 +102,22 @@ export default function DetailBlock() {
             console.error('Raw data:', extendedBlockData.rawData) // Log the raw data
           }
           setBlock(extendedBlockData)
+
+          // Move the API call here
+          axios
+            .get(
+              `http://tellorlayer.com:26657/block?height=${extendedBlockData.header.height}`
+            )
+            .then((response) => {
+              const txData = response.data.result.block.data.txs[0]
+              if (txData) {
+                const decodedData = JSON.parse(decodeBase64ToUtf8(txData))
+                setDecodedTxData(decodedData)
+              }
+            })
+            .catch((error) =>
+              console.error('Error fetching transaction data:', error)
+            )
         })
         .catch((error) => {
           console.error('Error fetching or decoding block data:', error)
@@ -123,24 +129,8 @@ export default function DetailBlock() {
       ).then((results) => {
         setBlockResults(results)
       })
-
-      // Add this code to fetch and decode transaction data
-      if (block) {
-        axios
-          .get(`http://tellorlayer.com/rpc/block?height=${block.header.height}`)
-          .then((response) => {
-            const txData = response.data.result.block.data.txs[0]
-            if (txData) {
-              const decodedData = JSON.parse(decodeBase64ToUtf8(txData))
-              setDecodedTxData(decodedData)
-            }
-          })
-          .catch((error) =>
-            console.error('Error fetching transaction data:', error)
-          )
-      }
     }
-  }, [tmClient, height, block])
+  }, [tmClient, height])
 
   useEffect(() => {
     if (block?.txs.length && !txs.length) {
@@ -220,6 +210,8 @@ export default function DetailBlock() {
   const toggleFullScreen = () => {
     setIsFullScreen(!isFullScreen)
   }
+
+  console.log('decodedTxData:', decodedTxData)
 
   return (
     <ErrorBoundary>
@@ -317,11 +309,7 @@ export default function DetailBlock() {
                       <b>Vote Ext Tx</b>
                     </Td>
                     <Td>
-                      <Button
-                        onClick={onTxOpen}
-                        colorScheme={buttonColorScheme}
-                        size="sm"
-                      >
+                      <Button onClick={onTxOpen} size="sm">
                         View Vote Extension Transaction
                       </Button>
                     </Td>
@@ -333,11 +321,7 @@ export default function DetailBlock() {
                       <b>Block Results</b>
                     </Td>
                     <Td>
-                      <Button
-                        onClick={onResultsOpen}
-                        colorScheme={buttonColorScheme}
-                        size="sm"
-                      >
+                      <Button onClick={onResultsOpen} size="sm">
                         View Block Results
                       </Button>
                     </Td>
@@ -433,7 +417,7 @@ export default function DetailBlock() {
             </Box>
           </ModalBody>
           <ModalFooter>
-            <Button colorScheme={buttonColorScheme} mr={3} onClick={onTxClose}>
+            <Button mr={3} onClick={onTxClose}>
               Close
             </Button>
           </ModalFooter>
@@ -474,11 +458,7 @@ export default function DetailBlock() {
             </Box>
           </ModalBody>
           <ModalFooter>
-            <Button
-              colorScheme={buttonColorScheme}
-              mr={3}
-              onClick={onResultsClose}
-            >
+            <Button mr={3} onClick={onResultsClose}>
               Close
             </Button>
           </ModalFooter>
