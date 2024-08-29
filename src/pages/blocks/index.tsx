@@ -72,7 +72,7 @@ const CopyableHash = ({ hash }: { hash: Uint8Array }) => {
       closeOnClick={false}
     >
       <HStack spacing={1} cursor="pointer" onClick={onCopy}>
-        <Text>{trimHash(hexHash)}</Text>
+        <Text>{trimHash(hash)}</Text>
         <Icon as={FiCopy} boxSize={4} />
       </HStack>
     </Tooltip>
