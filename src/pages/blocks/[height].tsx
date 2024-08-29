@@ -127,9 +127,7 @@ export default function DetailBlock() {
       // Add this code to fetch and decode transaction data
       if (block) {
         axios
-          .get(
-            `http://tellorlayer.com:26657/block?height=${block.header.height}`
-          )
+          .get(`http://tellorlayer.com/rpc/block?height=${block.header.height}`)
           .then((response) => {
             const txData = response.data.result.block.data.txs[0]
             if (txData) {
