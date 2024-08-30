@@ -7,6 +7,7 @@ import {
   Heading,
   Text,
   HStack,
+  VStack, // Add this import
   Icon,
   IconButton,
   Input,
@@ -23,8 +24,14 @@ import {
   ModalCloseButton,
   ModalBody,
   ModalFooter,
+  Drawer,
+  DrawerBody,
+  DrawerHeader,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerCloseButton,
 } from '@chakra-ui/react'
-import { FiRadio, FiSearch } from 'react-icons/fi'
+import { FiRadio, FiSearch, FiMenu } from 'react-icons/fi'
 import { selectNewBlock } from '@/store/streamSlice'
 import { MoonIcon, SunIcon } from '@chakra-ui/icons'
 import { StatusResponse } from '@cosmjs/tendermint-rpc'
@@ -43,6 +50,11 @@ export default function Navbar() {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const toast = useToast()
   const { colorMode, toggleColorMode } = useColorMode()
+  const {
+    isOpen: isMenuOpen,
+    onOpen: onMenuOpen,
+    onClose: onMenuClose,
+  } = useDisclosure()
 
   useEffect(() => {
     if (tmClient) {
@@ -88,36 +100,100 @@ export default function Navbar() {
           </Box>
         </HStack>
         <HStack alignItems={'center'} spacing={4}>
-          <HStack maxW="md">
-            <Input
-              placeholder="Search by height / txhash / address"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleSearch()
-                }
-              }}
-            />
+          {/* Mobile menu button */}
+          <IconButton
+            display={{ base: 'flex', md: 'none' }}
+            onClick={onMenuOpen}
+            icon={<FiMenu />}
+            aria-label="Open menu"
+            size="md"
+          />
+
+          {/* Existing buttons */}
+          <HStack display={{ base: 'none', md: 'flex' }}>
+            <HStack maxW="md">
+              <Input
+                placeholder="Search by height / txhash / address"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSearch()
+                  }
+                }}
+              />
+              <IconButton
+                aria-label="Search"
+                icon={<FiSearch />}
+                onClick={handleSearch}
+              />
+            </HStack>
+            <Skeleton isLoaded={!!status}>
+              <Button leftIcon={<Icon as={FiRadio} />} onClick={onOpen}>
+                {status?.nodeInfo.network}
+              </Button>
+            </Skeleton>
             <IconButton
-              aria-label="Search"
-              icon={<FiSearch />}
-              onClick={handleSearch}
+              aria-label="Toggle color mode"
+              icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
+              onClick={toggleColorMode}
             />
           </HStack>
-          <Skeleton isLoaded={!!status}>
-            <Button leftIcon={<Icon as={FiRadio} />} onClick={onOpen}>
-              {status?.nodeInfo.network}
-            </Button>
-          </Skeleton>
-          <IconButton
-            aria-label="Toggle color mode"
-            icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
-            onClick={toggleColorMode}
-          />
         </HStack>
       </HStack>
 
+      {/* Mobile menu drawer */}
+      <Drawer isOpen={isMenuOpen} placement="right" onClose={onMenuClose}>
+        <DrawerOverlay />
+        <DrawerContent>
+          <DrawerCloseButton />
+          <DrawerHeader>Menu</DrawerHeader>
+          <DrawerBody>
+            <VStack spacing={4} align="stretch">
+              <Input
+                placeholder="Search by height / txhash / address"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSearch()
+                    onMenuClose()
+                  }
+                }}
+              />
+              <Button
+                leftIcon={<Icon as={FiSearch} />}
+                onClick={() => {
+                  handleSearch()
+                  onMenuClose()
+                }}
+              >
+                Search
+              </Button>
+              <Button
+                leftIcon={<Icon as={FiRadio} />}
+                onClick={() => {
+                  onOpen()
+                  onMenuClose()
+                }}
+              >
+                {status?.nodeInfo.network || 'Network'}
+              </Button>
+              <Button
+                leftIcon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
+                onClick={() => {
+                  toggleColorMode()
+                  onMenuClose()
+                }}
+              >
+                Toggle Theme
+              </Button>
+            </VStack>
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Existing modal */}
       <Modal isOpen={isOpen} onClose={onClose}>
         <ModalOverlay />
         <ModalContent>

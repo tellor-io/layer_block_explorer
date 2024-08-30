@@ -15,6 +15,7 @@ import {
   FlexProps,
   Button,
   Heading,
+  DrawerOverlay,
 } from '@chakra-ui/react'
 import {
   FiHome,
@@ -79,8 +80,9 @@ export default function Sidebar({ children }: { children: ReactNode }) {
         onClose={onClose}
         returnFocusOnClose={false}
         onOverlayClick={onClose}
-        size="full"
+        size="xs" // Change this from "full" to "xs"
       >
+        <DrawerOverlay />
         <DrawerContent>
           <SidebarContent onClose={onClose} />
         </DrawerContent>
@@ -233,12 +235,9 @@ const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
         icon={<FiMenu />}
       />
 
-      <Text
-        fontSize="2xl"
-        ml="8"
-        fontFamily="monospace"
-        fontWeight="bold"
-      ></Text>
+      <Text fontSize="2xl" ml="8" fontFamily="monospace" fontWeight="bold">
+        Layer Explorer
+      </Text>
     </Flex>
   )
 }

@@ -24,6 +24,31 @@ import { createColumnHelper } from '@tanstack/react-table'
 import { getTypeMsg, displayDate } from '@/utils/helper'
 import { proposalStatus, proposalStatusList } from '@/utils/constant'
 import { decodeContentProposal } from '@/encoding'
+import { useClipboard, Tooltip } from '@chakra-ui/react'
+import { FiCopy } from 'react-icons/fi'
+
+const CopyableTitle = ({ title }: { title: string }) => {
+  const { hasCopied, onCopy } = useClipboard(title)
+
+  return (
+    <Tooltip
+      label={hasCopied ? 'Copied!' : 'Click to copy full title'}
+      closeOnClick={false}
+    >
+      <HStack spacing={1} cursor="pointer" onClick={onCopy}>
+        <Text
+          maxWidth="200px"
+          overflow="hidden"
+          textOverflow="ellipsis"
+          whiteSpace="nowrap"
+        >
+          {title}
+        </Text>
+        <Icon as={FiCopy} boxSize={4} />
+      </HStack>
+    </Tooltip>
+  )
+}
 
 type Proposal = {
   id: number
@@ -51,7 +76,7 @@ const columns = [
     header: '#ID',
   }),
   columnHelper.accessor('title', {
-    cell: (info) => info.getValue(),
+    cell: (info) => <CopyableTitle title={info.getValue()} />,
     header: 'Title',
   }),
   columnHelper.accessor('types', {
@@ -219,6 +244,14 @@ export default function Proposals() {
           shadow={'base'}
           borderRadius={4}
           p={4}
+          overflowX="auto"
+          width={['100%', '100%', '100%', 'auto']}
+          sx={{
+            '& table': {
+              minWidth: '100%',
+              width: 'max-content',
+            },
+          }}
         >
           <DataTable
             columns={columns}
