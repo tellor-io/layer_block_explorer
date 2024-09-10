@@ -26,6 +26,7 @@ import {
   ModalCloseButton,
   Button,
   IconButton,
+  useClipboard,
 } from '@chakra-ui/react'
 import { FiChevronRight, FiHome } from 'react-icons/fi'
 import NextLink from 'next/link'
@@ -43,7 +44,7 @@ import { timeFromNow, trimHash, displayDate, getTypeMsg } from '@/utils/helper'
 import { decodeData } from '@/utils/decodeHelper' // Import the decoding function
 import ErrorBoundary from '../../components/ErrorBoundary'
 import axios from 'axios'
-import { FaExpand, FaCompress } from 'react-icons/fa'
+import { FaExpand, FaCompress, FaCopy } from 'react-icons/fa'
 
 // Extend the Block type to include rawData
 interface ExtendedBlock extends Block {
@@ -79,6 +80,24 @@ export default function DetailBlock() {
     onClose: onResultsClose,
   } = useDisclosure()
   const [isFullScreen, setIsFullScreen] = useState(false)
+  const { onCopy: onCopyTx, hasCopied: hasCopiedTx } = useClipboard(
+    JSON.stringify(decodedTxData, null, 2)
+  )
+  const { onCopy: onCopyResults, hasCopied: hasCopiedResults } = useClipboard(
+    JSON.stringify(blockResults, null, 2)
+  )
+
+  const handleCopy = (copyFunction: () => void, content: string) => {
+    copyFunction()
+    toast({
+      title: 'Copied!',
+      description: content,
+      status: 'success',
+      duration: 2000,
+      isClosable: true,
+      position: 'top',
+    })
+  }
 
   useEffect(() => {
     if (tmClient && height) {
@@ -412,7 +431,19 @@ export default function DetailBlock() {
               borderRadius="md"
               overflowX="auto"
               height={isFullScreen ? 'calc(100vh - 150px)' : 'auto'}
+              position="relative"
             >
+              <IconButton
+                icon={<FaCopy />}
+                aria-label="Copy to clipboard"
+                onClick={() =>
+                  handleCopy(onCopyTx, 'Transaction data copied to clipboard')
+                }
+                position="absolute"
+                top={2}
+                right={2}
+                size="sm"
+              />
               <pre>{JSON.stringify(decodedTxData, null, 2)}</pre>
             </Box>
           </ModalBody>
@@ -453,7 +484,19 @@ export default function DetailBlock() {
               borderRadius="md"
               overflowX="auto"
               height={isFullScreen ? 'calc(100vh - 150px)' : 'auto'}
+              position="relative"
             >
+              <IconButton
+                icon={<FaCopy />}
+                aria-label="Copy to clipboard"
+                onClick={() =>
+                  handleCopy(onCopyResults, 'Block results copied to clipboard')
+                }
+                position="absolute"
+                top={2}
+                right={2}
+                size="sm"
+              />
               <pre>{JSON.stringify(blockResults, null, 2)}</pre>
             </Box>
           </ModalBody>
