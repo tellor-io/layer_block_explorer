@@ -45,7 +45,7 @@ const components: ThemeComponents = {
   },
   Table: {
     variants: {
-      simple: (props) => ({
+      simple: (props: { colorMode: 'light' | 'dark' }) => ({
         th: {
           borderColor: props.colorMode === 'dark' ? 'gray.600' : 'gray.200',
           borderBottom: '1px',
@@ -71,7 +71,7 @@ const components: ThemeComponents = {
     },
   },
   Link: {
-    baseStyle: (props) => ({
+    baseStyle: (props: { colorMode: 'light' | 'dark' }) => ({
       color: props.colorMode === 'dark' ? '#00D27D' : 'light-theme',
       _hover: {
         textDecoration: 'underline',
@@ -88,16 +88,64 @@ const theme = extendTheme({
     body: `var(--font-pp-neue-montreal), 'PP Neue Montreal', sans-serif`,
     mono: `var(--font-pp-neue-montreal), 'PP Neue Montreal', monospace`,
   },
+  colors,
   components: {
-    Heading: {
+    ...components,
+    Button: {
       baseStyle: {
-        fontWeight: 700, // This sets the default font weight for headings to bold
+        fontFamily: `var(--font-pp-neue-montreal), sans-serif`,
+      },
+      variants: {
+        solid: (props: { colorMode: 'light' | 'dark' }) => ({
+          bg:
+            props.colorMode === 'dark' ? 'button-secondary' : 'button-primary',
+          color: 'white',
+          _hover: {
+            bg: 'button-hover',
+          },
+          _active: {
+            bg: 'button-active',
+          },
+        }),
       },
     },
-    // ... other component styles
+    Table: {
+      variants: {
+        simple: (props: { colorMode: 'light' | 'dark' }) => ({
+          th: {
+            borderColor: props.colorMode === 'dark' ? 'gray.600' : 'gray.200',
+            borderBottom: '1px',
+            borderBottomColor:
+              props.colorMode === 'dark' ? 'gray.600' : 'gray.200',
+          },
+          td: {
+            borderColor: props.colorMode === 'dark' ? 'gray.600' : 'gray.200',
+            borderBottom: '1px',
+            borderBottomColor:
+              props.colorMode === 'dark' ? 'gray.600' : 'gray.200',
+          },
+          tbody: {
+            tr: {
+              '&:last-of-type': {
+                td: {
+                  borderBottom: 'none',
+                },
+              },
+            },
+          },
+        }),
+      },
+    },
+    Link: {
+      baseStyle: (props: { colorMode: 'light' | 'dark' }) => ({
+        color: props.colorMode === 'dark' ? '#00D27D' : 'light-theme',
+        _hover: {
+          textDecoration: 'underline',
+          color: props.colorMode === 'dark' ? '#00D27D' : '#00D27D',
+        },
+      }),
+    },
   },
-  colors,
-  components,
 })
 
 export { ppNeueMontreal, theme as default }
