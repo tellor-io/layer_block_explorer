@@ -64,32 +64,37 @@ const RefLinkItems: Array<LinkItemProps> = [
   },
 ]
 
-export default function Sidebar({ children }: { children: ReactNode }) {
-  const { isOpen, onOpen, onClose } = useDisclosure()
+interface SidebarProps {
+  onClose: () => void
+  children?: ReactNode
+}
+
+export default function Sidebar({ onClose, children }: SidebarProps) {
+  const { isOpen, onOpen, onClose: closeDrawer } = useDisclosure()
 
   return (
     <Box minH="100vh" bg={useColorModeValue('gray.100', 'gray.900')}>
       <SidebarContent
-        onClose={() => onClose}
+        onClose={closeDrawer}
         display={{ base: 'none', md: 'block' }}
       />
       <Drawer
         autoFocus={false}
         isOpen={isOpen}
         placement="left"
-        onClose={onClose}
+        onClose={closeDrawer}
         returnFocusOnClose={false}
-        onOverlayClick={onClose}
+        onOverlayClick={closeDrawer}
         size="xs" // Change this from "full" to "xs"
       >
         <DrawerOverlay />
         <DrawerContent>
-          <SidebarContent onClose={onClose} />
+          <SidebarContent onClose={closeDrawer} />
         </DrawerContent>
       </Drawer>
       {/* mobilenav */}
       <MobileNav display={{ base: 'flex', md: 'none' }} onOpen={onOpen} />
-      <Box ml={{ base: 0, md: 60 }} p="4">
+      <Box ml={{ base: 0, md: -80 }} p="4">
         {children}
       </Box>
     </Box>

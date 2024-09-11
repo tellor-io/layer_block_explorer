@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { Box } from '@chakra-ui/react'
+import { Box, Flex } from '@chakra-ui/react' // Add Flex to this import
 import Sidebar from '../Sidebar'
 import Navbar from '../Navbar'
 import LoadingPage from '../LoadingPage'
@@ -25,7 +25,11 @@ import { TxEvent } from '@cosmjs/tendermint-rpc'
 import { HARDCODED_RPC_ADDRESS } from '@/utils/constant'
 import { connectWebsocketClient } from '@/rpc/client'
 
-export default function Layout({ children }: { children: ReactNode }) {
+interface LayoutProps {
+  children?: ReactNode
+}
+
+export default function Layout({ children }: LayoutProps) {
   const connectState = useSelector(selectConnectState)
   const tmClient = useSelector(selectTmClient)
   const newBlock = useSelector(selectNewBlock)
@@ -33,6 +37,9 @@ export default function Layout({ children }: { children: ReactNode }) {
   const dispatch = useDispatch()
 
   const [isLoading, setIsLoading] = useState(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  const onClose = () => setIsSidebarOpen(false)
 
   useEffect(() => {
     if (tmClient && !newBlock) {
@@ -84,10 +91,17 @@ export default function Layout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Box>
+    <Box minH="100vh">
       <Navbar />
       <Box pt="64px">
-        <Sidebar>{children}</Sidebar>
+        {' '}
+        {/* Add padding-top equal to Navbar height */}
+        <Flex>
+          <Sidebar onClose={onClose} />
+          <Box flex={1} ml={{ base: 0, md: 60 }} p="4">
+            {children} {/* This line is correct */}
+          </Box>
+        </Flex>
       </Box>
     </Box>
   )

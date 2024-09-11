@@ -10,6 +10,7 @@ import {
 } from '@/store/connectSlice'
 import {
   Box,
+  Flex, // Add this import
   Heading,
   Text,
   HStack,
@@ -129,15 +130,18 @@ export default function Navbar() {
       top={0}
       left={0}
       right={0}
-      zIndex={1000}
+      zIndex={2}
+      width="100%"
     >
-      <HStack h={16} alignItems={'center'} justifyContent={'space-between'}>
-        <HStack spacing={8} alignItems={'center'}>
+      <Flex h="64px" alignItems={'center'} justifyContent={'space-between'}>
+        <Flex alignItems={'center'}>
           <Box>
-            <Heading size="md">Tellor Layer Block Explorer</Heading>
+            <Heading size="md" fontSize="1.5rem">
+              Tellor Layer Block Explorer
+            </Heading>
           </Box>
-        </HStack>
-        <HStack alignItems={'center'} spacing={4}>
+        </Flex>
+        <Flex alignItems={'center'}>
           {/* Mobile menu button */}
           <IconButton
             display={{ base: 'flex', md: 'none' }}
@@ -177,8 +181,8 @@ export default function Navbar() {
               onClick={toggleColorMode}
             />
           </HStack>
-        </HStack>
-      </HStack>
+        </Flex>
+      </Flex>
 
       {/* Mobile menu drawer */}
       <Drawer isOpen={isMenuOpen} placement="right" onClose={onMenuClose}>

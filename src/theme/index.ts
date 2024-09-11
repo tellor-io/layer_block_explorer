@@ -9,10 +9,16 @@ const ppNeueMontreal = localFont({
       weight: '500',
       style: 'normal',
     },
-    // Add other weights/styles if needed
+    {
+      path: '../../public/fonts/PPNeueMontreal-Bold.woff2',
+      weight: '700',
+      style: 'normal',
+    },
   ],
   variable: '--font-pp-neue-montreal',
 })
+
+console.log('PPNeueMontreal font loaded:', ppNeueMontreal)
 
 const config: ThemeConfig = {
   initialColorMode: 'light',
@@ -22,7 +28,7 @@ const config: ThemeConfig = {
 const components: ThemeComponents = {
   Button: {
     baseStyle: {
-      fontFamily: `var(--font-pp-neue-montreal), monospace`,
+      fontFamily: `var(--font-pp-neue-montreal), sans-serif`,
     },
     variants: {
       solid: (props: { colorMode: 'light' | 'dark' }) => ({
@@ -78,10 +84,17 @@ const components: ThemeComponents = {
 const theme = extendTheme({
   config,
   fonts: {
-    heading: `var(--font-pp-neue-montreal), monospace`,
-    paragraph: `var(--font-pp-neue-montreal), monospace`,
-    body: `var(--font-pp-neue-montreal), monospace`,
-    mono: `var(--font-pp-neue-montreal), monospace`,
+    heading: `var(--font-pp-neue-montreal), 'PP Neue Montreal', sans-serif`,
+    body: `var(--font-pp-neue-montreal), 'PP Neue Montreal', sans-serif`,
+    mono: `var(--font-pp-neue-montreal), 'PP Neue Montreal', monospace`,
+  },
+  components: {
+    Heading: {
+      baseStyle: {
+        fontWeight: 700, // This sets the default font weight for headings to bold
+      },
+    },
+    // ... other component styles
   },
   colors,
   components,
