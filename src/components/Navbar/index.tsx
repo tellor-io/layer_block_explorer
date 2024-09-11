@@ -37,12 +37,26 @@ import {
   DrawerOverlay,
   DrawerContent,
   DrawerCloseButton,
+  Divider,
 } from '@chakra-ui/react'
-import { FiRadio, FiSearch, FiMenu, FiEdit } from 'react-icons/fi'
+import {
+  FiRadio,
+  FiSearch,
+  FiMenu,
+  FiEdit,
+  FiHome,
+  FiBox,
+  FiCompass,
+  FiStar,
+  FiSliders,
+  FiGithub,
+  FiAlertCircle,
+} from 'react-icons/fi'
 import { selectNewBlock } from '@/store/streamSlice'
 import { MoonIcon, SunIcon } from '@chakra-ui/icons'
 import { StatusResponse } from '@cosmjs/tendermint-rpc'
 import { connectWebsocketClient } from '@/rpc/client'
+import { LinkItems, RefLinkItems, NavItem } from '@/components/Sidebar'
 
 const heightRegex = /^\d+$/
 const txhashRegex = /^[A-Z\d]{64}$/
@@ -136,7 +150,10 @@ export default function Navbar() {
       <Flex h="64px" alignItems={'center'} justifyContent={'space-between'}>
         <Flex alignItems={'center'}>
           <Box>
-            <Heading size="md" fontSize="1.5rem">
+            <Heading
+              size="md"
+              fontSize={{ base: '1.3rem', sm: 'md', md: '1.5rem' }}
+            >
               Tellor Layer Block Explorer
             </Heading>
           </Box>
@@ -230,6 +247,32 @@ export default function Navbar() {
               >
                 Toggle Theme
               </Button>
+              <Divider />
+              {LinkItems.map((link) => (
+                <NavItem
+                  key={link.name}
+                  icon={link.icon}
+                  route={link.route}
+                  onClick={onMenuClose}
+                >
+                  {link.name}
+                </NavItem>
+              ))}
+              <Divider />
+              <Heading size="xs" textTransform="uppercase" mb={2}>
+                Links
+              </Heading>
+              {RefLinkItems.map((link) => (
+                <NavItem
+                  key={link.name}
+                  icon={link.icon}
+                  route={link.route}
+                  isBlank={link.isBlank}
+                  onClick={onMenuClose}
+                >
+                  {link.name}
+                </NavItem>
+              ))}
             </VStack>
           </DrawerBody>
         </DrawerContent>

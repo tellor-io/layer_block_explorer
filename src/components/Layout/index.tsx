@@ -37,9 +37,6 @@ export default function Layout({ children }: LayoutProps) {
   const dispatch = useDispatch()
 
   const [isLoading, setIsLoading] = useState(true)
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-
-  const onClose = () => setIsSidebarOpen(false)
 
   useEffect(() => {
     if (tmClient && !newBlock) {
@@ -94,12 +91,12 @@ export default function Layout({ children }: LayoutProps) {
     <Box minH="100vh">
       <Navbar />
       <Box pt="64px">
-        {' '}
-        {/* Add padding-top equal to Navbar height */}
         <Flex>
-          <Sidebar onClose={onClose} />
+          <Box display={{ base: 'none', md: 'block' }}>
+            <Sidebar onClose={() => {}}>{/* Sidebar content */}</Sidebar>
+          </Box>
           <Box flex={1} ml={{ base: 0, md: 60 }} p="4">
-            {children} {/* This line is correct */}
+            {children}
           </Box>
         </Flex>
       </Box>

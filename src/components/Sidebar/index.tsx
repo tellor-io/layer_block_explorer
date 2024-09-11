@@ -41,7 +41,7 @@ interface LinkItemProps {
   route: string
   isBlank?: boolean
 }
-const LinkItems: Array<LinkItemProps> = [
+export const LinkItems: Array<LinkItemProps> = [
   { name: 'Home', icon: FiHome, route: '/' },
   { name: 'Blocks', icon: FiBox, route: '/blocks' },
   { name: 'Validators', icon: FiCompass, route: '/validators' },
@@ -49,7 +49,7 @@ const LinkItems: Array<LinkItemProps> = [
   { name: 'Proposals', icon: FiStar, route: '/proposals' },
   { name: 'Parameters', icon: FiSliders, route: '/parameters' },
 ]
-const RefLinkItems: Array<LinkItemProps> = [
+export const RefLinkItems: Array<LinkItemProps> = [
   {
     name: 'Github',
     icon: FiGithub,
@@ -64,9 +64,8 @@ const RefLinkItems: Array<LinkItemProps> = [
   },
 ]
 
-interface SidebarProps {
-  onClose: () => void
-  children?: ReactNode
+interface SidebarProps extends BoxProps {
+  onClose?: () => void // Make onClose optional
 }
 
 export default function Sidebar({ onClose, children }: SidebarProps) {
@@ -102,7 +101,7 @@ export default function Sidebar({ onClose, children }: SidebarProps) {
 }
 
 interface SidebarProps extends BoxProps {
-  onClose: () => void
+  onClose?: () => void // Make onClose optional
 }
 
 const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
@@ -159,7 +158,13 @@ interface NavItemProps extends FlexProps {
   route: string
   isBlank?: boolean
 }
-const NavItem = ({ icon, children, route, isBlank, ...rest }: NavItemProps) => {
+export const NavItem = ({
+  icon,
+  children,
+  route,
+  isBlank,
+  ...rest
+}: NavItemProps) => {
   const router = useRouter()
   const [isSelected, setIsSelected] = useState(false)
 
