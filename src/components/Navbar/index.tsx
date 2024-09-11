@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
-import { useSelector } from 'react-redux'
-import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
+import { useSelector, useDispatch } from 'react-redux'
+import {
+  selectTmClient,
+  selectRPCAddress,
+  setRPCAddress,
+  setTmClient,
+  setConnectState,
+} from '@/store/connectSlice'
 import {
   Box,
   Heading,
   Text,
   HStack,
-  VStack, // Add this import
+  VStack,
   Icon,
   IconButton,
   Input,
@@ -31,10 +37,11 @@ import {
   DrawerContent,
   DrawerCloseButton,
 } from '@chakra-ui/react'
-import { FiRadio, FiSearch, FiMenu } from 'react-icons/fi'
+import { FiRadio, FiSearch, FiMenu, FiEdit } from 'react-icons/fi'
 import { selectNewBlock } from '@/store/streamSlice'
 import { MoonIcon, SunIcon } from '@chakra-ui/icons'
 import { StatusResponse } from '@cosmjs/tendermint-rpc'
+import { connectWebsocketClient } from '@/rpc/client'
 
 const heightRegex = /^\d+$/
 const txhashRegex = /^[A-Z\d]{64}$/
@@ -55,6 +62,9 @@ export default function Navbar() {
     onOpen: onMenuOpen,
     onClose: onMenuClose,
   } = useDisclosure()
+  const dispatch = useDispatch()
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [newRPCAddress, setNewRPCAddress] = useState(rpcAddress)
 
   useEffect(() => {
     if (tmClient) {
@@ -76,6 +86,34 @@ export default function Navbar() {
         title: 'Invalid search',
         description:
           'Please enter a valid block height, transaction hash, or address',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      })
+    }
+  }
+
+  const handleEditRPCAddress = async () => {
+    try {
+      const tmClient = await connectWebsocketClient(newRPCAddress)
+      if (tmClient) {
+        dispatch(setConnectState(true))
+        dispatch(setTmClient(tmClient))
+        dispatch(setRPCAddress(newRPCAddress))
+        setIsEditModalOpen(false)
+        toast({
+          title: 'RPC Address Updated',
+          description: 'The network information has been updated.',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        })
+      }
+    } catch (error) {
+      console.error('Error connecting to new RPC address:', error)
+      toast({
+        title: 'Connection Error',
+        description: 'Failed to connect to the new RPC address.',
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -210,13 +248,47 @@ export default function Navbar() {
               <strong>Latest Block Height:</strong>{' '}
               {newBlock?.header.height ?? status?.syncInfo.latestBlockHeight}
             </Text>
-            <Text>
-              <strong>RPC Address:</strong> {rpcAddress}
-            </Text>
+            <HStack>
+              <Text>
+                <strong>RPC Address:</strong> {rpcAddress}
+              </Text>
+              <IconButton
+                aria-label="Edit RPC Address"
+                icon={<FiEdit />}
+                size="xs"
+                variant="ghost"
+                padding={0}
+                minWidth="auto"
+                onClick={() => setIsEditModalOpen(true)}
+              />
+            </HStack>
           </ModalBody>
           <ModalFooter>
             <Button colorScheme="blue" mr={3} onClick={onClose}>
               Close
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit RPC Address</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Input
+              value={newRPCAddress}
+              onChange={(e) => setNewRPCAddress(e.target.value)}
+              placeholder="Enter new RPC address"
+            />
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="blue" mr={3} onClick={handleEditRPCAddress}>
+              Save
+            </Button>
+            <Button variant="ghost" onClick={() => setIsEditModalOpen(false)}>
+              Cancel
             </Button>
           </ModalFooter>
         </ModalContent>

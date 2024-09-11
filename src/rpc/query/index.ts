@@ -11,6 +11,7 @@ import {
   ValidatorsResponse,
 } from '@cosmjs/tendermint-rpc'
 import axios from 'axios'
+import { ethers } from 'ethers'
 
 export async function getChainId(
   tmClient: Tendermint37Client
@@ -212,5 +213,86 @@ export const getValidatorMoniker = async (address: string): Promise<string> => {
   } catch (error) {
     console.error('Error fetching validator moniker:', error)
     return 'Unknown'
+  }
+}
+
+/*export async function getAverageGasCost(): Promise<number | undefined> {
+  console.log('Fetching average gas cost...');
+  try {
+    // Replace this URL with your actual API endpoint
+    const response = await fetch('YOUR_BLOCKCHAIN_API_ENDPOINT/average-gas-cost');
+    console.log('Response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Received data:', data);
+    
+    if (data.averageGasCost === undefined) {
+      console.log('averageGasCost is undefined in the response');
+      return undefined;
+    }
+    
+    return data.averageGasCost;
+  } catch (error) {
+    console.error('Error in getAverageGasCost:', error);
+    return undefined;
+  } finally {
+    console.log('getAverageGasCost function completed');
+  }
+}*/
+
+export const getCurrentCycleList = async (): Promise<any[]> => {
+  const url =
+    'https://tellorlayer.com/tellor-io/layer/oracle/current_cyclelist_query'
+  try {
+    console.log('Fetching current cycle list from:', url)
+    const response = await axios.get(url)
+    console.log('Response data:', response.data)
+
+    if (response.data && response.data.query_data) {
+      // If query_data is a string, wrap it in an array
+      const queryDataArray = Array.isArray(response.data.query_data)
+        ? response.data.query_data
+        : [response.data.query_data]
+
+      return queryDataArray.map(decodeQueryData)
+    } else {
+      console.log('No query_data found in response')
+      return []
+    }
+  } catch (error) {
+    console.error('Error fetching current cycle list:', error)
+    return []
+  }
+}
+
+function decodeQueryData(queryData: string): any {
+  try {
+    console.log('Attempting to decode:', queryData)
+
+    // Convert hex to ASCII
+    const asciiData = Buffer.from(queryData, 'hex').toString('ascii')
+    console.log('ASCII data:', asciiData)
+
+    // Find the query type
+    const spotPriceIndex = asciiData.indexOf('SpotPrice')
+    if (spotPriceIndex !== -1) {
+      const queryType = 'SpotPrice'
+
+      // Extract only the last two 3-letter words
+      const words = asciiData.match(/[a-z]{3}/g)
+      const queryParams = words ? words.slice(-2) : []
+
+      console.log('Successfully decoded:', { queryType, queryParams })
+      return { queryType, queryParams }
+    }
+
+    throw new Error('Unable to parse query data')
+  } catch (error) {
+    console.error('Error decoding query data:', error)
+    return { queryType: 'Unknown', queryParams: [] }
   }
 }

@@ -37,6 +37,42 @@ const components: ThemeComponents = {
       }),
     },
   },
+  Table: {
+    variants: {
+      simple: (props) => ({
+        th: {
+          borderColor: props.colorMode === 'dark' ? 'gray.600' : 'gray.200',
+          borderBottom: '1px',
+          borderBottomColor:
+            props.colorMode === 'dark' ? 'gray.600' : 'gray.200',
+        },
+        td: {
+          borderColor: props.colorMode === 'dark' ? 'gray.600' : 'gray.200',
+          borderBottom: '1px',
+          borderBottomColor:
+            props.colorMode === 'dark' ? 'gray.600' : 'gray.200',
+        },
+        tbody: {
+          tr: {
+            '&:last-of-type': {
+              td: {
+                borderBottom: 'none',
+              },
+            },
+          },
+        },
+      }),
+    },
+  },
+  Link: {
+    baseStyle: (props) => ({
+      color: props.colorMode === 'dark' ? '#00D27D' : 'light-theme',
+      _hover: {
+        textDecoration: 'underline',
+        color: props.colorMode === 'dark' ? '#00D27D' : '#00D27D',
+      },
+    }),
+  },
 }
 
 const theme = extendTheme({

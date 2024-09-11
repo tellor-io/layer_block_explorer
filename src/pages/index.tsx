@@ -39,6 +39,10 @@ import { getAllowedUnstakingAmount } from '@/rpc/query'
 import { getAllowedStakingAmount } from '@/rpc/query'
 import { getReporterCount } from '@/rpc/query'
 import { getAllowedAmountExp } from '@/rpc/query'
+//import { getAverageGasCost } from '@/rpc/query' // Add this import
+import { FiDollarSign } from 'react-icons/fi' // Add this import
+import { getCurrentCycleList } from '@/rpc/query'
+import { FiList } from 'react-icons/fi'
 
 export default function Home() {
   const tmClient = useSelector(selectTmClient)
@@ -53,6 +57,8 @@ export default function Home() {
     undefined
   )
   const [reporterCount, setReporterCount] = useState<number>(0)
+  const [averageGasCost, setAverageGasCost] = useState<string>('0')
+  const [currentCycleList, setCurrentCycleList] = useState<string>('N/A')
 
   useEffect(() => {
     if (tmClient) {
@@ -135,11 +141,65 @@ export default function Home() {
       })
   }, [])
 
+  /*useEffect(() => {
+    getAverageGasCost()
+      .then((cost) => {
+        if (cost !== undefined) {
+          const formattedCost = new Intl.NumberFormat().format(cost) + ' gas'
+          setAverageGasCost(formattedCost)
+        } else {
+          setAverageGasCost('N/A')
+        }
+      })
+      .catch((error) => {
+        console.error('Error in getAverageGasCost:', error)
+        setAverageGasCost('N/A')
+      })
+  }, [])*/
+
   useEffect(() => {
     if ((!isLoaded && newBlock) || (!isLoaded && status)) {
       setIsLoaded(true)
     }
   }, [isLoaded, newBlock, status])
+
+  useEffect(() => {
+    const fetchCurrentCycleList = () => {
+      getCurrentCycleList()
+        .then((dataList) => {
+          console.log('Received data list in component:', dataList)
+          if (dataList.length > 0) {
+            const queryStrings = dataList
+              .map((data) => {
+                if (data.queryParams && data.queryParams.length > 0) {
+                  return data.queryParams.join('/')
+                }
+                return 'N/A'
+              })
+              .filter((str) => str !== 'N/A')
+
+            console.log('Query strings:', queryStrings)
+            setCurrentCycleList(queryStrings.join(', '))
+          } else {
+            console.log('No queries found')
+            setCurrentCycleList('N/A')
+          }
+        })
+        .catch((error) => {
+          console.error('Error in getCurrentCycleList:', error)
+          setCurrentCycleList('N/A')
+        })
+    }
+
+    // Fetch immediately on component mount
+    fetchCurrentCycleList()
+
+    // Set up interval to fetch every 10 seconds (adjust as needed)
+    const intervalId = setInterval(fetchCurrentCycleList, 500)
+
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId)
+  }, [])
 
   return (
     <>
@@ -174,7 +234,7 @@ export default function Home() {
           <SimpleGrid minChildWidth="200px" spacing="40px">
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#156b75"
+                bgColor="#066E6B"
                 color="#ecfaff"
                 icon={FiBox}
                 name="Latest Block Height"
@@ -187,7 +247,7 @@ export default function Home() {
             </Skeleton>
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#156b75"
+                bgColor="#066E6B"
                 color="#ecfaff"
                 icon={FiClock}
                 name="Latest Block Time"
@@ -205,7 +265,7 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#156b75"
+                bgColor="#066E6B"
                 color="#ecfaff"
                 icon={FiCpu}
                 name="Network"
@@ -219,7 +279,7 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#156b75"
+                bgColor="#066E6B"
                 color="#ecfaff"
                 icon={FaUserCheck}
                 name="Validators"
@@ -229,7 +289,7 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#156b75"
+                bgColor="#066E6B"
                 color="#ecfaff"
                 icon={RiBearSmileFill}
                 name="Reporters"
@@ -239,7 +299,7 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#156b75"
+                bgColor="#066E6B"
                 color="#ecfaff"
                 icon={HiUserGroup}
                 name="Total Voting Power (Validators)"
@@ -250,7 +310,7 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#156b75"
+                bgColor="#066E6B"
                 color="#ecfaff"
                 icon={GiAncientSword}
                 name="Allowed to Stake"
@@ -260,7 +320,7 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#156b75"
+                bgColor="#066E6B"
                 color="#ecfaff"
                 icon={GiSwordBrandish}
                 name="Allowed to Unstake"
@@ -270,13 +330,34 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#156b75"
+                bgColor="#066E6B"
                 color="#ecfaff"
                 icon={LiaHourglassHalfSolid}
-                name="Staking Allowance Reset"
+                name="Stake Allowance Reset"
                 value={
                   allowedAmountExp && new Date(allowedAmountExp).toUTCString()
                 }
+              />
+            </Skeleton>
+
+            {/*<Skeleton isLoaded={isLoaded}>
+              <BoxInfo
+                bgColor="#066E6B"
+                color="#ecfaff"
+                icon={FiDollarSign} // You may need to import this icon
+                name="Average Gas Cost"
+                value={averageGasCost}
+              />
+            </Skeleton>*/}
+
+            <Skeleton isLoaded={isLoaded}>
+              <BoxInfo
+                bgColor="#066E6B"
+                color="#ecfaff"
+                icon={FiList}
+                name="Current Cycle List Query"
+                value={currentCycleList}
+                style={{ overflowWrap: 'break-word', wordBreak: 'break-all' }}
               />
             </Skeleton>
           </SimpleGrid>

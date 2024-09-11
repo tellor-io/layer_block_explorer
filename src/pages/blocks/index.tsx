@@ -359,7 +359,7 @@ export default function Blocks() {
                               <Text
                                 color={useColorModeValue(
                                   'light-theme',
-                                  'dark-theme'
+                                  '#008E8C'
                                 )}
                               >
                                 {block.header.height}
