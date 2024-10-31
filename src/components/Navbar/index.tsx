@@ -55,7 +55,7 @@ import {
 import { selectNewBlock } from '@/store/streamSlice'
 import { MoonIcon, SunIcon } from '@chakra-ui/icons'
 import { StatusResponse } from '@cosmjs/tendermint-rpc'
-import { connectWebsocketClient } from '@/rpc/client'
+import { connectWebsocketClient, validateConnection } from '@/rpc/client'
 import { LinkItems, RefLinkItems, NavItem } from '@/components/Sidebar'
 
 const heightRegex = /^\d+$/
@@ -110,6 +110,19 @@ export default function Navbar() {
 
   const handleEditRPCAddress = async () => {
     try {
+      const isValid = await validateConnection(newRPCAddress)
+      if (!isValid) {
+        toast({
+          title: 'Connection Error',
+          description:
+            'Unable to establish WebSocket connection to the RPC endpoint.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        })
+        return
+      }
+
       const tmClient = await connectWebsocketClient(newRPCAddress)
       if (tmClient) {
         dispatch(setConnectState(true))
@@ -128,9 +141,12 @@ export default function Navbar() {
       console.error('Error connecting to new RPC address:', error)
       toast({
         title: 'Connection Error',
-        description: 'Failed to connect to the new RPC address.',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to connect to the RPC endpoint.',
         status: 'error',
-        duration: 3000,
+        duration: 5000,
         isClosable: true,
       })
     }

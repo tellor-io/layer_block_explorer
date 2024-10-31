@@ -1,7 +1,7 @@
 import '@/styles/globals.css'
 import '../styles/fonts.css?v=1'
 import type { AppProps } from 'next/app'
-import { ChakraProvider } from '@chakra-ui/react'
+import { ChakraProvider, useColorModeValue } from '@chakra-ui/react'
 import Layout from '@/components/Layout'
 import theme, { ppNeueMontreal } from '@/theme'
 import { wrapper } from '@/store'
@@ -18,7 +18,11 @@ function App({
       <Provider store={store}>
         <main
           className={ppNeueMontreal.variable}
-          style={{ fontFamily: 'var(--font-pp-neue-montreal), sans-serif' }}
+          style={{
+            fontFamily: 'var(--font-pp-neue-montreal), sans-serif',
+            backgroundColor: useColorModeValue('light-bg', 'dark-bg'),
+            minHeight: '100vh',
+          }}
         >
           <Layout>
             <Component {...props} />

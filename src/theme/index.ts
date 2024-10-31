@@ -18,8 +18,6 @@ const ppNeueMontreal = localFont({
   variable: '--font-pp-neue-montreal',
 })
 
-console.log('PPNeueMontreal font loaded:', ppNeueMontreal)
-
 const config: ThemeConfig = {
   initialColorMode: 'light',
   useSystemColorMode: false,
@@ -33,7 +31,7 @@ const components: ThemeComponents = {
     variants: {
       solid: (props: { colorMode: 'light' | 'dark' }) => ({
         bg: props.colorMode === 'dark' ? 'button-secondary' : 'button-primary',
-        color: 'white',
+        color: props.colorMode === 'dark' ? 'black' : 'white',
         _hover: {
           bg: 'button-hover',
         },
@@ -72,13 +70,23 @@ const components: ThemeComponents = {
   },
   Link: {
     baseStyle: (props: { colorMode: 'light' | 'dark' }) => ({
-      color: props.colorMode === 'dark' ? '#00D27D' : 'light-theme',
+      color: props.colorMode === 'dark' ? 'black' : 'light-theme',
       _hover: {
         textDecoration: 'underline',
-        color: props.colorMode === 'dark' ? '#00D27D' : '#00D27D',
+        color: props.colorMode === 'dark' ? 'black' : '#00D27D',
       },
     }),
   },
+}
+
+type ColorModeProps = {
+  colorMode: 'light' | 'dark'
+}
+
+const shadows = {
+  base: '0px 0px 2px rgba(0, 0, 0, 0.9)',
+  md: '0px 0px 15px rgba(0, 0, 0, 0.1)',
+  lg: '0px 0px 20px rgba(0, 0, 0, 0.65)',
 }
 
 const theme = extendTheme({
@@ -89,63 +97,8 @@ const theme = extendTheme({
     mono: `var(--font-pp-neue-montreal), 'PP Neue Montreal', monospace`,
   },
   colors,
-  components: {
-    ...components,
-    Button: {
-      baseStyle: {
-        fontFamily: `var(--font-pp-neue-montreal), sans-serif`,
-      },
-      variants: {
-        solid: (props: { colorMode: 'light' | 'dark' }) => ({
-          bg:
-            props.colorMode === 'dark' ? 'button-secondary' : 'button-primary',
-          color: 'white',
-          _hover: {
-            bg: 'button-hover',
-          },
-          _active: {
-            bg: 'button-active',
-          },
-        }),
-      },
-    },
-    Table: {
-      variants: {
-        simple: (props: { colorMode: 'light' | 'dark' }) => ({
-          th: {
-            borderColor: props.colorMode === 'dark' ? 'gray.600' : 'gray.200',
-            borderBottom: '1px',
-            borderBottomColor:
-              props.colorMode === 'dark' ? 'gray.600' : 'gray.200',
-          },
-          td: {
-            borderColor: props.colorMode === 'dark' ? 'gray.600' : 'gray.200',
-            borderBottom: '1px',
-            borderBottomColor:
-              props.colorMode === 'dark' ? 'gray.600' : 'gray.200',
-          },
-          tbody: {
-            tr: {
-              '&:last-of-type': {
-                td: {
-                  borderBottom: 'none',
-                },
-              },
-            },
-          },
-        }),
-      },
-    },
-    Link: {
-      baseStyle: (props: { colorMode: 'light' | 'dark' }) => ({
-        color: props.colorMode === 'dark' ? '#00D27D' : 'light-theme',
-        _hover: {
-          textDecoration: 'underline',
-          color: props.colorMode === 'dark' ? '#00D27D' : '#00D27D',
-        },
-      }),
-    },
-  },
+  shadows,
+  components,
 })
 
 export { ppNeueMontreal, theme as default }

@@ -111,7 +111,7 @@ export default function Reporters() {
 
   useEffect(() => {
     setIsLoading(true)
-    const url = 'https://tellorlayer.com/tellor-io/layer/reporter/reporters'
+    const url = '/api/reporters'
 
     fetch(url)
       .then((response) => {
@@ -121,7 +121,6 @@ export default function Reporters() {
         return response.json()
       })
       .then((responseData) => {
-        console.log('Fetched data:', responseData)
         if (responseData.reporters && Array.isArray(responseData.reporters)) {
           setTotal(
             parseInt(responseData.pagination.total) ||

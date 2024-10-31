@@ -31,6 +31,9 @@ import {
   TagLabel,
   Tooltip,
   useClipboard,
+  Alert,
+  AlertIcon,
+  AlertDescription,
 } from '@chakra-ui/react'
 import NextLink from 'next/link'
 import { FiChevronRight, FiHome, FiCheck, FiX, FiCopy } from 'react-icons/fi'
@@ -39,6 +42,7 @@ import { toHex } from '@cosmjs/encoding'
 import { TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
 import { timeFromNow, trimHash, getTypeMsg } from '@/utils/helper'
 import { sha256 } from '@cosmjs/crypto'
+import { getValidators } from '@/rpc/query'
 
 const MAX_ROWS = 20
 
@@ -83,42 +87,24 @@ export default function Blocks() {
   const newBlock = useSelector(selectNewBlock)
   const txEvent = useSelector(selectTxEvent)
   const [blocks, setBlocks] = useState<NewBlockEvent[]>([])
-
   const [txs, setTxs] = useState<Tx[]>([])
-
   const [validatorMap, setValidatorMap] = useState<ValidatorMap>({})
-
-  useEffect(() => {
-    if (newBlock) {
-      updateBlocks(newBlock)
-    }
-  }, [newBlock])
-
-  useEffect(() => {
-    if (txEvent) {
-      updateTxs(txEvent)
-    }
-  }, [txEvent])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchData() {
       try {
-        // Fetch validators
-        const validatorsResponse = await axios.get(
-          'https://tellorlayer.com/cosmos/staking/v1beta1/validators'
-        )
-        const validators = validatorsResponse.data.validators
-
-        const map: { [key: string]: string } = {}
-        validators.forEach((validator: Validator) => {
-          const hexAddress = pubkeyToAddress(validator.consensus_pubkey.key)
-          map[hexAddress] = validator.description.moniker
-          console.log(
-            `Validator: ${validator.description.moniker}, Hex Address: ${hexAddress}`
-          )
-        })
-        setValidatorMap(map)
-        console.log('Full Validator Map:', map)
+        // Fetch validators using new endpoint
+        const validatorsResponse = await getValidators()
+        if (validatorsResponse?.validators) {
+          const map: { [key: string]: string } = {}
+          validatorsResponse.validators.forEach((validator: Validator) => {
+            const hexAddress = pubkeyToAddress(validator.consensus_pubkey.key)
+            map[hexAddress] = validator.description.moniker
+          })
+          setValidatorMap(map)
+        }
 
         // Fetch blocks
         const blocksResponse = await axios.get(
@@ -185,8 +171,23 @@ export default function Blocks() {
         }
 
         setBlocks(blocksData as NewBlockEvent[])
+        setIsLoading(false)
       } catch (error) {
-        console.error('Error fetching data:', error)
+        if (axios.isAxiosError(error)) {
+          console.error('Axios error:', {
+            message: error.message,
+            code: error.code,
+            response: error.response?.data,
+          })
+          // Handle the error appropriately in your UI
+          // For example:
+          setError(
+            'Failed to fetch data. Please check your network connection.'
+          )
+        } else {
+          console.error('Unexpected error:', error)
+          setError('An unexpected error occurred.')
+        }
       }
     }
     fetchData()
@@ -278,6 +279,18 @@ export default function Blocks() {
 
   const tabColor = useColorModeValue('light-theme', 'dark-theme')
 
+  useEffect(() => {
+    if (newBlock) {
+      updateBlocks(newBlock)
+    }
+  }, [newBlock])
+
+  useEffect(() => {
+    if (txEvent) {
+      updateTxs(txEvent)
+    }
+  }, [txEvent])
+
   return (
     <>
       <Head>
@@ -317,16 +330,28 @@ export default function Blocks() {
           <Tabs variant="unstyled">
             <TabList>
               <Tab
-                _selected={{ color: 'white', bg: tabColor }}
-                _hover={{ bg: useColorModeValue('gray.100', 'gray.700') }}
+                _selected={{
+                  color: useColorModeValue('white', 'black'),
+                  bg: tabColor,
+                }}
+                _hover={{
+                  bg: 'button-hover',
+                  color: useColorModeValue('black', 'black'),
+                }}
                 color={useColorModeValue('gray.600', 'gray.200')}
                 borderRadius={5}
               >
                 Blocks
               </Tab>
               <Tab
-                _selected={{ color: 'white', bg: tabColor }}
-                _hover={{ bg: useColorModeValue('gray.100', 'gray.700') }}
+                _selected={{
+                  color: useColorModeValue('white', 'black'),
+                  bg: tabColor,
+                }}
+                _hover={{
+                  bg: 'button-hover',
+                  color: useColorModeValue('black', 'black'),
+                }}
                 color={useColorModeValue('gray.600', 'gray.200')}
                 borderRadius={5}
               >
@@ -359,7 +384,7 @@ export default function Blocks() {
                               <Text
                                 color={useColorModeValue(
                                   'light-theme',
-                                  '#008E8C'
+                                  '#45ffe1'
                                 )}
                               >
                                 {block.header.height}

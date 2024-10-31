@@ -1,4 +1,4 @@
-export const HARDCODED_RPC_ADDRESS = 'https://tellorlayer.com/rpc'
+export const HARDCODED_RPC_ADDRESS = 'https://rpc.layer-node.com/'
 export const LS_RPC_ADDRESS = 'RPC_ADDRESS'
 export const GOV_PARAMS_TYPE = {
   VOTING: 'voting',
@@ -42,4 +42,9 @@ export const proposalStatusList: proposalStatus[] = [
     status: 'FAILED',
     color: 'red',
   },
+]
+
+export const RPC_ENDPOINTS = [
+  'https://tellorlayer.com/rpc',
+  'https://rpc.layer-node.com/', // backup URL
 ]

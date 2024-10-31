@@ -146,6 +146,7 @@ export default function Connect() {
                 }}
                 borderColor={useColorModeValue('gray.300', 'gray.700')}
                 id={'address'}
+                name={'address'}
                 type={'url'}
                 required
                 placeholder={'RPC Address'}

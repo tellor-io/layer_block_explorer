@@ -45,9 +45,12 @@ import { getCurrentCycleList } from '@/rpc/query'
 import { FiList } from 'react-icons/fi'
 
 export default function Home() {
+  const BOX_ICON_BG = useColorModeValue('#003734', '#eefffb') // Light mode, Dark mode
+  const BOX_ICON_COLOR = useColorModeValue('#eefffb', '#003734') // Light mode, Dark mode
+
   const tmClient = useSelector(selectTmClient)
   const newBlock = useSelector(selectNewBlock)
-  const [validators, setValidators] = useState<number>()
+  const [validators, setValidators] = useState<number>(0)
   const [isLoaded, setIsLoaded] = useState(false)
   const [status, setStatus] = useState<StatusResponse | null>()
   const [totalVotingPower, setTotalVotingPower] = useState<string>('0')
@@ -61,23 +64,37 @@ export default function Home() {
   const [currentCycleList, setCurrentCycleList] = useState<string>('N/A')
 
   useEffect(() => {
-    if (tmClient) {
-      console.log('Fetching status and validators')
-      tmClient.status().then((response) => setStatus(response))
-      getValidators(tmClient).then((response) => {
-        setValidators(response.total)
-        const totalPower = response.validators.reduce(
-          (acc, validator) => acc + BigInt(validator.votingPower),
-          BigInt(0)
-        )
-        // Format the number with commas
-        const formattedTotalPower = new Intl.NumberFormat().format(
-          Number(totalPower)
-        )
-        setTotalVotingPower(formattedTotalPower)
-      })
+    const fetchValidators = async () => {
+      try {
+        const response = await getValidators()
+        if (response?.validators) {
+          // Only count active validators
+          const activeValidators = response.validators.filter(
+            (validator: any) => validator.status === 'BOND_STATUS_BONDED'
+          )
+          setValidators(activeValidators.length)
+
+          // Calculate total voting power while we're here
+          const totalPower = response.validators.reduce(
+            (acc: bigint, validator: any) =>
+              acc + BigInt(validator.tokens || 0),
+            BigInt(0)
+          )
+          const powerInMillions = Number(totalPower) / 1_000_000
+          const formattedTotalPower = new Intl.NumberFormat().format(
+            powerInMillions
+          )
+          setTotalVotingPower(formattedTotalPower)
+        }
+      } catch (error) {
+        console.error('Error fetching validators:', error)
+        setValidators(0)
+        setTotalVotingPower('0')
+      }
     }
-  }, [tmClient])
+
+    fetchValidators()
+  }, []) // Empty dependency array since we only need to fetch this once
 
   useEffect(() => {
     getAllowedStakingAmount()
@@ -101,7 +118,7 @@ export default function Home() {
       .then((amount) => {
         if (amount !== undefined) {
           const formattedAmount =
-            new Intl.NumberFormat().format(amount) + ' TRB'
+            new Intl.NumberFormat().format(Number(amount)) + ' TRB'
           setUnstakingAmount(formattedAmount)
         } else {
           setUnstakingAmount('0 TRB')
@@ -116,14 +133,25 @@ export default function Home() {
   useEffect(() => {
     getAllowedAmountExp()
       .then((parsedAmount) => {
-        if (parsedAmount !== undefined) {
-          setAllowedAmountExp(parsedAmount)
+        console.log('Raw parsed amount:', parsedAmount)
+        if (parsedAmount) {
+          // Convert the date string to a timestamp
+          const timestamp = new Date(parsedAmount).getTime()
+          if (!isNaN(timestamp)) {
+            console.log('Converted timestamp:', timestamp)
+            setAllowedAmountExp(timestamp)
+          } else {
+            console.log('Failed to convert date string to timestamp')
+            setAllowedAmountExp(undefined)
+          }
         } else {
-          console.log('Failed to fetch allowed amount exp')
+          console.log('Failed to fetch allowed amount exp or invalid value')
+          setAllowedAmountExp(undefined)
         }
       })
       .catch((error) => {
         console.error('Error in getAllowedAmountExp:', error)
+        setAllowedAmountExp(undefined)
       })
   }, [])
 
@@ -167,37 +195,36 @@ export default function Home() {
     const fetchCurrentCycleList = () => {
       getCurrentCycleList()
         .then((dataList) => {
-          console.log('Received data list in component:', dataList)
-          if (dataList.length > 0) {
-            const queryStrings = dataList
-              .map((data) => {
-                if (data.queryParams && data.queryParams.length > 0) {
-                  return data.queryParams.join('/')
-                }
-                return 'N/A'
-              })
-              .filter((str) => str !== 'N/A')
-
-            console.log('Query strings:', queryStrings)
-            setCurrentCycleList(queryStrings.join(', '))
-          } else {
-            console.log('No queries found')
+          // Skip processing if data is invalid
+          if (!dataList || !Array.isArray(dataList)) {
             setCurrentCycleList('N/A')
+            return
           }
+
+          // Handle single item case
+          if (dataList.length === 1 && dataList[0]?.queryParams) {
+            setCurrentCycleList(dataList[0].queryParams)
+            return
+          }
+
+          // Handle multiple items
+          const queryStrings = dataList
+            .filter((item) => item?.queryParams)
+            .map((item) => item.queryParams)
+            .join(', ')
+
+          setCurrentCycleList(queryStrings || 'N/A')
         })
-        .catch((error) => {
-          console.error('Error in getCurrentCycleList:', error)
+        .catch(() => {
           setCurrentCycleList('N/A')
         })
     }
 
-    // Fetch immediately on component mount
+    // Initial fetch
     fetchCurrentCycleList()
 
-    // Set up interval to fetch every 10 seconds (adjust as needed)
+    // Set up interval with a cleanup
     const intervalId = setInterval(fetchCurrentCycleList, 500)
-
-    // Clean up interval on component unmount
     return () => clearInterval(intervalId)
   }, [])
 
@@ -234,8 +261,8 @@ export default function Home() {
           <SimpleGrid minChildWidth="200px" spacing="40px">
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#066E6B"
-                color="#ecfaff"
+                bgColor={BOX_ICON_BG}
+                color={BOX_ICON_COLOR}
                 icon={FiBox}
                 name="Latest Block Height"
                 value={
@@ -247,8 +274,8 @@ export default function Home() {
             </Skeleton>
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#066E6B"
-                color="#ecfaff"
+                bgColor={BOX_ICON_BG}
+                color={BOX_ICON_COLOR}
                 icon={FiClock}
                 name="Latest Block Time"
                 value={
@@ -265,8 +292,8 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#066E6B"
-                color="#ecfaff"
+                bgColor={BOX_ICON_BG}
+                color={BOX_ICON_COLOR}
                 icon={FiCpu}
                 name="Network"
                 value={
@@ -279,8 +306,8 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#066E6B"
-                color="#ecfaff"
+                bgColor={BOX_ICON_BG}
+                color={BOX_ICON_COLOR}
                 icon={FaUserCheck}
                 name="Validators"
                 value={validators}
@@ -289,8 +316,8 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#066E6B"
-                color="#ecfaff"
+                bgColor={BOX_ICON_BG}
+                color={BOX_ICON_COLOR}
                 icon={RiBearSmileFill}
                 name="Reporters"
                 value={reporterCount}
@@ -299,10 +326,10 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#066E6B"
-                color="#ecfaff"
+                bgColor={BOX_ICON_BG}
+                color={BOX_ICON_COLOR}
                 icon={HiUserGroup}
-                name="Total Voting Power (Validators)"
+                name="Total Voting Power (Val)"
                 value={totalVotingPower + ' TRB'}
                 formatNumber={true}
               />
@@ -310,8 +337,8 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#066E6B"
-                color="#ecfaff"
+                bgColor={BOX_ICON_BG}
+                color={BOX_ICON_COLOR}
                 icon={GiAncientSword}
                 name="Allowed to Stake"
                 value={stakingAmount}
@@ -320,8 +347,8 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#066E6B"
-                color="#ecfaff"
+                bgColor={BOX_ICON_BG}
+                color={BOX_ICON_COLOR}
                 icon={GiSwordBrandish}
                 name="Allowed to Unstake"
                 value={unstakingAmount}
@@ -330,13 +357,16 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#066E6B"
-                color="#ecfaff"
+                bgColor={BOX_ICON_BG}
+                color={BOX_ICON_COLOR}
                 icon={LiaHourglassHalfSolid}
                 name="Stake Allowance Reset"
-                value={
-                  allowedAmountExp && new Date(allowedAmountExp).toUTCString()
-                }
+                value={(() => {
+                  console.log('Current allowedAmountExp:', allowedAmountExp)
+                  return allowedAmountExp && !isNaN(allowedAmountExp)
+                    ? new Date(allowedAmountExp).toUTCString()
+                    : 'Not available'
+                })()}
               />
             </Skeleton>
 
@@ -352,10 +382,10 @@ export default function Home() {
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
-                bgColor="#066E6B"
-                color="#ecfaff"
+                bgColor={BOX_ICON_BG}
+                color={BOX_ICON_COLOR}
                 icon={FiList}
-                name="Current Cycle List Query"
+                name="Current Cycle List"
                 value={currentCycleList}
                 style={{ overflowWrap: 'break-word', wordBreak: 'break-all' }}
               />
@@ -402,8 +432,10 @@ const BoxInfo = ({
   return (
     <VStack
       bg={useColorModeValue('light-container', 'dark-container')}
-      shadow={'base'}
-      borderRadius={4}
+      borderWidth="1px"
+      borderStyle="solid"
+      borderColor={useColorModeValue('#003734', '#eefffb')}
+      borderRadius={20}
       p={4}
       height="150px"
     >

@@ -25,7 +25,6 @@
     "@fontsource/ibm-plex-mono": "^5.0.13",
     "@reduxjs/toolkit": "^1.9.3",
     "@tanstack/react-table": "^8.8.5",
-    "@types/node": "18.15.11",
     "@types/react-dom": "18.0.11",
     "axios": "^1.7.5",
     "bech32": "^2.0.0",
@@ -43,16 +42,17 @@
     "react-icons": "^4.8.0",
     "react-redux": "^8.0.5",
     "redux-persist": "^6.0.0",
-    "typescript": "5.0.3",
     "xstream": "^11.14.0"
   },
   "devDependencies": {
+    "@types/node": "22.8.1",
     "@types/react": "18.3.3",
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-prettier": "^4.2.1",
     "husky": "^8.0.3",
     "lint-staged": "^13.2.2",
-    "prettier": "^2.8.7"
+    "prettier": "^2.8.7",
+    "typescript": "5.6.3"
   },
   "repository": {
     "type": "git",

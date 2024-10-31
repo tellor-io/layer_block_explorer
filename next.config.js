@@ -9,6 +9,22 @@ const nextConfig = {
     })
     return config
   },
+  async rewrites() {
+    return [
+      {
+        source: '/api/reporter-selectors/:reporter',
+        destination: '/api/reporter-selectors/:reporter'
+      },
+      {
+        source: '/api/current-cycle',
+        destination: '/api/current-cycle'
+      },
+      {
+        source: '/api/validators',
+        destination: '/api/validators'
+      }
+    ]
+  }
 }
 
 module.exports = nextConfig
