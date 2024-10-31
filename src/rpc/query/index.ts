@@ -20,12 +20,6 @@ export async function getChainId(
   return client.getChainId()
 }
 
-export async function getValidators(
-  tmClient: Tendermint37Client
-): Promise<ValidatorsResponse> {
-  return tmClient.validatorsAll()
-}
-
 export async function getBlock(
   tmClient: Tendermint37Client,
   height: number
@@ -81,66 +75,82 @@ export async function getTxsBySender(
   })
 }
 
-export const getAllowedUnstakingAmount = async (): Promise<
-  number | undefined
-> => {
-  const url = 'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount'
+const convertToDisplayAmount = (amount: string): string => {
   try {
-    const response = await axios.get(url)
-    const unstaking_amount =
-      Math.abs(response.data.unstaking_amount) / 1_000_000 // Get absolute value and move decimal left by 6
-    return unstaking_amount
+    // Simply divide by 1 million
+    const numberAmount = Number(amount) / 1_000_000
+    return numberAmount.toString()
   } catch (error) {
-    console.error('Error fetching allowed unstaking amount:', error)
-    return undefined
+    console.error('Error converting amount:', error)
+    return '0'
+  }
+}
+
+export const getAllowedAmounts = async (): Promise<{
+  staking_amount?: string
+  unstaking_amount?: string
+}> => {
+  try {
+    const response = await axios.get('/api/allowed-amounts')
+    return {
+      staking_amount: convertToDisplayAmount(response.data.staking_amount),
+      unstaking_amount: convertToDisplayAmount(response.data.unstaking_amount),
+    }
+  } catch (error) {
+    console.error('Error in getAllowedAmounts:', error)
+    return {}
   }
 }
 
 export const getAllowedStakingAmount = async (): Promise<
-  number | undefined
+  string | undefined
 > => {
-  const url = 'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount'
   try {
-    const response = await axios.get(url)
-    const staking_amount = Math.abs(response.data.staking_amount) / 1_000_000 // Get absolute value and move decimal left by 6
-    return staking_amount
+    const amounts = await getAllowedAmounts()
+    return amounts.staking_amount
   } catch (error) {
-    console.error('Error fetching allowed staking amount:', error)
+    console.error('Error in getAllowedStakingAmount:', error)
     return undefined
   }
 }
 
-export const getAllowedAmountExp = async (): Promise<number | undefined> => {
-  const url =
-    'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount-expiration'
+export const getAllowedUnstakingAmount = async (): Promise<
+  string | undefined
+> => {
   try {
-    const response = await axios.get(url)
-    const allowed_amount_exp = Math.abs(response.data.expiration)
-
-    // Return the timestamp as a number
-    return allowed_amount_exp
+    const amounts = await getAllowedAmounts()
+    return amounts.unstaking_amount
   } catch (error) {
-    console.error('Error fetching allowed amount expiration:', error)
+    console.error('Error in getAllowedUnstakingAmount:', error)
     return undefined
   }
 }
 
-export const getReporterCount = async (): Promise<number | undefined> => {
-  const url = 'https://tellorlayer.com/tellor-io/layer/reporter/reporters'
+export const getAllowedAmountExp = async (): Promise<string | undefined> => {
   try {
-    const response = await axios.get(url)
-    console.log('Response headers:', response.headers)
-    console.log('Response data:', response.data)
+    const response = await axios.get('/api/allowed-amount-exp')
+    if (response.data?.expiration) {
+      // Don't multiply by 1000 since it's already in milliseconds
+      const timestamp = Number(response.data.expiration)
+      const date = new Date(timestamp)
 
-    if (response.data && Array.isArray(response.data.reporters)) {
-      return response.data.reporters.length
-    } else {
-      console.error('Unexpected response structure:', response.data)
-      return undefined
+      return date.toLocaleString() // Will show something like "11/29/2024, 3:30:45 PM"
     }
-  } catch (error) {
-    console.error('Error fetching reporter count:', error)
     return undefined
+  } catch (error) {
+    console.error('Error in getAllowedAmountExp:', error)
+    return undefined
+  }
+}
+
+export const getReporterCount = async (): Promise<number> => {
+  try {
+    const response = await axios.get('/api/reporter-count')
+    console.log('Reporter count response:', response.data)
+    return response.data.count || 0
+  } catch (error) {
+    console.error('Error in getReporterCount:', error)
+    return 0
   }
 }
 
@@ -163,9 +173,8 @@ export const getReporterList = async (): Promise<string[] | undefined> => {
 export const getReporterSelectors = async (
   reporter: string
 ): Promise<number | undefined> => {
-  const url = `https://tellorlayer.com/tellor-io/layer/reporter/num-of-selectors-by-reporter/${reporter}`
   try {
-    const response = await axios.get(url)
+    const response = await axios.get(`/api/reporter-selectors/${reporter}`)
     if (response.data && typeof response.data.num_of_selectors === 'number') {
       return response.data.num_of_selectors
     } else {
@@ -244,38 +253,28 @@ export const getValidatorMoniker = async (address: string): Promise<string> => {
   }
 }*/
 
-export const getCurrentCycleList = async (): Promise<any[]> => {
-  const url =
-    'https://tellorlayer.com/tellor-io/layer/oracle/current_cyclelist_query'
+export const getCurrentCycleList = async (): Promise<
+  Array<{ queryParams: string }>
+> => {
   try {
-    console.log('Fetching current cycle list from:', url)
-    const response = await axios.get(url)
-    console.log('Response data:', response.data)
+    const response = await axios.get('/api/current-cycle')
 
-    if (response.data && response.data.query_data) {
-      // If query_data is a string, wrap it in an array
-      const queryDataArray = Array.isArray(response.data.query_data)
-        ? response.data.query_data
-        : [response.data.query_data]
-
-      return queryDataArray.map(decodeQueryData)
-    } else {
-      console.log('No query_data found in response')
-      return []
+    if (response.data && Array.isArray(response.data)) {
+      return response.data
     }
+
+    console.error('Client: Invalid response structure:', response.data)
+    return []
   } catch (error) {
-    console.error('Error fetching current cycle list:', error)
+    console.error('Client: Error fetching current cycle list:', error)
     return []
   }
 }
 
 function decodeQueryData(queryData: string): any {
   try {
-    console.log('Attempting to decode:', queryData)
-
     // Convert hex to ASCII
     const asciiData = Buffer.from(queryData, 'hex').toString('ascii')
-    console.log('ASCII data:', asciiData)
 
     // Find the query type
     const spotPriceIndex = asciiData.indexOf('SpotPrice')
@@ -294,5 +293,15 @@ function decodeQueryData(queryData: string): any {
   } catch (error) {
     console.error('Error decoding query data:', error)
     return { queryType: 'Unknown', queryParams: [] }
+  }
+}
+
+export const getValidators = async () => {
+  try {
+    const response = await axios.get('/api/validators')
+    return response.data
+  } catch (error) {
+    console.error('Error fetching validators:', error)
+    return undefined
   }
 }

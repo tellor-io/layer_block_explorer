@@ -167,6 +167,7 @@ export const NavItem = ({
 }: NavItemProps) => {
   const router = useRouter()
   const [isSelected, setIsSelected] = useState(false)
+  const selectedColor = 'sidebar-selected' // Using the theme token
 
   useEffect(() => {
     if (route === '/') {
@@ -196,11 +197,14 @@ export const NavItem = ({
             ? useColorModeValue('light-theme', 'dark-theme')
             : 'transparent'
         }
-        color={isSelected ? 'white' : useColorModeValue('black', 'white')}
+        color={
+          isSelected
+            ? useColorModeValue('white', 'black')
+            : useColorModeValue('black', 'white')
+        }
         _hover={{
-          color: isSelected
-            ? 'white'
-            : useColorModeValue('light-theme', 'dark-theme'),
+          bg: 'button-hover',
+          color: 'black', // Matching the button hover text color
         }}
         {...rest}
       >
@@ -210,7 +214,7 @@ export const NavItem = ({
             fontSize="16"
             _groupHover={{
               color: isSelected
-                ? 'white'
+                ? selectedColor
                 : useColorModeValue('light-theme', 'dark-theme'),
             }}
             as={icon}

@@ -1,26 +1,24 @@
-import { configureStore, ThunkAction, Action } from '@reduxjs/toolkit'
-import { connectSlice } from './connectSlice'
-import { streamSlice } from './streamSlice'
-import { paramsSlice } from './paramsSlice'
+import { configureStore } from '@reduxjs/toolkit'
 import { createWrapper } from 'next-redux-wrapper'
+import connectReducer from './connectSlice'
+import streamReducer from './streamSlice'
+import paramsReducer from './paramsSlice'
 
-const makeStore = () =>
+export const makeStore = () =>
   configureStore({
     reducer: {
-      [connectSlice.name]: connectSlice.reducer,
-      [streamSlice.name]: streamSlice.reducer,
-      [paramsSlice.name]: paramsSlice.reducer,
+      connect: connectReducer,
+      stream: streamReducer,
+      params: paramsReducer,
     },
-    devTools: true,
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware({
+        serializableCheck: false, // Disable serializable check completely
+      }),
+    devTools: process.env.NODE_ENV !== 'production',
   })
 
 export type AppStore = ReturnType<typeof makeStore>
 export type AppState = ReturnType<AppStore['getState']>
-export type AppThunk<ReturnType = void> = ThunkAction<
-  ReturnType,
-  AppState,
-  unknown,
-  Action
->
 
 export const wrapper = createWrapper<AppStore>(makeStore)

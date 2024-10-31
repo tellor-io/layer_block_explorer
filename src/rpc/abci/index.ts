@@ -50,7 +50,6 @@ export async function queryAllValidators(
     req
   )
   const response = QueryValidatorsResponse.decode(value)
-  console.log('Fetched validators:', response.validators)
   return response
 }
 

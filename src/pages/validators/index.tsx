@@ -22,6 +22,7 @@ import { convertRateToPercent, convertVotingPower } from '@/utils/helper'
 import { ColumnDef } from '@tanstack/react-table'
 
 type ValidatorData = {
+  operatorAddress: string
   validator: string
   status: string
   votingPower: number
@@ -64,14 +65,15 @@ const columns: ColumnDef<ValidatorData, any>[] = [
 ]
 
 export default function Validators() {
-  const tmClient = useSelector(selectTmClient)
-  const toast = useToast()
   const [page, setPage] = useState(0)
   const [perPage, setPerPage] = useState(10)
   const [total, setTotal] = useState(0)
   const [data, setData] = useState<ValidatorData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [totalVotingPower, setTotalVotingPower] = useState(0)
+
+  const tmClient = useSelector(selectTmClient)
+  const toast = useToast()
 
   const validatorDataWithPercentage = useMemo(() => {
     if (totalVotingPower === 0) return data
@@ -106,6 +108,7 @@ export default function Validators() {
           const validatorData: ValidatorData[] = response.validators
             .slice(page * perPage, (page + 1) * perPage)
             .map((val) => ({
+              operatorAddress: val.operatorAddress ?? '',
               validator: val.description?.moniker ?? '',
               status: val.status === 3 ? 'Active' : 'Inactive',
               votingPower: convertVotingPower(val.tokens),
