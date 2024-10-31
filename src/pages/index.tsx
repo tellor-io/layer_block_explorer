@@ -100,8 +100,10 @@ export default function Home() {
     getAllowedStakingAmount()
       .then((amount) => {
         if (amount !== undefined) {
-          const formattedAmount =
-            new Intl.NumberFormat().format(amount) + ' TRB'
+          const numAmount = Number(amount)
+          const formattedAmount = !isNaN(numAmount)
+            ? new Intl.NumberFormat().format(numAmount) + ' TRB'
+            : '0 TRB'
           setStakingAmount(formattedAmount)
         } else {
           setStakingAmount('0 TRB')
