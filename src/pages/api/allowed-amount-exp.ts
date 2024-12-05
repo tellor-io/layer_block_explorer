@@ -14,7 +14,6 @@ export default async function handler(
     }
 
     const data = await response.json()
-    console.log('Received data:', data)
 
     const expiration = BigInt(data?.expiration)
     const expirationNum = Number(expiration)

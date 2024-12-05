@@ -27,13 +27,17 @@ import {
   FiLogOut,
   FiGithub,
   FiAlertCircle,
+  FiDatabase,
 } from 'react-icons/fi'
 import { IconType } from 'react-icons'
+import { RiBearSmileFill, RiBankLine } from 'react-icons/ri'
+import { FaUserCheck } from 'react-icons/fa'
 import NextLink from 'next/link'
 import { useRouter } from 'next/router'
 import { selectSubsNewBlock, selectSubsTxEvent } from '@/store/streamSlice'
 import { useSelector } from 'react-redux'
 import { LS_RPC_ADDRESS } from '@/utils/constant'
+import { GiFactory, GiGavel } from 'react-icons/gi'
 
 interface LinkItemProps {
   name: string
@@ -44,10 +48,11 @@ interface LinkItemProps {
 export const LinkItems: Array<LinkItemProps> = [
   { name: 'Home', icon: FiHome, route: '/' },
   { name: 'Blocks', icon: FiBox, route: '/blocks' },
-  { name: 'Validators', icon: FiCompass, route: '/validators' },
-  { name: 'Reporters', icon: FiCompass, route: '/reporters' },
-  { name: 'Proposals', icon: FiStar, route: '/proposals' },
+  { name: 'Validators', icon: FaUserCheck, route: '/validators' },
+  { name: 'Reporters', icon: RiBearSmileFill, route: '/reporters' },
+  { name: 'Proposals', icon: GiGavel, route: '/proposals' },
   { name: 'Parameters', icon: FiSliders, route: '/parameters' },
+  { name: 'Query ID Station', icon: GiFactory, route: '/oracle-bridge' },
 ]
 export const RefLinkItems: Array<LinkItemProps> = [
   {

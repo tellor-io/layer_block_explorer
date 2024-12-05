@@ -3,8 +3,9 @@ import { createWrapper } from 'next-redux-wrapper'
 import connectReducer from './connectSlice'
 import streamReducer from './streamSlice'
 import paramsReducer from './paramsSlice'
+import { AppStore } from './types'
 
-export const makeStore = () =>
+const makeStore = () =>
   configureStore({
     reducer: {
       connect: connectReducer,
@@ -13,12 +14,9 @@ export const makeStore = () =>
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({
-        serializableCheck: false, // Disable serializable check completely
+        serializableCheck: false,
       }),
-    devTools: process.env.NODE_ENV !== 'production',
   })
 
-export type AppStore = ReturnType<typeof makeStore>
-export type AppState = ReturnType<AppStore['getState']>
-
 export const wrapper = createWrapper<AppStore>(makeStore)
+export type { AppState, RootState, AppDispatch } from './types'

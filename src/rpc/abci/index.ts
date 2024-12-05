@@ -142,7 +142,6 @@ export async function queryProposalVotes(
   tmClient: Tendermint37Client,
   proposalId: number
 ) {
-  console.log(`Querying proposal ${proposalId}`)
   const queryClient = new QueryClient(tmClient)
 
   const proposalPath = `/cosmos.gov.v1beta1.Query/Proposal`
@@ -157,7 +156,6 @@ export async function queryProposalVotes(
   const proposalResponse = QueryProposalResponse.decode(proposalValue)
 
   if (!proposalResponse.proposal) {
-    console.log(`No proposal found for ID ${proposalId}`)
     return { hasVotes: false, voteDistribution: null, totalPower: 0 }
   }
 

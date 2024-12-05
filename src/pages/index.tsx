@@ -120,7 +120,7 @@ export default function Home() {
       .then((amount) => {
         if (amount !== undefined) {
           const formattedAmount =
-            new Intl.NumberFormat().format(Number(amount)) + ' TRB'
+            new Intl.NumberFormat().format(Math.abs(Number(amount))) + ' TRB'
           setUnstakingAmount(formattedAmount)
         } else {
           setUnstakingAmount('0 TRB')

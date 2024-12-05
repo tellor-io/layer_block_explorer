@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction, Action } from '@reduxjs/toolkit'
-import { AppState } from './index'
+import { AppState } from './types'
 import { HYDRATE } from 'next-redux-wrapper'
 import { Tendermint37Client } from '@cosmjs/tendermint-rpc'
 
