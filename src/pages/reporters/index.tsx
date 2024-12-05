@@ -68,11 +68,15 @@ const columns = [
     meta: {
       isNumeric: true,
     },
-    cell: (props) => (
-      <div style={{ width: '60px', textAlign: 'right' }}>
-        {parseFloat(props.getValue()).toFixed(2) + '%'}
-      </div>
-    ),
+    cell: (props) => {
+      const rawValue = props.getValue()
+      const percentage = parseFloat(rawValue) * 100000000000000
+      return (
+        <div style={{ width: '60px', textAlign: 'right' }}>
+          {percentage.toFixed(2) + '%'}
+        </div>
+      )
+    },
   }),
   columnHelper.accessor('jailed', {
     header: 'Jailed',

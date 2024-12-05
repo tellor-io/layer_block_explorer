@@ -1,5 +1,5 @@
 import { createSlice, Action } from '@reduxjs/toolkit'
-import { AppState } from './index'
+import { AppState } from './types'
 import { HYDRATE } from 'next-redux-wrapper'
 import { Params as StakingParams } from 'cosmjs-types/cosmos/staking/v1beta1/staking'
 import { Params as MintParams } from 'cosmjs-types/cosmos/mint/v1beta1/mint'

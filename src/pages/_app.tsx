@@ -5,32 +5,35 @@ import { ChakraProvider, useColorModeValue } from '@chakra-ui/react'
 import Layout from '@/components/Layout'
 import theme, { ppNeueMontreal } from '@/theme'
 import { wrapper } from '@/store'
-import { Provider } from 'react-redux'
-import { ReactNode } from 'react'
+import Head from 'next/head'
 
-function App({
-  Component,
-  pageProps,
-}: AppProps & { Component: { children?: ReactNode } }) {
-  const { store, props } = wrapper.useWrappedStore(pageProps)
+function App({ Component, ...rest }: AppProps) {
+  const { store, props } = wrapper.useWrappedStore(rest)
+  const { pageProps } = props
+
   return (
     <ChakraProvider theme={theme}>
-      <Provider store={store}>
-        <main
-          className={ppNeueMontreal.variable}
-          style={{
-            fontFamily: 'var(--font-pp-neue-montreal), sans-serif',
-            backgroundColor: useColorModeValue('light-bg', 'dark-bg'),
-            minHeight: '100vh',
-          }}
-        >
-          <Layout>
-            <Component {...props} />
-          </Layout>
-        </main>
-      </Provider>
+      <Head>
+        <link rel="icon" type="image/x-icon" href="/nuuu.ico" />
+        <link rel="shortcut icon" type="image/x-icon" href="/nuuu.ico" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/nuuu.ico" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/nuuu.ico" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/nuuu.ico" />
+      </Head>
+      <main
+        className={ppNeueMontreal.variable}
+        style={{
+          fontFamily: 'var(--font-pp-neue-montreal), sans-serif',
+          backgroundColor: useColorModeValue('light-bg', 'dark-bg'),
+          minHeight: '100vh',
+        }}
+      >
+        <Layout>
+          <Component {...pageProps} />
+        </Layout>
+      </main>
     </ChakraProvider>
   )
 }
 
-export default App
+export default wrapper.withRedux(App)

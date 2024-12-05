@@ -204,7 +204,6 @@ export default function Blocks() {
         validatorMap[validator.address] = validator.moniker
       })
 
-      console.log('Validator Map:', validatorMap)
       setValidatorMap(validatorMap)
     } catch (error) {
       console.error('Error fetching validators:', error)
@@ -243,9 +242,7 @@ export default function Blocks() {
       const hexAddress = Buffer.from(proposerAddress)
         .toString('hex')
         .toLowerCase()
-      console.log('Proposer Hex Address:', hexAddress)
       const moniker = validatorMap[hexAddress] || 'Unknown'
-      console.log('Found Moniker:', moniker)
       return moniker
     } catch (error) {
       console.error('Error converting proposer address:', error)

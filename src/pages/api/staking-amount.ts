@@ -6,7 +6,7 @@ export default async function handler(
 ) {
   try {
     const response = await fetch(
-      'https://tellorlayer.com/tellor-io/layer/oracle/allowed-staking-amount'
+      'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount'
     )
 
     if (!response.ok) {

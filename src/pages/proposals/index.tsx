@@ -169,10 +169,6 @@ export default function Proposals() {
                 tmClient,
                 val.proposalId.low
               )
-              console.log(
-                `Vote results for proposal ${val.proposalId.low}:`,
-                voteResults
-              )
 
               return {
                 id: val.proposalId.low,

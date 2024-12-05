@@ -62,6 +62,14 @@ const heightRegex = /^\d+$/
 const txhashRegex = /^[A-Z\d]{64}$/
 const addrRegex = /^[a-z\d]+1[a-z\d]{38,58}$/
 
+const Links = [
+  { name: 'Blocks', href: '/blocks' },
+  { name: 'Validators', href: '/validators' },
+  { name: 'Reporters', href: '/reporters' },
+  { name: 'Proposals', href: '/proposals' },
+  { name: 'Query ID Station', href: '/oracle-bridge' },
+]
+
 export default function Navbar() {
   const router = useRouter()
   const tmClient = useSelector(selectTmClient)
@@ -83,7 +91,7 @@ export default function Navbar() {
 
   useEffect(() => {
     if (tmClient) {
-      tmClient.status().then((res) => {
+      tmClient.status().then((res: StatusResponse) => {
         setStatus(res)
       })
     }

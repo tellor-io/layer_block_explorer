@@ -55,6 +55,20 @@ function decodeBase64ToUtf8(base64String: string) {
   return Buffer.from(base64String, 'base64').toString('utf8')
 }
 
+// Add this function at the top of your file, after the imports
+const serializeBigInt = (data: any): any => {
+  if (typeof data === 'bigint') {
+    return data.toString()
+  } else if (Array.isArray(data)) {
+    return data.map(serializeBigInt)
+  } else if (typeof data === 'object' && data !== null) {
+    return Object.fromEntries(
+      Object.entries(data).map(([key, value]) => [key, serializeBigInt(value)])
+    )
+  }
+  return data
+}
+
 export default function DetailBlock() {
   const router = useRouter()
   const toast = useToast()
@@ -84,7 +98,7 @@ export default function DetailBlock() {
     JSON.stringify(decodedTxData, null, 2)
   )
   const { onCopy: onCopyResults, hasCopied: hasCopiedResults } = useClipboard(
-    JSON.stringify(blockResults, null, 2)
+    blockResults ? JSON.stringify(serializeBigInt(blockResults), null, 2) : ''
   )
 
   const handleCopy = (copyFunction: () => void, content: string) => {
@@ -104,14 +118,9 @@ export default function DetailBlock() {
       getBlock(tmClient, parseInt(height as string, 10))
         .then((blockData: Block) => {
           const extendedBlockData = blockData as ExtendedBlock // Type assertion
-          console.log('Function called, extendedBlockData:', extendedBlockData)
 
           try {
             if (extendedBlockData.rawData) {
-              console.log(
-                'Raw data before decoding:',
-                extendedBlockData.rawData
-              )
               decodeData(extendedBlockData.rawData)
             } else {
               console.log('No rawData found in extendedBlockData')
@@ -125,7 +134,7 @@ export default function DetailBlock() {
           // Move the API call here
           axios
             .get(
-              `https://tellorlayer.com/rpc/block?height=${extendedBlockData.header.height}`
+              `https://rpc.layer-node.com/block?height=${extendedBlockData.header.height}`
             )
             .then((response) => {
               const txData = response.data.result.block.data.txs[0]
@@ -143,19 +152,20 @@ export default function DetailBlock() {
         })
 
       // Fetch block results
-      getBlockResults(
-        parseInt(Array.isArray(height) ? height[0] : height)
-      ).then((results) => {
-        setBlockResults(results)
-      })
+      // Fetch block results
+      getBlockResults(parseInt(Array.isArray(height) ? height[0] : height))
+        .then((results) => {
+          setBlockResults(results)
+        })
+        .catch((error) => {
+          console.error('Error fetching block results:', error)
+        })
     }
   }, [tmClient, height])
 
   useEffect(() => {
     if (block?.txs.length && !txs.length) {
       for (const rawTx of block.txs) {
-        console.log('Raw transaction data:', rawTx) // Log the raw transaction data
-
         try {
           const data = TxData.decode(rawTx)
           const hash = sha256(rawTx)
@@ -173,6 +183,8 @@ export default function DetailBlock() {
       }
     }
   }, [block])
+
+  useEffect(() => {}, [blockResults])
 
   const renderMessages = (messages: any) => {
     if (messages.length == 1) {
@@ -229,8 +241,6 @@ export default function DetailBlock() {
   const toggleFullScreen = () => {
     setIsFullScreen(!isFullScreen)
   }
-
-  console.log('decodedTxData:', decodedTxData)
 
   return (
     <ErrorBoundary>
@@ -334,7 +344,7 @@ export default function DetailBlock() {
                     </Td>
                   </Tr>
                 )}
-                {blockResults && (
+                {blockResults !== null && (
                   <Tr>
                     <Td pl={0} width={150}>
                       <b>Block Results</b>
@@ -497,7 +507,11 @@ export default function DetailBlock() {
                 right={2}
                 size="sm"
               />
-              <pre>{JSON.stringify(blockResults, null, 2)}</pre>
+              <pre>
+                {blockResults
+                  ? JSON.stringify(serializeBigInt(blockResults), null, 2)
+                  : ''}
+              </pre>
             </Box>
           </ModalBody>
           <ModalFooter>
