@@ -121,12 +121,37 @@ export default function OracleBridge() {
   }
 
   const fetchAttestationData = async () => {
-    if (!currentSnapshot) return
-
     try {
-      const response = await fetch(
-        `/api/bridge-attestations/${currentSnapshot}`
+      // Initialize snapshot variable
+      let snapshot = currentSnapshot
+
+      // Fetch bridge data if we don't have a snapshot
+      if (!snapshot) {
+        console.log('Fetching bridge data first to get snapshot...')
+        const bridgeResponse = await fetch(
+          `/api/bridge-data/${bridgeQueryId}/${bridgeTimestamp}`
+        )
+        const bridgeDataResult = await bridgeResponse.json()
+
+        if (!bridgeResponse.ok) {
+          throw new Error(
+            bridgeDataResult.error || 'Failed to fetch bridge data'
+          )
+        }
+
+        snapshot = bridgeDataResult.snapshot
+        setCurrentSnapshot(snapshot)
+        setBridgeData(bridgeDataResult)
+        console.log('Got snapshot:', snapshot)
+      }
+
+      // Now fetch the attestation data using the snapshot
+      console.log(
+        'Fetching attestation data...',
+        `/api/bridge-attestations/${snapshot}`
       )
+
+      const response = await fetch(`/api/bridge-attestations/${snapshot}`)
       const data = await response.json()
 
       if (!response.ok) {
@@ -136,6 +161,7 @@ export default function OracleBridge() {
       setAttestationData(data)
       setIsAttestationModalOpen(true)
     } catch (error) {
+      console.error('Error in fetchAttestationData:', error)
       toast({
         title: 'Error fetching attestation data',
         description: getErrorMessage(error),
@@ -174,27 +200,94 @@ export default function OracleBridge() {
 
   const generateWithdrawalData = async () => {
     try {
-      if (!bridgeData || !attestationData || !evmValidators) {
-        throw new Error('Please fetch all required data first')
+      console.log('Starting generateWithdrawalData...')
+
+      // Fetch bridge data
+      console.log(
+        'Fetching bridge data...',
+        `/api/bridge-data/${bridgeQueryId}/${bridgeTimestamp}`
+      )
+      const bridgeResponse = await fetch(
+        `/api/bridge-data/${bridgeQueryId}/${bridgeTimestamp}`
+      )
+      const bridgeDataResult = await bridgeResponse.json()
+      console.log('Bridge data response:', bridgeDataResult)
+
+      if (!bridgeResponse.ok) {
+        throw new Error(bridgeDataResult.error || 'Failed to fetch bridge data')
+      }
+      setBridgeData(bridgeDataResult)
+
+      // Fetch attestation data
+      console.log(
+        'Fetching attestation data...',
+        `/api/bridge-attestations/${bridgeDataResult.snapshot}`
+      )
+      const attestResponse = await fetch(
+        `/api/bridge-attestations/${bridgeDataResult.snapshot}`
+      )
+      const attestDataResult = await attestResponse.json()
+      console.log('Attestation data response:', attestDataResult)
+
+      if (!attestResponse.ok) {
+        throw new Error(
+          attestDataResult.error || 'Failed to fetch attestation data'
+        )
+      }
+      setAttestationData(attestDataResult)
+
+      // Fetch EVM validators
+      let validatorData = evmValidators
+      if (!validatorData) {
+        console.log('Fetching EVM validators...')
+        const validatorResponse = await fetch('/api/evm-validators')
+        const validatorResult = await validatorResponse.json()
+        console.log('Validator data response:', validatorResult)
+
+        if (!validatorResponse.ok) {
+          throw new Error(
+            validatorResult.error || 'Failed to fetch EVM validators'
+          )
+        }
+        validatorData = validatorResult
+        setEvmValidators(validatorData)
       }
 
-      // Debug log to see the structure
-      console.log('Attestation Data:', attestationData)
+      // Log all collected data
+      console.log('All collected data:', {
+        bridgeData: bridgeDataResult,
+        attestationData: attestDataResult,
+        validatorData,
+      })
+
+      // Verify we have all needed data
+      if (!bridgeDataResult || !attestDataResult || !validatorData) {
+        throw new Error('Unable to fetch required data')
+      }
 
       const { signatures, validators } = (await deriveSignatures(
-        bridgeData.snapshot,
-        bridgeData.attestations,
-        evmValidators.bridge_validator_set
+        bridgeDataResult.snapshot,
+        bridgeDataResult.attestations,
+        validatorData.bridge_validator_set
       )) as SignatureResult
 
+      // Create report data from the attestation fields
+      const reportData = {
+        value: attestDataResult.aggregate_value
+          ? `0x${attestDataResult.aggregate_value}`
+          : '0x',
+        timestamp: attestDataResult.timestamp || '0',
+        aggregatePower: attestDataResult.aggregate_power || '0',
+        previousTimestamp: '0', // If these values exist in your data, map them accordingly
+        nextTimestamp: '0',
+      }
+
+      console.log('Mapped Report Data:', reportData)
+
       const attestData = {
-        queryId: bridgeQueryId,
-        report: {
-          timestamp: attestationData.timestamp,
-          value: attestationData.aggregate?.value,
-          aggregatePower: attestationData.aggregate?.power,
-        },
-        attestationTimestamp: attestationData.timestamp,
+        queryId: attestDataResult.query_id,
+        report: reportData,
+        attestationTimestamp: attestDataResult.timestamp,
       }
 
       console.log('Generated Attest Data:', attestData)
@@ -215,7 +308,16 @@ export default function OracleBridge() {
 
       setWithdrawalData(formattedWithdrawalData)
     } catch (error) {
-      console.error('Error in generateWithdrawalData:', error)
+      console.error('Detailed error in generateWithdrawalData:', {
+        error,
+        bridgeQueryId,
+        bridgeTimestamp,
+        currentState: {
+          bridgeData,
+          attestationData,
+          evmValidators,
+        },
+      })
       toast({
         title: 'Error generating withdrawal data',
         description: getErrorMessage(error),
@@ -363,7 +465,7 @@ export default function OracleBridge() {
             {/* Oracle Section */}
             <Box>
               <HStack spacing={2} mb={4}>
-                <Heading size="sm">Latest Report Data</Heading>
+                <Heading size="sm">Query ID</Heading>
                 <Tooltip
                   label="View latest report data for this Query ID"
                   fontSize="sm"
@@ -374,14 +476,13 @@ export default function OracleBridge() {
               </HStack>
               <VStack spacing={4} align="stretch">
                 <HStack spacing={2}>
-                  <Text>Query ID:</Text>
                   <Input
                     value={oracleQueryId}
                     onChange={(e) => {
                       setOracleQueryId(e.target.value)
                       setBridgeQueryId(e.target.value)
                     }}
-                    placeholder="Enter query ID"
+                    placeholder="Enter Layer Query ID"
                     width="610px"
                   />
                 </HStack>
@@ -393,7 +494,7 @@ export default function OracleBridge() {
                   minW="150px"
                   alignSelf="flex-start"
                 >
-                  View Oracle Data
+                  View Latest Report Data
                 </Button>
               </VStack>
             </Box>
@@ -403,9 +504,9 @@ export default function OracleBridge() {
             {/* Bridge Section */}
             <Box>
               <HStack spacing={2} mb={4}>
-                <Heading size="sm">Bridge Data</Heading>
+                <Heading size="sm">Data Blobs</Heading>
                 <Tooltip
-                  label="Generate withdrawal data using bridge attestations"
+                  label="Generate data using specific timestamps"
                   fontSize="sm"
                   placement="right"
                 >
@@ -432,13 +533,6 @@ export default function OracleBridge() {
                 <HStack spacing={4} justify="flex-start">
                   <VStack spacing={4} align="flex-start">
                     <HStack spacing={4} justify="flex-start" align="center">
-                      <Tooltip
-                        label="Complete these steps in sequence"
-                        fontSize="sm"
-                        placement="right"
-                      >
-                        <InfoOutlineIcon color="gray.400" mr={2} />
-                      </Tooltip>
                       <Button
                         onClick={fetchBridgeData}
                         colorScheme="green"
@@ -446,37 +540,27 @@ export default function OracleBridge() {
                         size="md"
                         minW="150px"
                       >
-                        1. Get Attestation Data
+                        Get Attestation Data
                       </Button>
-                      <Icon
-                        as={FiChevronRight}
-                        boxSize={6}
-                        color={currentSnapshot ? 'green.500' : 'gray.300'}
-                      />
+
                       <Button
                         onClick={fetchAttestationData}
                         colorScheme="green"
-                        isDisabled={!currentSnapshot}
+                        isDisabled={!bridgeQueryId || !bridgeTimestamp}
                         size="md"
                         minW="150px"
                       >
-                        2. Get Bridge Metadata
+                        Get Bridge Metadata
                       </Button>
-                      <Icon
-                        as={FiChevronRight}
-                        boxSize={6}
-                        color={attestationData ? 'green.500' : 'gray.300'}
-                      />
+
                       <Button
                         onClick={generateWithdrawalData}
                         colorScheme="blue"
-                        isDisabled={
-                          !bridgeData || !attestationData || !evmValidators
-                        }
+                        isDisabled={!bridgeQueryId || !bridgeTimestamp}
                         size="md"
                         minW="150px"
                       >
-                        3. Assemble Oracle Proofs
+                        Generate Oracle Proofs
                       </Button>
                     </HStack>
                   </VStack>
@@ -504,21 +588,32 @@ export default function OracleBridge() {
                               aria-label="Copy queryId"
                               icon={<CopyIcon />}
                               size="sm"
-                              onClick={() =>
-                                copyToClipboard(
-                                  JSON.parse(withdrawalData.attestData || '{}')
-                                    .queryId
+                              onClick={() => {
+                                const queryId = JSON.parse(
+                                  withdrawalData.attestData || '{}'
+                                ).queryId
+                                if (!queryId) return
+                                const formattedQueryId = queryId.startsWith(
+                                  '0x'
                                 )
-                              }
+                                  ? queryId
+                                  : `0x${queryId}`
+                                copyToClipboard(formattedQueryId)
+                              }}
                             />
                           </Tooltip>
                           <Text fontWeight="semibold">queryId (bytes32):</Text>
                         </HStack>
                         <Text pl={4}>
-                          {
-                            JSON.parse(withdrawalData.attestData || '{}')
-                              .queryId
-                          }
+                          {(() => {
+                            const queryId = JSON.parse(
+                              withdrawalData.attestData || '{}'
+                            ).queryId
+                            if (!queryId) return ''
+                            return queryId.startsWith('0x')
+                              ? queryId
+                              : `0x${queryId}`
+                          })()}
                         </Text>
                       </Box>
                       <Box>
@@ -530,24 +625,42 @@ export default function OracleBridge() {
                               size="sm"
                               onClick={() => {
                                 try {
-                                  const report =
-                                    JSON.parse(
-                                      withdrawalData.attestData || '{}'
-                                    ).report || {}
+                                  const attestDataObj = JSON.parse(
+                                    withdrawalData.attestData || '{}'
+                                  )
+                                  console.log(
+                                    'Parsed attestData:',
+                                    attestDataObj
+                                  )
+
+                                  const report = attestDataObj.report || {}
+                                  console.log(
+                                    'Report before formatting:',
+                                    report
+                                  )
+
                                   const formattedReport = [
                                     report.value || '0x',
                                     (report.timestamp || '0').toString(),
                                     (report.aggregatePower || '0').toString(),
-                                    '0',
-                                    '0',
+                                    (
+                                      report.previousTimestamp || '0'
+                                    ).toString(),
+                                    (report.nextTimestamp || '0').toString(),
                                   ]
+                                  console.log(
+                                    'Formatted report:',
+                                    formattedReport
+                                  )
+
                                   copyToClipboard(
                                     JSON.stringify(formattedReport)
                                   )
                                 } catch (error) {
+                                  console.error('Full error details:', error)
                                   console.error(
-                                    'Error formatting report:',
-                                    error
+                                    'withdrawalData state:',
+                                    withdrawalData
                                   )
                                   toast({
                                     title: 'Error copying report',
@@ -564,13 +677,6 @@ export default function OracleBridge() {
                         </HStack>
                         <VStack align="stretch" pl={4}>
                           <Text>
-                            timestamp (uint256):{' '}
-                            {
-                              JSON.parse(withdrawalData.attestData || '{}')
-                                .report?.timestamp
-                            }
-                          </Text>
-                          <Text>
                             value (bytes):{' '}
                             {
                               JSON.parse(withdrawalData.attestData || '{}')
@@ -578,10 +684,31 @@ export default function OracleBridge() {
                             }
                           </Text>
                           <Text>
+                            timestamp (uint256):{' '}
+                            {
+                              JSON.parse(withdrawalData.attestData || '{}')
+                                .report?.timestamp
+                            }
+                          </Text>
+                          <Text>
                             aggregatePower (uint256):{' '}
                             {
                               JSON.parse(withdrawalData.attestData || '{}')
                                 .report?.aggregatePower
+                            }
+                          </Text>
+                          <Text>
+                            previousTimestamp (uint256):{' '}
+                            {
+                              JSON.parse(withdrawalData.attestData || '{}')
+                                .report?.previousTimestamp
+                            }
+                          </Text>
+                          <Text>
+                            nextTimestamp (uint256):{' '}
+                            {
+                              JSON.parse(withdrawalData.attestData || '{}')
+                                .report?.nextTimestamp
                             }
                           </Text>
                         </VStack>
@@ -734,7 +861,7 @@ export default function OracleBridge() {
         >
           <ModalOverlay />
           <ModalContent>
-            <ModalHeader>Bridge Data</ModalHeader>
+            <ModalHeader>Attestation Data</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
               <Box
@@ -769,7 +896,7 @@ export default function OracleBridge() {
         >
           <ModalOverlay />
           <ModalContent>
-            <ModalHeader>Attestation Data</ModalHeader>
+            <ModalHeader>Bridge MetaData</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
               <Box
