@@ -57,6 +57,7 @@ import { MoonIcon, SunIcon } from '@chakra-ui/icons'
 import { StatusResponse } from '@cosmjs/tendermint-rpc'
 import { connectWebsocketClient, validateConnection } from '@/rpc/client'
 import { LinkItems, RefLinkItems, NavItem } from '@/components/Sidebar'
+import { rpcManager } from '../../utils/rpcManager'
 
 const heightRegex = /^\d+$/
 const txhashRegex = /^[A-Z\d]{64}$/
@@ -118,45 +119,85 @@ export default function Navbar() {
 
   const handleEditRPCAddress = async () => {
     try {
-      const isValid = await validateConnection(newRPCAddress)
-      if (!isValid) {
-        toast({
-          title: 'Connection Error',
-          description:
-            'Unable to establish WebSocket connection to the RPC endpoint.',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        })
-        return
-      }
+      // If user is inputting a custom RPC, use it directly
+      if (newRPCAddress) {
+        const isValid = await validateConnection(newRPCAddress)
+        if (!isValid) {
+          toast({
+            title: 'Connection Error',
+            description: 'Unable to connect to custom RPC endpoint.',
+            status: 'error',
+            duration: 5000,
+            isClosable: true,
+          })
+          return
+        }
 
-      const tmClient = await connectWebsocketClient(newRPCAddress)
-      if (tmClient) {
-        dispatch(setConnectState(true))
-        dispatch(setTmClient(tmClient))
-        dispatch(setRPCAddress(newRPCAddress))
-        setIsEditModalOpen(false)
-        toast({
-          title: 'RPC Address Updated',
-          description: 'The network information has been updated.',
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        })
+        // Set the custom endpoint in the manager
+        rpcManager.setCustomEndpoint(newRPCAddress)
+
+        const tmClient = await connectWebsocketClient(newRPCAddress)
+        if (tmClient) {
+          dispatch(setConnectState(true))
+          dispatch(setTmClient(tmClient))
+          dispatch(setRPCAddress(newRPCAddress))
+          setIsEditModalOpen(false)
+          toast({
+            title: 'RPC Connection Established',
+            description: `Connected to custom endpoint`,
+            status: 'success',
+            duration: 3000,
+            isClosable: true,
+          })
+        }
+      } else {
+        // Use the fallback mechanism if no custom RPC is provided
+        const endpoint = await rpcManager.getCurrentEndpoint()
+        const isValid = await validateConnection(endpoint)
+
+        if (!isValid) {
+          await rpcManager.reportFailure(endpoint)
+          toast({
+            title: 'Connection Error',
+            description: 'Trying fallback endpoint...',
+            status: 'warning',
+            duration: 3000,
+            isClosable: true,
+          })
+          // Retry with next endpoint
+          handleEditRPCAddress()
+          return
+        }
+
+        const tmClient = await connectWebsocketClient(endpoint)
+        if (tmClient) {
+          await rpcManager.reportSuccess(endpoint)
+          dispatch(setConnectState(true))
+          dispatch(setTmClient(tmClient))
+          dispatch(setRPCAddress(endpoint))
+          setIsEditModalOpen(false)
+          toast({
+            title: 'RPC Connection Established',
+            description: `Connected to ${endpoint}`,
+            status: 'success',
+            duration: 3000,
+            isClosable: true,
+          })
+        }
       }
     } catch (error) {
-      console.error('Error connecting to new RPC address:', error)
+      console.error('Error connecting to RPC:', error)
       toast({
         title: 'Connection Error',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Failed to connect to the RPC endpoint.',
+        description: 'Failed to connect. Reverting to fallback endpoints...',
         status: 'error',
         duration: 5000,
         isClosable: true,
       })
+
+      // Clear custom endpoint and fall back to default endpoints
+      rpcManager.setCustomEndpoint(null)
+      handleEditRPCAddress()
     }
   }
 
