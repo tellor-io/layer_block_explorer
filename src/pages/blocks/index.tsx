@@ -1,5 +1,5 @@
 import Head from 'next/head'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import axios from 'axios'
 import { pubkeyToAddress as aminoPubkeyToAddress, Pubkey } from '@cosmjs/amino'
 import { fromBech32, fromBase64 } from '@cosmjs/encoding'
@@ -43,6 +43,7 @@ import { TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
 import { timeFromNow, trimHash, getTypeMsg } from '@/utils/helper'
 import { sha256 } from '@cosmjs/crypto'
 import { getValidators } from '@/rpc/query'
+import { CopyableHash } from '@/components/CopyableHash'
 
 const MAX_ROWS = 20
 
@@ -66,23 +67,6 @@ interface ValidatorMap {
   [key: string]: string
 }
 
-const CopyableHash = ({ hash }: { hash: Uint8Array }) => {
-  const hexHash = toHex(hash)
-  const { hasCopied, onCopy } = useClipboard(hexHash)
-
-  return (
-    <Tooltip
-      label={hasCopied ? 'Copied!' : 'Click to copy full hash'}
-      closeOnClick={false}
-    >
-      <HStack spacing={1} cursor="pointer" onClick={onCopy}>
-        <Text>{trimHash(hash)}</Text>
-        <Icon as={FiCopy} boxSize={4} />
-      </HStack>
-    </Tooltip>
-  )
-}
-
 export default function Blocks() {
   const newBlock = useSelector(selectNewBlock)
   const txEvent = useSelector(selectTxEvent)
@@ -91,6 +75,36 @@ export default function Blocks() {
   const [validatorMap, setValidatorMap] = useState<ValidatorMap>({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const iconColor = useColorModeValue('light-theme', 'dark-theme')
+  const containerBg = useColorModeValue('light-container', 'dark-container')
+  const tabBg = useColorModeValue('light-theme', 'dark-theme')
+  const tabTextColor = useColorModeValue('gray.600', 'gray.200')
+  const tabHoverColor = useColorModeValue('black', 'black')
+  const linkColor = useColorModeValue('light-theme', '#45ffe1')
+  const txLinkColor = useColorModeValue('light-theme', 'dark-theme')
+  const selectedTextColor = useColorModeValue('white', 'black')
+  const selectedBgColor = useColorModeValue('light-theme', 'dark-theme')
+  const heightLinkColor = useColorModeValue('light-theme', '#45ffe1')
+  const txHashColor = useColorModeValue('light-theme', 'dark-theme')
+
+  const tabStyles = useMemo(
+    () => ({
+      selected: {
+        color: selectedTextColor,
+        bg: selectedBgColor,
+      },
+      hover: {
+        bg: 'button-hover',
+        color: tabHoverColor,
+      },
+      normal: {
+        color: tabTextColor,
+        borderRadius: 5,
+      },
+    }),
+    [selectedTextColor, selectedBgColor, tabHoverColor, tabTextColor]
+  )
 
   useEffect(() => {
     async function fetchData() {
@@ -193,31 +207,36 @@ export default function Blocks() {
     fetchData()
   }, [])
 
-  const fetchValidators = async () => {
-    try {
-      const response = await axios.get('https://tellorlayer.com/rpc/validators')
-      const validators = response.data.result.validators
-
-      const validatorMap: { [key: string]: string } = {}
-      validators.forEach((validator: any) => {
-        // Use the address directly without conversion
-        validatorMap[validator.address] = validator.moniker
-      })
-
-      setValidatorMap(validatorMap)
-    } catch (error) {
-      console.error('Error fetching validators:', error)
+  useEffect(() => {
+    if (newBlock) {
+      updateBlocks(newBlock)
     }
-  }
+  }, [newBlock])
+
+  useEffect(() => {
+    if (txEvent) {
+      updateTxs(txEvent)
+    }
+  }, [txEvent])
 
   const updateBlocks = (block: NewBlockEvent) => {
-    if (blocks.length) {
-      if (block.header.height > blocks[0].header.height) {
-        setBlocks((prevBlocks) => [block, ...prevBlocks.slice(0, MAX_ROWS - 1)])
+    setBlocks((prevBlocks) => {
+      // Check if this exact block already exists
+      const exists = prevBlocks.some(
+        (existingBlock) =>
+          existingBlock.header.height === block.header.height &&
+          existingBlock.header.time.getTime() === block.header.time.getTime()
+      )
+
+      if (
+        !exists &&
+        (!prevBlocks.length ||
+          block.header.height > prevBlocks[0].header.height)
+      ) {
+        return [block, ...prevBlocks.slice(0, MAX_ROWS - 1)]
       }
-    } else {
-      setBlocks([block])
-    }
+      return prevBlocks
+    })
   }
 
   const updateTxs = (txEvent: TxEvent) => {
@@ -225,11 +244,16 @@ export default function Blocks() {
       TxEvent: txEvent,
       Timestamp: new Date(),
     }
+
     if (txs.length) {
-      if (
-        txEvent.height >= txs[0].TxEvent.height &&
-        txEvent.hash != txs[0].TxEvent.hash
-      ) {
+      // Check if transaction already exists in the array using both hash and timestamp
+      const exists = txs.some(
+        (existingTx) =>
+          existingTx.TxEvent.hash === txEvent.hash &&
+          existingTx.Timestamp.getTime() === tx.Timestamp.getTime()
+      )
+
+      if (!exists && txEvent.height >= txs[0].TxEvent.height) {
         setTxs((prevTx) => [tx, ...prevTx.slice(0, MAX_ROWS - 1)])
       }
     } else {
@@ -274,20 +298,6 @@ export default function Blocks() {
     return ''
   }
 
-  const tabColor = useColorModeValue('light-theme', 'dark-theme')
-
-  useEffect(() => {
-    if (newBlock) {
-      updateBlocks(newBlock)
-    }
-  }, [newBlock])
-
-  useEffect(() => {
-    if (txEvent) {
-      updateTxs(txEvent)
-    }
-  }, [txEvent])
-
   return (
     <>
       <Head>
@@ -308,49 +318,25 @@ export default function Blocks() {
             display="flex"
             justifyContent="center"
           >
-            <Icon
-              fontSize="16"
-              color={useColorModeValue('light-theme', 'dark-theme')}
-              as={FiHome}
-            />
+            <Icon fontSize="16" color={iconColor} as={FiHome} />
           </Link>
           <Icon fontSize="16" as={FiChevronRight} />
           <Text>Blocks</Text>
         </HStack>
-        <Box
-          mt={8}
-          bg={useColorModeValue('light-container', 'dark-container')}
-          shadow={'base'}
-          borderRadius={4}
-          p={4}
-        >
+        <Box mt={8} bg={containerBg} shadow={'base'} borderRadius={4} p={4}>
           <Tabs variant="unstyled">
             <TabList>
               <Tab
-                _selected={{
-                  color: useColorModeValue('white', 'black'),
-                  bg: tabColor,
-                }}
-                _hover={{
-                  bg: 'button-hover',
-                  color: useColorModeValue('black', 'black'),
-                }}
-                color={useColorModeValue('gray.600', 'gray.200')}
-                borderRadius={5}
+                _selected={tabStyles.selected}
+                _hover={tabStyles.hover}
+                {...tabStyles.normal}
               >
                 Blocks
               </Tab>
               <Tab
-                _selected={{
-                  color: useColorModeValue('white', 'black'),
-                  bg: tabColor,
-                }}
-                _hover={{
-                  bg: 'button-hover',
-                  color: useColorModeValue('black', 'black'),
-                }}
-                color={useColorModeValue('gray.600', 'gray.200')}
-                borderRadius={5}
+                _selected={tabStyles.selected}
+                _hover={tabStyles.hover}
+                {...tabStyles.normal}
               >
                 Transactions
               </Tab>
@@ -369,8 +355,12 @@ export default function Blocks() {
                       </Tr>
                     </Thead>
                     <Tbody>
-                      {blocks.map((block, index) => (
-                        <Tr key={`${block.header.height}-${index}`}>
+                      {blocks.map((block) => (
+                        <Tr
+                          key={`block-${
+                            block.header.height
+                          }-${block.header.time.getTime()}`}
+                        >
                           <Td>
                             <Link
                               as={NextLink}
@@ -378,12 +368,7 @@ export default function Blocks() {
                               style={{ textDecoration: 'none' }}
                               _focus={{ boxShadow: 'none' }}
                             >
-                              <Text
-                                color={useColorModeValue(
-                                  'light-theme',
-                                  '#45ffe1'
-                                )}
-                              >
+                              <Text color={heightLinkColor}>
                                 {block.header.height}
                               </Text>
                             </Link>
@@ -396,15 +381,6 @@ export default function Blocks() {
                               toHex(block.header.proposerAddress)
                             ] || 'Unknown'}
                             {(() => {
-                              console.log(
-                                `Block Proposer Address: ${toHex(
-                                  block.header.proposerAddress
-                                )}, Mapped Moniker: ${
-                                  validatorMap[
-                                    toHex(block.header.proposerAddress)
-                                  ] || 'Unknown'
-                                }`
-                              )
                               return null
                             })()}
                           </Td>
@@ -432,7 +408,11 @@ export default function Blocks() {
                     </Thead>
                     <Tbody>
                       {txs.map((tx) => (
-                        <Tr key={toHex(tx.TxEvent.hash)}>
+                        <Tr
+                          key={`${toHex(
+                            tx.TxEvent.hash
+                          )}-${tx.Timestamp.getTime()}`}
+                        >
                           <Td>
                             <Link
                               as={NextLink}
@@ -442,12 +422,7 @@ export default function Blocks() {
                               style={{ textDecoration: 'none' }}
                               _focus={{ boxShadow: 'none' }}
                             >
-                              <Text
-                                color={useColorModeValue(
-                                  'light-theme',
-                                  'dark-theme'
-                                )}
-                              >
+                              <Text color={txHashColor}>
                                 {trimHash(tx.TxEvent.hash)}
                               </Text>
                             </Link>

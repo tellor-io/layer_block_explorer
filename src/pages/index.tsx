@@ -364,7 +364,6 @@ export default function Home() {
                 icon={LiaHourglassHalfSolid}
                 name="Stake Allowance Reset"
                 value={(() => {
-                  console.log('Current allowedAmountExp:', allowedAmountExp)
                   return allowedAmountExp && !isNaN(allowedAmountExp)
                     ? new Date(allowedAmountExp).toUTCString()
                     : 'Not available'

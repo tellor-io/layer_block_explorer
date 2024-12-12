@@ -38,6 +38,7 @@ import { selectSubsNewBlock, selectSubsTxEvent } from '@/store/streamSlice'
 import { useSelector } from 'react-redux'
 import { LS_RPC_ADDRESS } from '@/utils/constant'
 import { GiFactory, GiGavel } from 'react-icons/gi'
+import { TbChartBubbleFilled } from 'react-icons/tb'
 
 interface LinkItemProps {
   name: string
@@ -52,7 +53,7 @@ export const LinkItems: Array<LinkItemProps> = [
   { name: 'Reporters', icon: RiBearSmileFill, route: '/reporters' },
   { name: 'Proposals', icon: GiGavel, route: '/proposals' },
   { name: 'Parameters', icon: FiSliders, route: '/parameters' },
-  { name: 'Query ID Station', icon: GiFactory, route: '/oracle-bridge' },
+  { name: 'Layer Blobs', icon: TbChartBubbleFilled, route: '/oracle-bridge' },
 ]
 export const RefLinkItems: Array<LinkItemProps> = [
   {

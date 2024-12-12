@@ -13,11 +13,11 @@ import {
   Badge,
   VStack,
 } from '@chakra-ui/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useSelector } from 'react-redux'
 import NextLink from 'next/link'
 import { FiChevronRight, FiHome } from 'react-icons/fi'
-import { selectTmClient } from '@/store/connectSlice'
+import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
 import { queryProposals, queryProposalVotes } from '@/rpc/abci'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
@@ -143,67 +143,112 @@ const columns = [
 
 export default function Proposals() {
   const tmClient = useSelector(selectTmClient)
+  const rpcAddress = useSelector(selectRPCAddress)
   const [page, setPage] = useState(0)
   const [perPage, setPerPage] = useState(10)
   const [total, setTotal] = useState(0)
   const [proposals, setProposals] = useState<Proposal[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const toast = useToast()
+  const isFetchingRef = useRef(false)
+  const mountedRef = useRef(true)
 
-  useEffect(() => {
-    if (tmClient) {
-      setIsLoading(true)
-      queryProposals(tmClient, page, perPage)
-        .then(async (response) => {
-          setTotal(response.pagination?.total.low ?? 0)
-          const proposalsList: Proposal[] = await Promise.all(
-            response.proposals.map(async (val) => {
-              const votingEnd = val.votingEndTime?.nanos
-                ? new Date(val.votingEndTime?.seconds.low * 1000).toISOString()
-                : null
+  const fetchProposals = useCallback(async () => {
+    if (!tmClient || isFetchingRef.current || !mountedRef.current) {
+      return
+    }
+
+    try {
+      isFetchingRef.current = true
+      const response = await queryProposals(tmClient, page, perPage)
+
+      if (!mountedRef.current) return
+
+      setTotal(response.pagination?.total.low ?? 0)
+
+      const proposalsList = await Promise.all(
+        response.proposals.map(async (val) => {
+          const votingEnd = val.votingEndTime?.nanos
+            ? new Date(val.votingEndTime?.seconds.low * 1000).toISOString()
+            : null
+
+          let title = ''
+          let type = ''
+          try {
+            if (!val.content?.value || val.content.value.length === 0) {
+              title = 'Untitled Proposal'
+              type = 'Unknown Type'
+            } else {
               const content = decodeContentProposal(
                 val.content?.typeUrl ?? '',
-                val.content?.value ?? new Uint8Array()
+                val.content?.value
               )
-              const voteResults = await queryProposalVotes(
-                tmClient,
-                val.proposalId.low
-              )
+              title = content.data?.title ?? 'Untitled Proposal'
+              type = getTypeMsg(val.content?.typeUrl ?? '')
+            }
+          } catch (error) {
+            title = 'Untitled Proposal'
+            type = 'Unknown Type'
+          }
 
-              return {
-                id: val.proposalId.low,
-                title: content.data?.title ?? '',
-                types: getTypeMsg(val.content?.typeUrl ?? ''),
-                status: proposalStatusList.find(
-                  (item) => item.id === Number(val.status.toString())
-                ),
-                votingEnd: votingEnd ? displayDate(votingEnd) : '',
-                voteResults: voteResults,
-              }
-            })
+          const voteResults = await queryProposalVotes(
+            tmClient,
+            val.proposalId.low
           )
-          setProposals(proposalsList)
-          setIsLoading(false)
-        })
-        .catch(() => {
-          toast({
-            title: 'Failed to fetch datatable',
-            description: '',
-            status: 'error',
-            duration: 5000,
-            isClosable: true,
-          })
-        })
-    }
-  }, [tmClient, page, perPage])
 
-  const onChangePagination = (value: {
-    pageIndex: number
-    pageSize: number
-  }) => {
-    setPage(value.pageIndex)
-    setPerPage(value.pageSize)
-  }
+          return {
+            id: val.proposalId.low,
+            title,
+            types: type,
+            status: proposalStatusList.find(
+              (item) => item.id === Number(val.status.toString())
+            ),
+            votingEnd: votingEnd ? displayDate(votingEnd) : '',
+            voteResults: voteResults,
+          }
+        })
+      )
+
+      if (!mountedRef.current) return
+
+      setProposals(proposalsList)
+    } catch (error) {
+      if (!mountedRef.current) return
+      toast({
+        title: 'Failed to fetch datatable',
+        description: error.message || 'Connection error',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+    } finally {
+      if (mountedRef.current) {
+        setIsLoading(false)
+      }
+      isFetchingRef.current = false
+    }
+  }, [tmClient, page, perPage, toast])
+
+  useEffect(() => {
+    mountedRef.current = true
+    setIsLoading(true)
+    fetchProposals()
+
+    return () => {
+      mountedRef.current = false
+      isFetchingRef.current = false
+    }
+  }, [fetchProposals])
+
+  const onChangePagination = useCallback(
+    (value: { pageIndex: number; pageSize: number }) => {
+      if (value.pageIndex !== page || value.pageSize !== perPage) {
+        setPage(value.pageIndex)
+        setPerPage(value.pageSize)
+      }
+    },
+    [page, perPage]
+  )
 
   return (
     <>
