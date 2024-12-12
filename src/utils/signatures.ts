@@ -1,5 +1,13 @@
 import { sha256, getBytes, Signature, recoverAddress } from 'ethers'
 
+const isLowS = (s: bigint): boolean => {
+  // Secp256k1 curve order divided by 2
+  const SECP256K1_N_DIV_2 = BigInt(
+    '0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0'
+  )
+  return s <= SECP256K1_N_DIV_2
+}
+
 interface Validator {
   ethereumAddress: string
   power: string
@@ -67,12 +75,13 @@ export const deriveSignatures = async (
           }
 
           // We found a matching validator
-          const v = validatorMap.has(
-            recoverAddress(messageHash, { r, s, v: 27 }).toLowerCase()
-          )
-            ? 27
-            : 28
-          signatures.push({ v, r, s })
+          const v = isLowS(BigInt(s)) ? 27 : 28
+          const signature = Signature.from({
+            r,
+            s,
+            v,
+          })
+          signatures.push(signature)
 
           console.log('Valid signature found for validator:', recoveredAddress)
         } catch (error) {

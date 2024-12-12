@@ -141,6 +141,11 @@ const columns = [
   }),
 ]
 
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message
+  return String(error)
+}
+
 export default function Proposals() {
   const tmClient = useSelector(selectTmClient)
   const rpcAddress = useSelector(selectRPCAddress)
@@ -216,7 +221,7 @@ export default function Proposals() {
       if (!mountedRef.current) return
       toast({
         title: 'Failed to fetch datatable',
-        description: error.message || 'Connection error',
+        description: getErrorMessage(error),
         status: 'error',
         duration: 5000,
         isClosable: true,
