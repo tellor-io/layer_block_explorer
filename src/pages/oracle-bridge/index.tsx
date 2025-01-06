@@ -276,9 +276,9 @@ export default function OracleBridge() {
         value: attestDataResult.aggregate_value
           ? `0x${attestDataResult.aggregate_value}`
           : '0x',
-        timestamp: attestDataResult.timestamp || '0',
+        timestamp: attestDataResult.attestation_timestamp || '0',
         aggregatePower: attestDataResult.aggregate_power || '0',
-        previousTimestamp: '0', // If these values exist in your data, map them accordingly
+        previousTimestamp: '0',
         nextTimestamp: '0',
       }
 
@@ -287,7 +287,7 @@ export default function OracleBridge() {
       const attestData = {
         queryId: attestDataResult.query_id,
         report: reportData,
-        attestationTimestamp: attestDataResult.timestamp,
+        attestationTimestamp: attestDataResult.attestation_timestamp,
       }
 
       console.log('Generated Attest Data:', attestData)
@@ -534,26 +534,6 @@ export default function OracleBridge() {
                   <VStack spacing={4} align="flex-start">
                     <HStack spacing={4} justify="flex-start" align="center">
                       <Button
-                        onClick={fetchBridgeData}
-                        colorScheme="green"
-                        isDisabled={!bridgeQueryId || !bridgeTimestamp}
-                        size="md"
-                        minW="150px"
-                      >
-                        Get Attestation Data
-                      </Button>
-
-                      <Button
-                        onClick={fetchAttestationData}
-                        colorScheme="green"
-                        isDisabled={!bridgeQueryId || !bridgeTimestamp}
-                        size="md"
-                        minW="150px"
-                      >
-                        Get Bridge Metadata
-                      </Button>
-
-                      <Button
                         onClick={generateWithdrawalData}
                         colorScheme="blue"
                         isDisabled={!bridgeQueryId || !bridgeTimestamp}
@@ -567,6 +547,16 @@ export default function OracleBridge() {
                 </HStack>
               </VStack>
             </Box>
+
+            {withdrawalData && Object.keys(withdrawalData).length > 0 && (
+              <Alert status="success" mt={4} borderRadius="md">
+                <AlertIcon />
+                <AlertTitle mr={2}>Oracle Proof Generated!</AlertTitle>
+                <AlertDescription>
+                  The proof data is available below.
+                </AlertDescription>
+              </Alert>
+            )}
 
             {withdrawalData && (
               <Box mt={4} p={4} borderWidth="1px" borderRadius="md">
