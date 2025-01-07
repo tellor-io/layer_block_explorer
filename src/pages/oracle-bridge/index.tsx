@@ -95,6 +95,45 @@ export default function OracleBridge() {
     }
   }
 
+  const fetchOracleDataBefore = async () => {
+    try {
+      const response = await fetch(
+        `/api/oracle-data-before/${oracleQueryId}/${bridgeTimestamp}`
+      )
+      const data = await response.json()
+      console.log('Oracle Data Before Response:', data)
+
+      if (response.status === 404) {
+        toast({
+          title: 'No data found',
+          description:
+            data.message ||
+            'No oracle data found before the specified timestamp',
+          status: 'info',
+          duration: 5000,
+          isClosable: true,
+        })
+        return
+      }
+
+      if (response.ok) {
+        setOracleData(data)
+        setIsOracleModalOpen(true)
+      } else {
+        throw new Error(data.error || 'Failed to fetch oracle data before')
+      }
+    } catch (error) {
+      console.error('Oracle data before fetch error:', error)
+      toast({
+        title: 'Error fetching oracle data before',
+        description: getErrorMessage(error),
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+    }
+  }
+
   const fetchBridgeData = async () => {
     try {
       const response = await fetch(
@@ -465,7 +504,7 @@ export default function OracleBridge() {
             {/* Oracle Section */}
             <Box>
               <HStack spacing={2} mb={4}>
-                <Heading size="sm">Query ID</Heading>
+                <Heading size="sm">Data Blobs</Heading>
                 <Tooltip
                   label="View latest report data for this Query ID"
                   fontSize="sm"
@@ -476,6 +515,7 @@ export default function OracleBridge() {
               </HStack>
               <VStack spacing={4} align="stretch">
                 <HStack spacing={2}>
+                  <Text>Query ID:</Text>
                   <Input
                     value={oracleQueryId}
                     onChange={(e) => {
@@ -496,30 +536,6 @@ export default function OracleBridge() {
                 >
                   View Latest Report Data
                 </Button>
-              </VStack>
-            </Box>
-
-            <Divider my={2} />
-
-            {/* Bridge Section */}
-            <Box>
-              <HStack spacing={2} mb={4}>
-                <Heading size="sm">Data Blobs</Heading>
-                <Tooltip
-                  label="Generate data using specific timestamps"
-                  fontSize="sm"
-                  placement="right"
-                >
-                  <InfoOutlineIcon color="gray.400" />
-                </Tooltip>
-              </HStack>
-              <VStack spacing={4} align="stretch">
-                <HStack spacing={2}>
-                  <Text>Query ID:</Text>
-                  <Text color="gray.500">
-                    {bridgeQueryId || 'Waiting for Query ID input above...'}
-                  </Text>
-                </HStack>
                 <HStack spacing={2}>
                   <Text>Timestamp:</Text>
                   <Input
@@ -529,34 +545,28 @@ export default function OracleBridge() {
                     width="200px"
                   />
                 </HStack>
-
-                <HStack spacing={4} justify="flex-start">
-                  <VStack spacing={4} align="flex-start">
-                    <HStack spacing={4} justify="flex-start" align="center">
-                      <Button
-                        onClick={generateWithdrawalData}
-                        colorScheme="blue"
-                        isDisabled={!bridgeQueryId || !bridgeTimestamp}
-                        size="md"
-                        minW="150px"
-                      >
-                        Generate Oracle Proofs
-                      </Button>
-                    </HStack>
-                  </VStack>
-                </HStack>
+                <Button
+                  onClick={fetchOracleDataBefore}
+                  colorScheme="purple"
+                  isDisabled={!oracleQueryId || !bridgeTimestamp}
+                  size="md"
+                  minW="150px"
+                  alignSelf="flex-start"
+                >
+                  Get Data Before
+                </Button>
+                <Button
+                  onClick={generateWithdrawalData}
+                  colorScheme="blue"
+                  isDisabled={!bridgeQueryId || !bridgeTimestamp}
+                  size="md"
+                  minW="150px"
+                  alignSelf="flex-start"
+                >
+                  Generate Oracle Proofs Below
+                </Button>
               </VStack>
             </Box>
-
-            {withdrawalData && Object.keys(withdrawalData).length > 0 && (
-              <Alert status="success" mt={4} borderRadius="md">
-                <AlertIcon />
-                <AlertTitle mr={2}>Oracle Proof Generated!</AlertTitle>
-                <AlertDescription>
-                  The proof data is available below.
-                </AlertDescription>
-              </Alert>
-            )}
 
             {withdrawalData && (
               <Box mt={4} p={4} borderWidth="1px" borderRadius="md">
