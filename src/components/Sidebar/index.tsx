@@ -28,6 +28,9 @@ import {
   FiGithub,
   FiAlertCircle,
   FiDatabase,
+  FiFileText,
+  FiUsers,
+  FiActivity,
 } from 'react-icons/fi'
 import { IconType } from 'react-icons'
 import { RiBearSmileFill, RiBankLine } from 'react-icons/ri'
@@ -49,7 +52,9 @@ interface LinkItemProps {
 export const LinkItems: Array<LinkItemProps> = [
   { name: 'Home', icon: FiHome, route: '/' },
   { name: 'Blocks', icon: FiBox, route: '/blocks' },
-  { name: 'Validators', icon: FaUserCheck, route: '/validators' },
+  { name: 'Transactions', icon: FiFileText, route: '/txs' },
+  { name: 'Validators', icon: FiUsers, route: '/validators' },
+  { name: 'Data Feed', icon: FiActivity, route: '/data-feed' },
   { name: 'Reporters', icon: RiBearSmileFill, route: '/reporters' },
   { name: 'Proposals', icon: GiGavel, route: '/proposals' },
   { name: 'Parameters', icon: FiSliders, route: '/parameters' },
