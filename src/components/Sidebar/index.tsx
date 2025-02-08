@@ -120,15 +120,17 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
 
   return (
     <Box
+      transition="3s ease"
       bg={useColorModeValue('light-container', 'dark-container')}
       borderRight="1px"
       borderRightColor={useColorModeValue('gray.200', 'gray.700')}
       w={{ base: 'full', md: 60 }}
       pos="fixed"
       h="full"
+      pt="60px"
       {...rest}
     >
-      <Flex flexDirection="column" h="full" justifyContent="space-between">
+      <Flex h="full" flexDirection="column" alignItems="center">
         <Box>
           {LinkItems.map((link) => (
             <NavItem key={link.name} icon={link.icon} route={link.route}>
