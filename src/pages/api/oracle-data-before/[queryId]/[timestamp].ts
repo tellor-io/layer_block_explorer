@@ -22,7 +22,7 @@ export default async function handler(
       ? queryId.slice(2)
       : queryId
     const url = `https://tellorlayer.com/tellor-io/layer/oracle/get_data_before/${formattedQueryId}/${timestamp}`
-    console.log('Fetching from URL:', url)
+    console.log('', url)
 
     const response = await fetch(url)
     const data = await response.json()

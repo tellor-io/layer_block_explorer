@@ -21,7 +21,13 @@ import {
 } from '@/store/connectSlice'
 import Head from 'next/head'
 import { LS_RPC_ADDRESS } from '@/utils/constant'
-import { validateConnection, connectWebsocketClient } from '@/rpc/client'
+import {
+  validateConnection,
+  connectWebsocketClient,
+  isBraveBrowser,
+} from '@/rpc/client'
+import { RPCManager } from '@/utils/rpcManager'
+import { RPC_ENDPOINTS } from '@/utils/constant'
 
 const chainList = [
   {
@@ -40,6 +46,7 @@ export default function Connect() {
     'initial'
   )
   const [error, setError] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
   const dispatch = useDispatch()
 
   const submitForm = async (e: FormEvent) => {
@@ -52,44 +59,66 @@ export default function Connect() {
       setError(false)
       setState('submitting')
 
-      if (!rpcAddress) {
-        setError(true)
-        setState('initial')
-        return
+      // Initialize endpoints array with RPC_ENDPOINTS
+      const endpoints = [...RPC_ENDPOINTS]
+
+      // If custom RPC address provided, add it to the start
+      if (rpcAddress && !endpoints.includes(rpcAddress)) {
+        endpoints.unshift(rpcAddress)
       }
 
-      const isValid = await validateConnection(rpcAddress)
-      if (!isValid) {
-        setError(true)
-        setState('initial')
-        return
+      console.log('Available endpoints:', endpoints)
+
+      // Try each endpoint
+      for (const endpoint of endpoints) {
+        try {
+          console.log('Attempting connection to:', endpoint)
+          const tmClient = await connectWebsocketClient(endpoint)
+
+          if (tmClient) {
+            console.log('Successfully connected to:', endpoint)
+            const rpcManager = new RPCManager()
+            await rpcManager.reportSuccess(endpoint)
+            dispatch(setConnectState(true))
+            dispatch(setTmClient(tmClient))
+            dispatch(setRPCAddress(endpoint))
+            setState('success')
+            window.localStorage.setItem(LS_RPC_ADDRESS, endpoint)
+            return
+          }
+        } catch (endpointError) {
+          console.log('Connection failed for:', endpoint, endpointError)
+          const errorMessage = getConnectionErrorMessage(endpointError)
+          setError(true)
+          setErrorMessage(errorMessage)
+          const rpcManager = new RPCManager()
+          await rpcManager.reportFailure(endpoint)
+          // Continue to next endpoint
+          continue
+        }
       }
 
-      const tmClient = await connectWebsocketClient(rpcAddress)
-
-      if (!tmClient) {
-        setError(true)
-        setState('initial')
-        return
-      }
-
-      dispatch(setConnectState(true))
-      dispatch(setTmClient(tmClient))
-      dispatch(setRPCAddress(rpcAddress))
-      setState('success')
-
-      window.localStorage.setItem(LS_RPC_ADDRESS, rpcAddress)
-    } catch (err) {
-      console.error(err)
+      // If we get here, all endpoints failed
+      console.error('All connection attempts failed')
       setError(true)
       setState('initial')
-      return
+    } catch (err) {
+      console.error('Connection error:', err)
+      setError(true)
+      setState('initial')
     }
   }
 
   const selectChain = (rpcAddress: string) => {
     setAddress(rpcAddress)
     connectClient(rpcAddress)
+  }
+
+  const getConnectionErrorMessage = (error: any) => {
+    if (isBraveBrowser()) {
+      return "Connection failed. If you're using Brave browser, please try disabling Shields for this site or use a different browser."
+    }
+    return 'Connection failed. Please try again or use a different RPC endpoint.'
   }
 
   return (
@@ -174,7 +203,7 @@ export default function Connect() {
             textAlign={'center'}
             color={error ? 'red.500' : 'gray.500'}
           >
-            {error ? 'Oh no, cannot connect to websocket client! 😢' : ''}
+            {error ? errorMessage : ''}
           </Text>
         </Container>
         <Container p={0}>

@@ -62,6 +62,10 @@ export default function Home() {
   const [reporterCount, setReporterCount] = useState<number>(0)
   const [averageGasCost, setAverageGasCost] = useState<string>('0')
   const [currentCycleList, setCurrentCycleList] = useState<string>('N/A')
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null)
+  const [lastNewPairTime, setLastNewPairTime] = useState<Date>(new Date())
+  const [pollInterval, setPollInterval] = useState<number>(1000) // Start with 1 second
+  const [previousPairCount, setPreviousPairCount] = useState<number>(0)
 
   useEffect(() => {
     const fetchValidators = async () => {
@@ -135,12 +139,10 @@ export default function Home() {
   useEffect(() => {
     getAllowedAmountExp()
       .then((parsedAmount) => {
-        console.log('Raw parsed amount:', parsedAmount)
         if (parsedAmount) {
           // Convert the date string to a timestamp
           const timestamp = new Date(parsedAmount).getTime()
           if (!isNaN(timestamp)) {
-            console.log('Converted timestamp:', timestamp)
             setAllowedAmountExp(timestamp)
           } else {
             console.log('Failed to convert date string to timestamp')
@@ -194,41 +196,52 @@ export default function Home() {
   }, [isLoaded, newBlock, status])
 
   useEffect(() => {
-    const fetchCurrentCycleList = () => {
-      getCurrentCycleList()
-        .then((dataList) => {
-          // Skip processing if data is invalid
-          if (!dataList || !Array.isArray(dataList)) {
-            setCurrentCycleList('N/A')
-            return
-          }
+    const fetchCurrentCycleList = async () => {
+      try {
+        const response = await fetch('/api/current-cycle')
+        const data = await response.json()
 
-          // Handle single item case
-          if (dataList.length === 1 && dataList[0]?.queryParams) {
-            setCurrentCycleList(dataList[0].queryParams)
-            return
-          }
-
-          // Handle multiple items
-          const queryStrings = dataList
-            .filter((item) => item?.queryParams)
-            .map((item) => item.queryParams)
-            .join(', ')
-
-          setCurrentCycleList(queryStrings || 'N/A')
-        })
-        .catch(() => {
+        // Skip processing if data is invalid
+        if (!data.cycleList || !Array.isArray(data.cycleList)) {
           setCurrentCycleList('N/A')
-        })
+          return
+        }
+
+        // Just format with bullet points, we'll handle columns in the render
+        const formattedList = data.cycleList.map(
+          (item: any) => item.queryParams
+        )
+        setCurrentCycleList(formattedList || 'N/A')
+
+        // Check if we found any new pairs
+        if (data.cycleList.length > previousPairCount) {
+          setLastNewPairTime(new Date())
+          setPreviousPairCount(data.cycleList.length)
+        } else {
+          // If no new pairs for 5 minutes, switch to daily polling
+          const timeSinceLastNewPair =
+            new Date().getTime() - lastNewPairTime.getTime()
+          if (
+            timeSinceLastNewPair > 5 * 60 * 1000 &&
+            pollInterval !== 24 * 60 * 60 * 1000
+          ) {
+            console.log('Switching to daily polling')
+            setPollInterval(24 * 60 * 60 * 1000)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching cycle list:', error)
+        setCurrentCycleList('N/A')
+      }
     }
 
     // Initial fetch
     fetchCurrentCycleList()
 
-    // Set up interval with a cleanup
-    const intervalId = setInterval(fetchCurrentCycleList, 500)
+    // Set up polling with current interval
+    const intervalId = setInterval(fetchCurrentCycleList, pollInterval)
     return () => clearInterval(intervalId)
-  }, [])
+  }, [pollInterval, lastNewPairTime, previousPairCount])
 
   return (
     <>
@@ -310,7 +323,7 @@ export default function Home() {
               <BoxInfo
                 bgColor={BOX_ICON_BG}
                 color={BOX_ICON_COLOR}
-                icon={FaUserCheck}
+                icon={FiCpu}
                 name="Validators"
                 value={validators}
               />
@@ -387,8 +400,23 @@ export default function Home() {
                 color={BOX_ICON_COLOR}
                 icon={FiList}
                 name="Current Cycle List"
-                value={currentCycleList}
-                style={{ overflowWrap: 'break-word', wordBreak: 'break-all' }}
+                value={
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, 1fr)',
+                      gap: '0.25rem',
+                      fontSize: '0.875rem',
+                      fontFamily: 'inherit',
+                      lineHeight: '1rem',
+                    }}
+                  >
+                    {Array.isArray(currentCycleList) &&
+                      currentCycleList.map((pair, index) => (
+                        <div key={index}>• {pair}</div>
+                      ))}
+                  </div>
+                }
               />
             </Skeleton>
           </SimpleGrid>

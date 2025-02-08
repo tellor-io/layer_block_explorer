@@ -52,7 +52,6 @@ interface LinkItemProps {
 export const LinkItems: Array<LinkItemProps> = [
   { name: 'Home', icon: FiHome, route: '/' },
   { name: 'Blocks', icon: FiBox, route: '/blocks' },
-  { name: 'Transactions', icon: FiFileText, route: '/txs' },
   { name: 'Validators', icon: FiUsers, route: '/validators' },
   { name: 'Data Feed', icon: FiActivity, route: '/data-feed' },
   { name: 'Reporters', icon: RiBearSmileFill, route: '/reporters' },

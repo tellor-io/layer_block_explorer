@@ -1,13 +1,24 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 
+// Define interface for cache structure
+interface CacheData {
+  data: Array<{ queryParams: string }>
+  lastUpdated: Date
+}
+
+// In-memory cache to store unique pairs
+let cache: CacheData = {
+  data: [],
+  lastUpdated: new Date(),
+}
+
 export default async function handler(
   _req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const targetUrl =
-    'https://tellorlayer.com/tellor-io/layer/oracle/current_cyclelist_query'
-
   try {
+    const targetUrl =
+      'https://tellorlayer.com/tellor-io/layer/oracle/current_cyclelist_query'
     const response = await fetch(targetUrl)
 
     if (!response.ok) {
@@ -15,41 +26,37 @@ export default async function handler(
     }
 
     const data = await response.json()
+    const asciiData = Buffer.from(data.query_data, 'hex').toString('ascii')
+    const matches = asciiData.match(/[a-z]{3}/g)
 
-    // Process the hex data to extract query parameters
-    const decodedData = decodeQueryData(data.query_data)
-    res.status(200).json([{ queryParams: decodedData.queryParams }])
-  } catch (error) {
-    console.error('API Route Error:', error)
-    res.status(500).json({ error: 'Failed to fetch current cycle list' })
-  }
-}
-
-function decodeQueryData(queryData: string): any {
-  try {
-    // Convert hex to ASCII
-    const asciiData = Buffer.from(queryData, 'hex').toString('ascii')
-
-    // Find the query type
-    const spotPriceIndex = asciiData.indexOf('SpotPrice')
-
-    if (spotPriceIndex !== -1) {
-      const queryType = 'SpotPrice'
-
-      // Extract only the last two 3-letter words
-      const words = asciiData.match(/[a-z]{3}/g)
-      if (!words || words.length < 2) {
-        throw new Error('Failed to extract currency pairs from query data')
+    if (matches && matches.length >= 2) {
+      const currentPair = {
+        queryParams: `${matches[matches.length - 2]}/${
+          matches[matches.length - 1]
+        }`,
       }
 
-      // Join the last two words with a '/' between them
-      const queryParams = words.slice(-2).join('/')
-      return { queryParams }
+      if (
+        !cache.data.some((pair) => pair.queryParams === currentPair.queryParams)
+      ) {
+        cache.data.push(currentPair)
+      }
     }
 
-    throw new Error('SpotPrice not found in query data')
+    cache.lastUpdated = new Date()
+
+    res.status(200).json({
+      cycleList: cache.data,
+      lastUpdated: cache.lastUpdated,
+    })
   } catch (error) {
-    console.error('Error decoding query data:', error)
-    throw new Error('Failed to decode query data')
+    if (cache.data.length > 0) {
+      return res.status(200).json({
+        cycleList: cache.data,
+        lastUpdated: cache.lastUpdated,
+        fromCache: true,
+      })
+    }
+    res.status(500).json({ error: 'Failed to fetch current cycle list' })
   }
 }

@@ -45,6 +45,6 @@ export const proposalStatusList: proposalStatus[] = [
 ]
 
 export const RPC_ENDPOINTS = [
-  'https://tellorlayer.com/rpc',
-  'https://rpc.layer-node.com/', // backup URL
+  'https://rpc.layer-node.com', // primary URL
+  'https://tellorlayer.com', // fallback URL
 ]

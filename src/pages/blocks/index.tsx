@@ -324,133 +324,53 @@ export default function Blocks() {
           <Text>Blocks</Text>
         </HStack>
         <Box mt={8} bg={containerBg} shadow={'base'} borderRadius={4} p={4}>
-          <Tabs variant="unstyled">
-            <TabList>
-              <Tab
-                _selected={tabStyles.selected}
-                _hover={tabStyles.hover}
-                {...tabStyles.normal}
-              >
-                Blocks
-              </Tab>
-              <Tab
-                _selected={tabStyles.selected}
-                _hover={tabStyles.hover}
-                {...tabStyles.normal}
-              >
-                Transactions
-              </Tab>
-            </TabList>
-            <TabPanels>
-              <TabPanel>
-                <TableContainer>
-                  <Table variant="simple">
-                    <Thead>
-                      <Tr>
-                        <Th>Height</Th>
-                        <Th>App Hash</Th>
-                        <Th>Proposer</Th>
-                        <Th>Txs</Th>
-                        <Th>Time</Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      {blocks.map((block) => (
-                        <Tr
-                          key={`block-${
-                            block.header.height
-                          }-${block.header.time.getTime()}`}
-                        >
-                          <Td>
-                            <Link
-                              as={NextLink}
-                              href={'/blocks/' + block.header.height}
-                              style={{ textDecoration: 'none' }}
-                              _focus={{ boxShadow: 'none' }}
-                            >
-                              <Text color={heightLinkColor}>
-                                {block.header.height}
-                              </Text>
-                            </Link>
-                          </Td>
-                          <Td noOfLines={1}>
-                            <CopyableHash hash={block.header.appHash} />
-                          </Td>
-                          <Td>
-                            {validatorMap[
-                              toHex(block.header.proposerAddress)
-                            ] || 'Unknown'}
-                            {(() => {
-                              return null
-                            })()}
-                          </Td>
-                          <Td>{block.txs.length}</Td>
-                          <Td>
-                            {timeFromNow(block.header.time.toISOString())}
-                          </Td>
-                        </Tr>
-                      ))}
-                    </Tbody>
-                  </Table>
-                </TableContainer>
-              </TabPanel>
-              <TabPanel>
-                <TableContainer>
-                  <Table variant="simple">
-                    <Thead>
-                      <Tr>
-                        <Th>Tx Hash</Th>
-                        <Th>Result</Th>
-                        <Th>Messages</Th>
-                        <Th>Height</Th>
-                        <Th>Time</Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      {txs.map((tx) => (
-                        <Tr
-                          key={`${toHex(
-                            tx.TxEvent.hash
-                          )}-${tx.Timestamp.getTime()}`}
-                        >
-                          <Td>
-                            <Link
-                              as={NextLink}
-                              href={
-                                '/txs/' + toHex(tx.TxEvent.hash).toUpperCase()
-                              }
-                              style={{ textDecoration: 'none' }}
-                              _focus={{ boxShadow: 'none' }}
-                            >
-                              <Text color={txHashColor}>
-                                {trimHash(tx.TxEvent.hash)}
-                              </Text>
-                            </Link>
-                          </Td>
-                          <Td>
-                            {tx.TxEvent.result.code == 0 ? (
-                              <Tag variant="subtle" colorScheme="green">
-                                <TagLeftIcon as={FiCheck} />
-                                <TagLabel>Success</TagLabel>
-                              </Tag>
-                            ) : (
-                              <Tag variant="subtle" colorScheme="red">
-                                <TagLeftIcon as={FiX} />
-                                <TagLabel>Error</TagLabel>
-                              </Tag>
-                            )}
-                          </Td>
-                          <Td>{renderMessages(tx.TxEvent.result.data)}</Td>
-                          <Td>{tx.TxEvent.height}</Td>
-                          <Td>{timeFromNow(tx.Timestamp.toISOString())}</Td>
-                        </Tr>
-                      ))}
-                    </Tbody>
-                  </Table>
-                </TableContainer>
-              </TabPanel>
-            </TabPanels>
-          </Tabs>
+          <TableContainer>
+            <Table variant="simple">
+              <Thead>
+                <Tr>
+                  <Th>Height</Th>
+                  <Th>App Hash</Th>
+                  <Th>Proposer</Th>
+                  <Th>Txs</Th>
+                  <Th>Time</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {blocks.map((block) => (
+                  <Tr
+                    key={`block-${
+                      block.header.height
+                    }-${block.header.time.getTime()}`}
+                  >
+                    <Td>
+                      <Link
+                        as={NextLink}
+                        href={'/blocks/' + block.header.height}
+                        style={{ textDecoration: 'none' }}
+                        _focus={{ boxShadow: 'none' }}
+                      >
+                        <Text color={heightLinkColor}>
+                          {block.header.height}
+                        </Text>
+                      </Link>
+                    </Td>
+                    <Td noOfLines={1}>
+                      <CopyableHash hash={block.header.appHash} />
+                    </Td>
+                    <Td>
+                      {validatorMap[toHex(block.header.proposerAddress)] ||
+                        'Unknown'}
+                      {(() => {
+                        return null
+                      })()}
+                    </Td>
+                    <Td>{block.txs.length}</Td>
+                    <Td>{timeFromNow(block.header.time.toISOString())}</Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </TableContainer>
         </Box>
       </main>
     </>

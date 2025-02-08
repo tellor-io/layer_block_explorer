@@ -60,6 +60,8 @@ export const deriveSignatures = async (
             v: 27,
           }).toLowerCase()
 
+          let finalV = 27
+
           // Check if this address is in our validator set
           if (!validatorMap.has(recoveredAddress)) {
             // Try v = 28
@@ -72,14 +74,14 @@ export const deriveSignatures = async (
             if (!validatorMap.has(recoveredAddress)) {
               continue // No matching validator found
             }
+            finalV = 28
           }
 
-          // We found a matching validator
-          const v = isLowS(BigInt(s)) ? 27 : 28
+          // We found a matching validator - use the v value that worked
           const signature = Signature.from({
             r,
             s,
-            v,
+            v: finalV,
           })
           signatures.push(signature)
 
