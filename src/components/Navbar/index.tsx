@@ -218,23 +218,13 @@ export default function Navbar() {
           <Box px={6} py={8}>
             <Flex alignItems="center" gap={4} pb={6} mt={4}>
               <Image
-                src="/AllWht.png"
+                src={useColorModeValue('/AllDrk.png', '/AllWht.png')}
                 alt="Tellor Logo"
                 height="min(4vw, 50px)"
                 width="auto"
                 objectFit="contain"
                 transition="height 0.2s ease-in-out"
               />
-              <Heading
-                size="md"
-                fontSize="min(3vw, 2.5rem)"
-                display="flex"
-                alignItems="center"
-                mt={1}
-                transition="font-size 0.2s ease-in-out"
-              >
-                block explorer
-              </Heading>
             </Flex>
           </Box>
         </Flex>
