@@ -8,7 +8,7 @@ interface RPCState {
   isCircuitOpen: { [key: string]: boolean }
 }
 
-class RPCManager {
+export class RPCManager {
   private state: RPCState = {
     currentIndex: 0,
     failures: {},
@@ -18,8 +18,8 @@ class RPCManager {
 
   private customEndpoint: string | null = null
 
-  private readonly MAX_FAILURES = 3
-  private readonly CIRCUIT_RESET_TIME = 30000 // 30 seconds
+  private readonly MAX_FAILURES = 2
+  private readonly CIRCUIT_RESET_TIME = 30000
   private readonly HEALTH_CHECK_INTERVAL = 10000 // 10 seconds
   private readonly MAX_BACKOFF = 32000 // 32 seconds
 
@@ -83,48 +83,61 @@ class RPCManager {
   }
 
   public async getCurrentEndpoint(): Promise<string> {
-    // If there's a custom endpoint, use it instead of the fallback list
-    if (this.customEndpoint) {
-      return this.customEndpoint
+    const availableEndpoints = this.getEndpoints()
+    if (availableEndpoints.length === 0) {
+      // Reset all circuits if no endpoints are available
+      RPC_ENDPOINTS.forEach((endpoint) => this.resetEndpointState(endpoint))
+      this.state.currentIndex = 0
+      return RPC_ENDPOINTS[0]
     }
 
-    // Otherwise use the fallback mechanism with RPC_ENDPOINTS
-    const endpoint = RPC_ENDPOINTS[this.state.currentIndex]
-
-    // Check if we should try this endpoint
-    const timeSinceLastAttempt = Date.now() - this.state.lastAttempt[endpoint]
-    const requiredBackoff = this.calculateBackoff(this.state.failures[endpoint])
-
-    if (
-      this.state.isCircuitOpen[endpoint] ||
-      timeSinceLastAttempt < requiredBackoff
-    ) {
-      // Try next endpoint
-      this.state.currentIndex =
-        (this.state.currentIndex + 1) % RPC_ENDPOINTS.length
-      return this.getCurrentEndpoint()
-    }
-
+    const endpoint =
+      availableEndpoints[this.state.currentIndex % availableEndpoints.length]
+    console.log('Using endpoint:', endpoint)
     return endpoint
   }
 
   public async reportFailure(endpoint: string) {
-    this.state.failures[endpoint]++
+    console.log('Reporting failure for endpoint:', endpoint)
+    this.state.failures[endpoint] = (this.state.failures[endpoint] || 0) + 1
     this.state.lastAttempt[endpoint] = Date.now()
 
-    if (this.state.failures[endpoint] >= this.MAX_FAILURES) {
-      this.state.isCircuitOpen[endpoint] = true
-    }
+    console.log('Current failures for endpoint:', this.state.failures[endpoint])
 
-    // Switch to next endpoint
-    this.state.currentIndex =
-      (this.state.currentIndex + 1) % RPC_ENDPOINTS.length
+    // Switch to fallback more quickly
+    if (this.state.failures[endpoint] >= this.MAX_FAILURES) {
+      console.log('Max failures reached, switching to fallback for:', endpoint)
+      this.state.isCircuitOpen[endpoint] = true
+
+      // Move to next endpoint immediately
+      this.state.currentIndex =
+        (this.state.currentIndex + 1) % RPC_ENDPOINTS.length
+      const nextEndpoint = RPC_ENDPOINTS[this.state.currentIndex]
+      console.log('Switching to next endpoint:', nextEndpoint)
+
+      // Reset failures for the next endpoint
+      this.state.failures[nextEndpoint] = 0
+      this.state.lastAttempt[nextEndpoint] = 0
+      this.state.isCircuitOpen[nextEndpoint] = false
+
+      // Return the new endpoint
+      return nextEndpoint
+    }
+    return endpoint
   }
 
   public async reportSuccess(endpoint: string) {
     this.resetEndpointState(endpoint)
   }
+
+  public getEndpoints(): string[] {
+    const endpoints = [...RPC_ENDPOINTS]
+    if (this.customEndpoint && !endpoints.includes(this.customEndpoint)) {
+      endpoints.unshift(this.customEndpoint)
+    }
+    return endpoints.filter((endpoint) => !this.state.isCircuitOpen[endpoint])
+  }
 }
 
-// Export singleton instance
+// Create and export a singleton instance
 export const rpcManager = new RPCManager()

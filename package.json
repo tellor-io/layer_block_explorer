@@ -22,6 +22,8 @@
     "@cosmjs/tendermint-rpc": "^0.32.2",
     "@emotion/react": "^11.10.6",
     "@emotion/styled": "^11.10.6",
+    "@ethersproject/abi": "^5.7.0",
+    "@ethersproject/keccak256": "^5.7.0",
     "@fontsource/ibm-plex-mono": "^5.0.13",
     "@reduxjs/toolkit": "^1.9.3",
     "@tanstack/react-table": "^8.8.5",

@@ -9,10 +9,11 @@ import {
   useColorModeValue,
   Text,
   useToast,
+  IconButton,
 } from '@chakra-ui/react'
 import { useEffect, useState } from 'react'
 import NextLink from 'next/link'
-import { FiChevronRight, FiHome } from 'react-icons/fi'
+import { FiChevronRight, FiHome, FiCopy } from 'react-icons/fi'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
 import { getReporterSelectors } from '@/rpc/query'
@@ -25,6 +26,7 @@ type ReporterData = {
   jailed: string
   jailed_until: string
   selectors: number
+  power: string
 }
 
 // Add this type definition
@@ -36,70 +38,127 @@ type APIReporter = {
     jailed: boolean
     jailed_until: string
   }
+  power: string
   selectors: number
 }
 
 const columnHelper = createColumnHelper<ReporterData>()
 
+// Add this helper function at the top of the file
+const truncateAddress = (address: string) => {
+  if (!address) return ''
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
+
 const columns = [
   columnHelper.accessor('address', {
-    header: 'Address',
-    cell: (props) => (
-      <div
-        style={{ width: '205px', overflow: 'hidden', textOverflow: 'ellipsis' }}
-      >
-        {props.getValue()}
-      </div>
-    ),
+    header: () => <div style={{ width: '130px' }}>Address</div>,
+    cell: (props) => {
+      const address = props.getValue()
+      const toast = useToast()
+      return (
+        <div
+          style={{
+            width: '130px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+          }}
+        >
+          <Text isTruncated>{truncateAddress(address)}</Text>
+          <IconButton
+            aria-label="Copy address"
+            icon={<Icon as={FiCopy} />}
+            size="xs"
+            variant="ghost"
+            onClick={() => {
+              navigator.clipboard.writeText(address)
+              toast({
+                title: 'Address copied',
+                status: 'success',
+                duration: 2000,
+                isClosable: true,
+              })
+            }}
+          />
+        </div>
+      )
+    },
   }),
-  columnHelper.accessor('min_tokens_required', {
-    header: 'Min Tokens Reqd',
+  columnHelper.accessor('power', {
+    header: () => (
+      <div style={{ width: '100px', textAlign: 'left' }}>Power</div>
+    ),
     meta: {
       isNumeric: true,
     },
     cell: (props) => (
-      <div style={{ width: '70px', textAlign: 'right' }}>
-        {props.getValue()}
+      <div style={{ width: '120px', textAlign: 'left' }}>
+        {`${props.getValue()} TRB`}
       </div>
     ),
   }),
+  columnHelper.accessor('min_tokens_required', {
+    header: () => (
+      <div style={{ width: '100px', textAlign: 'left' }}>Min TRB to Select</div>
+    ),
+    meta: {
+      isNumeric: true,
+    },
+    cell: (props) => {
+      const value = Number(props.getValue()) / 1000000
+      return (
+        <div style={{ width: '100px', textAlign: 'left' }}>
+          {`${value} TRB`}
+        </div>
+      )
+    },
+  }),
+  columnHelper.accessor('selectors', {
+    header: () => (
+      <div style={{ width: '80px', textAlign: 'left' }}>Selectors</div>
+    ),
+    meta: {
+      isNumeric: true,
+    },
+    cell: (props) => (
+      <div style={{ width: '80px', textAlign: 'left' }}>{props.getValue()}</div>
+    ),
+  }),
   columnHelper.accessor('commission_rate', {
-    header: 'Commission',
+    header: () => (
+      <div style={{ width: '80px', textAlign: 'left' }}>Commsn</div>
+    ),
     meta: {
       isNumeric: true,
     },
     cell: (props) => {
       const rawValue = props.getValue()
-      const percentage = parseFloat(rawValue) * 100000000000000
+      const percentage = parseFloat(rawValue) * 100
       return (
-        <div style={{ width: '60px', textAlign: 'right' }}>
-          {percentage.toFixed(2) + '%'}
+        <div style={{ width: '80px', textAlign: 'left' }}>
+          {percentage.toFixed(0) + '%'}
         </div>
       )
     },
   }),
   columnHelper.accessor('jailed', {
-    header: 'Jailed',
-    cell: (props) => <div style={{ width: '50px' }}>{props.getValue()}</div>,
+    header: () => (
+      <div style={{ width: '60px', textAlign: 'left' }}>Jailed</div>
+    ),
+    cell: (props) => (
+      <div style={{ width: '60px', textAlign: 'left' }}>{props.getValue()}</div>
+    ),
   }),
   columnHelper.accessor('jailed_until', {
-    header: 'Jailed Until',
+    header: () => (
+      <div style={{ width: '150px', textAlign: 'left' }}>Jailed Until</div>
+    ),
     cell: (props) => (
-      <div style={{ width: '30px' }}>
+      <div style={{ width: '150px', textAlign: 'left' }}>
         {props.getValue() === '0001-01-01T00:00:00Z'
           ? 'N/A'
           : new Date(props.getValue()).toLocaleString()}
-      </div>
-    ),
-  }),
-  columnHelper.accessor('selectors', {
-    header: 'Selectors',
-    meta: {
-      isNumeric: true,
-    },
-    cell: (props) => (
-      <div style={{ width: '30px', textAlign: 'right' }}>
-        {props.getValue()}
       </div>
     ),
   }),
@@ -148,6 +207,7 @@ export default function Reporters() {
                 jailed: reporter.metadata.jailed ? 'Yes' : 'No',
                 jailed_until: reporter.metadata.jailed_until,
                 selectors: selectorsData[index] ?? 0,
+                power: reporter.power || '0',
               })
             )
             const start = page * perPage
@@ -220,8 +280,8 @@ export default function Reporters() {
           width={['100%', '100%', '100%', 'auto']}
           sx={{
             '& table': {
-              minWidth: '100%',
-              width: 'max-content',
+              width: 'auto',
+              tableLayout: 'fixed',
             },
           }}
         >

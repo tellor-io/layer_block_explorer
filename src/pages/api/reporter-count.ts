@@ -1,47 +1,69 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-
-interface ReporterResponse {
-  reporters: Array<{
-    address: string
-    metadata: {
-      min_tokens_required: string
-      commission_rate: string
-      jailed: boolean
-      jailed_until: string
-    }
-  }>
-  pagination: {
-    next_key: null | string
-    total: string
-  }
-}
+import axios from 'axios'
+import { rpcManager } from '@/utils/rpcManager'
 
 export default async function handler(
-  _req: NextApiRequest,
+  req: NextApiRequest,
   res: NextApiResponse
 ) {
-  try {
-    const response = await fetch(
-      'https://tellorlayer.com/tellor-io/layer/reporter/reporters'
-    )
+  const { queryId, timestamp } = req.query
 
-    if (!response.ok) {
-      throw new Error(`External API responded with status: ${response.status}`)
-    }
-
-    const data: ReporterResponse = await response.json()
-
-    // Use either the pagination total or the array length
-    const count = data.pagination.total
-      ? parseInt(data.pagination.total)
-      : data.reporters.length
-
-    res.status(200).json({ count })
-  } catch (error) {
-    console.error('API Route Error:', error)
-    res.status(500).json({
-      error: 'Failed to fetch reporter count',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    })
+  if (
+    !queryId ||
+    !timestamp ||
+    typeof queryId !== 'string' ||
+    typeof timestamp !== 'string'
+  ) {
+    return res
+      .status(400)
+      .json({ error: 'Query ID and timestamp are required' })
   }
+
+  // Validate timestamp (should be in the past)
+  let timestampNum = parseInt(timestamp, 10)
+  const currentTime = Date.now()
+  if (timestampNum > currentTime) {
+    console.warn('Future timestamp detected, using current time instead')
+    timestampNum = currentTime
+  }
+
+  let lastError = null
+  const endpoints = ['https://tellorlayer.com', 'https://rpc.layer-node.com']
+
+  for (const endpoint of endpoints) {
+    try {
+      const url = `${endpoint}/tellor-io/layer/oracle/get_reports_by_aggregate/${queryId}/${timestampNum}?pagination.limit=600`
+
+      const response = await axios.get(url, {
+        timeout: 5000, // Reduced timeout
+        headers: {
+          Accept: 'application/json',
+        },
+      })
+
+      const data = response.data
+
+      // Count unique reporters from microReports
+      const uniqueReporters = new Set(
+        data.microReports?.map((report: any) => report.reporter) || []
+      )
+
+      return res.status(200).json({
+        count:
+          uniqueReporters.size || parseInt(data.pagination?.total || '0', 10),
+        endpoint,
+      })
+    } catch (error) {
+      console.error(`Error with endpoint ${endpoint}:`, error)
+      lastError = error
+      continue // Try next endpoint
+    }
+  }
+
+  // If we get here, all endpoints failed
+  console.error('All endpoints failed')
+  return res.status(500).json({
+    error: 'Failed to fetch reporter count',
+    details: lastError instanceof Error ? lastError.message : 'Unknown error',
+  })
 }

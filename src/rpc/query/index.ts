@@ -12,6 +12,8 @@ import {
 } from '@cosmjs/tendermint-rpc'
 import axios from 'axios'
 import { ethers } from 'ethers'
+import { keccak256 } from '@ethersproject/keccak256'
+import { defaultAbiCoder } from '@ethersproject/abi'
 
 export async function getChainId(
   tmClient: Tendermint37Client
@@ -143,19 +145,48 @@ export const getAllowedAmountExp = async (): Promise<string | undefined> => {
   }
 }
 
-export const getReporterCount = async (): Promise<number> => {
+export const getReporterCount = async (
+  queryId?: string,
+  timestamp?: string
+): Promise<number> => {
   try {
-    const response = await axios.get('/api/reporter-count')
-    console.log('Reporter count response:', response.data)
-    return response.data.count || 0
+    // If no parameters provided, get total reporter count
+    if (!queryId || !timestamp) {
+      const response = await axios.get('/api/reporters')
+      if (response.data && Array.isArray(response.data.reporters)) {
+        return response.data.reporters.length
+      }
+      return 0
+    }
+
+    // Otherwise, get reporter count for specific query/timestamp
+    const response = await axios.get(`/api/reporter-count`, {
+      params: {
+        queryId,
+        timestamp,
+      },
+    })
+
+    if (typeof response.data.count !== 'number') {
+      return 0
+    }
+
+    return response.data.count
   } catch (error) {
-    console.error('Error in getReporterCount:', error)
+    console.error('Error in getReporterCount:', {
+      error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      response:
+        error instanceof Error && 'response' in error
+          ? error.response
+          : undefined,
+    })
     return 0
   }
 }
 
 export const getReporterList = async (): Promise<string[] | undefined> => {
-  const url = 'https://tellorlayer.com/tellor-io/layer/reporter/reporters'
+  const url = `${process.env.NEXT_PUBLIC_RPC_ENDPOINT}/tellor-io/layer/reporter/reporters`
   try {
     const response = await axios.get(url)
     if (response.data && Array.isArray(response.data.reporters)) {
@@ -271,28 +302,62 @@ export const getCurrentCycleList = async (): Promise<
   }
 }
 
-function decodeQueryData(queryData: string): any {
+interface QueryTypeConfig {
+  name: string
+  params: string[]
+  encode: (...args: any[]) => {
+    matched: boolean
+    base?: string
+    quote?: string
+  }
+}
+
+export function decodeQueryData(queryId: string, queryData?: string): any {
   try {
-    // Convert hex to ASCII
-    const asciiData = Buffer.from(queryData, 'hex').toString('ascii')
+    console.log('Decoding with:', { queryId, queryData })
 
-    // Find the query type
-    const spotPriceIndex = asciiData.indexOf('SpotPrice')
-    if (spotPriceIndex !== -1) {
-      const queryType = 'SpotPrice'
+    // If we have queryData, try to decode that first
+    if (queryData) {
+      try {
+        // Convert hex to ASCII if it's hex encoded
+        const asciiData = queryData.startsWith('0x')
+          ? Buffer.from(queryData.slice(2), 'hex').toString('ascii')
+          : Buffer.from(queryData, 'hex').toString('ascii')
 
-      // Extract only the last two 3-letter words
-      const words = asciiData.match(/[a-z]{3}/g)
-      const queryParams = words ? words.slice(-2) : []
+        console.log('Decoded ASCII:', asciiData)
 
-      console.log('Successfully decoded:', { queryType, queryParams })
-      return { queryType, queryParams }
+        // Look for known patterns
+        if (asciiData.includes('SpotPrice')) {
+          const matches = asciiData.match(/[A-Za-z]{3,}/g)
+          if (matches && matches.length >= 3) {
+            const [_, base, quote] = matches
+            return {
+              queryType: 'SpotPrice',
+              decodedValue: `SpotPrice: ${base}/${quote}`,
+            }
+          }
+        }
+
+        return {
+          queryType: 'Unknown',
+          decodedValue: `Raw: ${asciiData}`,
+        }
+      } catch (error) {
+        console.error('Error decoding query data:', error)
+      }
     }
 
-    throw new Error('Unable to parse query data')
+    // Fallback to returning the query ID if we can't decode
+    return {
+      queryType: 'Unknown',
+      decodedValue: 'Query data not available',
+    }
   } catch (error) {
-    console.error('Error decoding query data:', error)
-    return { queryType: 'Unknown', queryParams: [] }
+    console.error('Error in decodeQueryData:', error)
+    return {
+      queryType: 'Unknown',
+      decodedValue: 'Decode error',
+    }
   }
 }
 

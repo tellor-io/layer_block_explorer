@@ -38,6 +38,7 @@ import {
   DrawerContent,
   DrawerCloseButton,
   Divider,
+  Image,
 } from '@chakra-ui/react'
 import {
   FiRadio,
@@ -215,12 +216,26 @@ export default function Navbar() {
       <Flex h="64px" alignItems={'center'} justifyContent={'space-between'}>
         <Flex alignItems={'center'}>
           <Box>
-            <Heading
-              size="md"
-              fontSize={{ base: '1.3rem', sm: 'md', md: '1.5rem' }}
-            >
-              Tellor Layer Block Explorer
-            </Heading>
+            <Flex alignItems="center" gap={4} pb={4}>
+              <Image
+                src="/AllWht.png"
+                alt="Tellor Logo"
+                height="min(4vw, 50px)"
+                width="auto"
+                objectFit="contain"
+                transition="height 0.2s ease-in-out"
+              />
+              <Heading
+                size="md"
+                fontSize="min(3vw, 3.0rem)"
+                display="flex"
+                alignItems="center"
+                mt={1.0}
+                transition="font-size 0.2s ease-in-out"
+              >
+                block explorer
+              </Heading>
+            </Flex>
           </Box>
         </Flex>
         <Flex alignItems={'center'}>
