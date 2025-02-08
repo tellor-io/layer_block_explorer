@@ -5,6 +5,11 @@ import { colors } from './colors'
 const ppNeueMontreal = localFont({
   src: [
     {
+      path: '../../public/fonts/PPNeueMontreal-Thin.woff2',
+      weight: '100',
+      style: 'normal',
+    },
+    {
       path: '../../public/fonts/PPNeueMontreal-Medium.woff2',
       weight: '500',
       style: 'normal',
