@@ -213,10 +213,10 @@ export default function Navbar() {
       zIndex={2}
       width="100%"
     >
-      <Flex h="64px" alignItems={'center'} justifyContent={'space-between'}>
-        <Flex alignItems={'center'}>
-          <Box>
-            <Flex alignItems="center" gap={4} pb={4}>
+      <Flex h="120px" alignItems={'center'} justifyContent={'space-between'}>
+        <Flex alignItems={'center'} h="full">
+          <Box px={6} py={8}>
+            <Flex alignItems="center" gap={4} pb={6} mt={4}>
               <Image
                 src="/AllWht.png"
                 alt="Tellor Logo"
@@ -227,10 +227,10 @@ export default function Navbar() {
               />
               <Heading
                 size="md"
-                fontSize="min(3vw, 3.0rem)"
+                fontSize="min(3vw, 2.5rem)"
                 display="flex"
                 alignItems="center"
-                mt={1.0}
+                mt={1}
                 transition="font-size 0.2s ease-in-out"
               >
                 block explorer
