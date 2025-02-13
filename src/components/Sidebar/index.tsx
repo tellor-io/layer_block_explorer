@@ -16,6 +16,7 @@ import {
   Button,
   Heading,
   DrawerOverlay,
+  VStack,
 } from '@chakra-ui/react'
 import {
   FiHome,
@@ -42,6 +43,8 @@ import { useSelector } from 'react-redux'
 import { LS_RPC_ADDRESS } from '@/utils/constant'
 import { GiFactory, GiGavel } from 'react-icons/gi'
 import { TbChartBubbleFilled } from 'react-icons/tb'
+import { MdPersonSearch } from 'react-icons/md'
+import { BsPersonFillAdd, BsPersonCheck } from 'react-icons/bs'
 
 interface LinkItemProps {
   name: string
@@ -52,9 +55,9 @@ interface LinkItemProps {
 export const LinkItems: Array<LinkItemProps> = [
   { name: 'Home', icon: FiHome, route: '/' },
   { name: 'Blocks', icon: FiBox, route: '/blocks' },
-  { name: 'Validators', icon: FiUsers, route: '/validators' },
+  { name: 'Validators', icon: BsPersonCheck, route: '/validators' },
   { name: 'Data Feed', icon: FiActivity, route: '/data-feed' },
-  { name: 'Reporters', icon: RiBearSmileFill, route: '/reporters' },
+  { name: 'Reporters', icon: BsPersonFillAdd, route: '/reporters' },
   { name: 'Proposals', icon: GiGavel, route: '/proposals' },
   { name: 'Parameters', icon: FiSliders, route: '/parameters' },
   { name: 'Layer Blobs', icon: TbChartBubbleFilled, route: '/oracle-bridge' },
@@ -127,10 +130,10 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
       w={{ base: 'full', md: 60 }}
       pos="fixed"
       h="full"
-      pt="60px"
+      pt="20px"
       {...rest}
     >
-      <Flex h="full" flexDirection="column" alignItems="center">
+      <VStack spacing={4} align="stretch">
         <Box>
           {LinkItems.map((link) => (
             <NavItem key={link.name} icon={link.icon} route={link.route}>
@@ -159,7 +162,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
             </NavItem>
           ))}
         </Box>
-      </Flex>
+      </VStack>
     </Box>
   )
 }

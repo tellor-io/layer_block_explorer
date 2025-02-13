@@ -20,6 +20,7 @@ import {
   FiClock,
   FiCpu,
   FiUsers,
+  FiDatabase,
 } from 'react-icons/fi'
 import { GiAncientSword, GiSwordBrandish } from 'react-icons/gi'
 import { LiaHourglassHalfSolid } from 'react-icons/lia'
@@ -43,6 +44,8 @@ import { getAllowedAmountExp } from '@/rpc/query'
 import { FiDollarSign } from 'react-icons/fi' // Add this import
 import { getCurrentCycleList } from '@/rpc/query'
 import { FiList } from 'react-icons/fi'
+import { MdPersonSearch } from 'react-icons/md'
+import { BsPersonFillAdd, BsPersonCheck } from 'react-icons/bs'
 
 export default function Home() {
   const BOX_ICON_BG = useColorModeValue('#003734', '#eefffb') // Light mode, Dark mode
@@ -323,7 +326,7 @@ export default function Home() {
               <BoxInfo
                 bgColor={BOX_ICON_BG}
                 color={BOX_ICON_COLOR}
-                icon={FiCpu}
+                icon={BsPersonCheck}
                 name="Validators"
                 value={validators}
               />
@@ -333,7 +336,7 @@ export default function Home() {
               <BoxInfo
                 bgColor={BOX_ICON_BG}
                 color={BOX_ICON_COLOR}
-                icon={RiBearSmileFill}
+                icon={BsPersonFillAdd}
                 name="Reporters"
                 value={reporterCount}
               />

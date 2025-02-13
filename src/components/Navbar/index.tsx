@@ -213,15 +213,15 @@ export default function Navbar() {
       zIndex={2}
       width="100%"
     >
-      <Flex h="120px" alignItems={'center'} justifyContent={'space-between'}>
+      <Flex h="80px" alignItems={'center'} justifyContent={'space-between'}>
         <Flex alignItems={'center'} h="full">
-          <Box px={6} py={8}>
-            <Flex alignItems="center" gap={4} pb={6} mt={4}>
+          <Box px={6} py={4}>
+            <Flex alignItems="center" gap={4}>
               <Image
                 src={useColorModeValue('/AllDrk.png', '/AllWht.png')}
                 alt="Tellor Logo"
-                height="min(4vw, 50px)"
-                width="auto"
+                height={{ base: '40px', md: 'min(4vw, 50px)' }}
+                width={{ base: 'auto', md: 'auto' }}
                 objectFit="contain"
                 transition="height 0.2s ease-in-out"
               />

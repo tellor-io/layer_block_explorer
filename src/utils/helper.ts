@@ -94,3 +94,11 @@ export function convertAddressToOperator(address: string): string {
   // Replace this with your actual conversion logic
   return `operator-${address}`
 }
+
+export const stripAddressPrefix = (address: string): string => {
+  // First remove tellorvaloper, then tellor, then valoper
+  return address
+    .replace(/^tellorvaloper/, '')
+    .replace(/^tellor/, '')
+    .replace(/^valoper/, '')
+}
