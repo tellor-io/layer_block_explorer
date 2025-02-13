@@ -10,6 +10,7 @@ import {
   Text,
   useToast,
   IconButton,
+  Tooltip,
 } from '@chakra-ui/react'
 import { useEffect, useState } from 'react'
 import NextLink from 'next/link'
@@ -17,10 +18,12 @@ import { FiChevronRight, FiHome, FiCopy } from 'react-icons/fi'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
 import { getReporterSelectors } from '@/rpc/query'
+import { stripAddressPrefix } from '@/utils/helper'
 
 // Update the type to match the new data structure
 type ReporterData = {
   address: string
+  displayName: string
   min_tokens_required: string
   commission_rate: string
   jailed: string
@@ -51,10 +54,11 @@ const truncateAddress = (address: string) => {
 }
 
 const columns = [
-  columnHelper.accessor('address', {
-    header: () => <div style={{ width: '130px' }}>Address</div>,
+  columnHelper.accessor('displayName', {
+    header: () => <div style={{ width: '130px' }}>Reporter</div>,
     cell: (props) => {
-      const address = props.getValue()
+      const address = props.row.original.address
+      const displayName = props.getValue()
       const toast = useToast()
       return (
         <div
@@ -65,22 +69,26 @@ const columns = [
             gap: '4px',
           }}
         >
-          <Text isTruncated>{truncateAddress(address)}</Text>
-          <IconButton
-            aria-label="Copy address"
-            icon={<Icon as={FiCopy} />}
-            size="xs"
-            variant="ghost"
-            onClick={() => {
-              navigator.clipboard.writeText(address)
-              toast({
-                title: 'Address copied',
-                status: 'success',
-                duration: 2000,
-                isClosable: true,
-              })
-            }}
-          />
+          <Text isTruncated title={address}>
+            {displayName}
+          </Text>
+          <Tooltip label="Copy reporter address" hasArrow>
+            <IconButton
+              aria-label="Copy reporter address"
+              icon={<Icon as={FiCopy} />}
+              size="xs"
+              variant="ghost"
+              onClick={() => {
+                navigator.clipboard.writeText(address)
+                toast({
+                  title: 'Address copied',
+                  status: 'success',
+                  duration: 2000,
+                  isClosable: true,
+                })
+              }}
+            />
+          </Tooltip>
         </div>
       )
     },
@@ -176,61 +184,129 @@ export default function Reporters() {
     setIsLoading(true)
     const url = '/api/reporters'
 
-    fetch(url)
-      .then((response) => {
+    // Add timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout')), 10000)
+    })
+
+    // First fetch validators
+    Promise.race([fetch('/api/validators'), timeoutPromise])
+      .then((response: unknown) => {
+        if (!(response instanceof Response)) {
+          throw new Error('Expected Response object')
+        }
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
         return response.json()
       })
-      .then((responseData) => {
-        if (responseData.reporters && Array.isArray(responseData.reporters)) {
-          setTotal(
-            parseInt(responseData.pagination.total) ||
-              responseData.reporters.length
-          )
-          const reporterAddresses = responseData.reporters.map(
-            (reporter: APIReporter) => reporter.address
-          )
-
-          // Fetch selectors for all reporters
-          return Promise.all(
-            reporterAddresses.map((address: string) =>
-              getReporterSelectors(address)
+      .then((validatorData) => {
+        const validatorMap = new Map()
+        if (validatorData.validators) {
+          validatorData.validators.forEach((validator: any) => {
+            console.log(
+              'Original validator address:',
+              validator.operator_address
             )
-          ).then((selectorsData) => {
-            const formattedData = responseData.reporters.map(
-              (reporter: APIReporter, index: number) => ({
-                address: reporter.address,
-                min_tokens_required: reporter.metadata.min_tokens_required,
-                commission_rate: reporter.metadata.commission_rate,
-                jailed: reporter.metadata.jailed ? 'Yes' : 'No',
-                jailed_until: reporter.metadata.jailed_until,
-                selectors: selectorsData[index] ?? 0,
-                power: reporter.power || '0',
-              })
+            const strippedValAddress = stripAddressPrefix(
+              validator.operator_address
             )
-            const start = page * perPage
-            const end = start + perPage
-            const paginatedData = formattedData.slice(start, end)
-            setData(paginatedData)
+            console.log('Stripped validator address:', strippedValAddress)
+            // Store using first 33 characters of the stripped address
+            const addressKey = strippedValAddress
+              .replace(/^valoper/, '')
+              .substring(0, 33)
+            console.log('Address key for mapping:', addressKey)
+            validatorMap.set(addressKey, validator.description?.moniker)
           })
-        } else {
-          throw new Error('Unexpected data structure')
+
+          // Log the complete map
+          console.log(
+            'Complete validator map:',
+            Object.fromEntries(validatorMap)
+          )
         }
+
+        // Then fetch reporters
+        return fetch(url)
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`)
+            }
+            return response.json()
+          })
+          .then((responseData) => {
+            if (
+              responseData.reporters &&
+              Array.isArray(responseData.reporters)
+            ) {
+              setTotal(
+                parseInt(responseData.pagination?.total) ||
+                  responseData.reporters.length
+              )
+              const reporterAddresses = responseData.reporters.map(
+                (reporter: APIReporter) => reporter.address
+              )
+
+              // Fetch selectors for all reporters
+              return Promise.all(
+                reporterAddresses.map((address: string) =>
+                  getReporterSelectors(address)
+                )
+              ).then((selectorsData) => {
+                const formattedData = responseData.reporters.map(
+                  (reporter: APIReporter, index: number) => {
+                    const strippedReporterAddress = stripAddressPrefix(
+                      reporter.address
+                    )
+                    // Use first 33 characters for lookup
+                    const lookupKey = strippedReporterAddress.substring(0, 33)
+                    console.log('Reporter lookup key:', lookupKey)
+                    const validatorMoniker = validatorMap.get(lookupKey)
+                    console.log('Found validator moniker:', validatorMoniker)
+
+                    return {
+                      address: reporter.address,
+                      displayName:
+                        validatorMoniker || truncateAddress(reporter.address),
+                      min_tokens_required:
+                        reporter.metadata.min_tokens_required,
+                      commission_rate: reporter.metadata.commission_rate,
+                      jailed: reporter.metadata.jailed ? 'Yes' : 'No',
+                      jailed_until: reporter.metadata.jailed_until,
+                      selectors: selectorsData[index] ?? 0,
+                      power: reporter.power || '0',
+                    }
+                  }
+                )
+                const start = page * perPage
+                const end = start + perPage
+                const paginatedData = formattedData.slice(start, end)
+                setData(paginatedData)
+                setIsLoading(false) // Success case
+              })
+            } else {
+              throw new Error('Unexpected data structure')
+            }
+          })
       })
-      .then(() => setIsLoading(false))
       .catch((error) => {
-        console.error('Error fetching reporters data:', error)
+        console.error('Error fetching data:', error)
         toast({
-          title: 'Failed to fetch reporters data',
+          title: 'Failed to fetch data',
           description: error.message,
           status: 'error',
           duration: 5000,
           isClosable: true,
         })
-        setIsLoading(false)
+        setData([]) // Clear data on error
+        setIsLoading(false) // Make sure to clear loading state on error
       })
+
+    // Cleanup function
+    return () => {
+      setIsLoading(false)
+    }
   }, [page, perPage, toast])
 
   const onChangePagination = (value: {

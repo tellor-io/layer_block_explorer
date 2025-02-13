@@ -9,11 +9,13 @@ import {
   Text,
   useColorModeValue,
   useToast,
+  IconButton,
+  Tooltip,
 } from '@chakra-ui/react'
 import { useEffect, useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
 import NextLink from 'next/link'
-import { FiChevronRight, FiHome } from 'react-icons/fi'
+import { FiChevronRight, FiHome, FiCopy } from 'react-icons/fi'
 import { selectTmClient } from '@/store/connectSlice'
 import { queryAllValidators } from '@/rpc/abci'
 import DataTable from '@/components/Datatable'
@@ -34,8 +36,43 @@ const columnHelper = createColumnHelper<ValidatorData>()
 
 const columns: ColumnDef<ValidatorData, any>[] = [
   columnHelper.accessor('validator', {
-    cell: (info) => info.getValue(),
-    header: 'Validator',
+    header: () => <div style={{ width: '130px' }}>Validator</div>,
+    cell: (props) => {
+      const address = props.row.original.operatorAddress
+      const displayName = props.getValue()
+      const toast = useToast()
+      return (
+        <div
+          style={{
+            width: '130px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+          }}
+        >
+          <Text isTruncated title={address}>
+            {displayName}
+          </Text>
+          <Tooltip label="Copy validator address" hasArrow>
+            <IconButton
+              aria-label="Copy validator address"
+              icon={<Icon as={FiCopy} />}
+              size="xs"
+              variant="ghost"
+              onClick={() => {
+                navigator.clipboard.writeText(address)
+                toast({
+                  title: 'Address copied',
+                  status: 'success',
+                  duration: 2000,
+                  isClosable: true,
+                })
+              }}
+            />
+          </Tooltip>
+        </div>
+      )
+    },
   }),
   columnHelper.accessor('status', {
     cell: (info) => info.getValue(),

@@ -114,7 +114,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <Box minH="100vh" bg={colorModeValue}>
       <Navbar />
-      <Box pt="64px">
+      <Box pt="80px">
         <Flex>
           <Box display={{ base: 'none', md: 'block' }}>
             <Sidebar />
