@@ -96,20 +96,6 @@ export default function Transactions() {
     if (newBlock?.txs?.length) {
       console.log('New block transactions:', newBlock.txs)
       for (const tx of newBlock.txs) {
-        updateTxs({
-          hash: tx,
-          height: newBlock.header.height,
-          index: 0,
-          result: {
-            code: 0,
-            data: tx,
-            log: '',
-            info: '',
-            gasWanted: '0',
-            gasUsed: '0',
-            events: [],
-          },
-        })
       }
     }
   }, [newBlock])
