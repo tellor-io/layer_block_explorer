@@ -64,7 +64,7 @@ export default function Home() {
   )
   const [reporterCount, setReporterCount] = useState<number>(0)
   const [averageGasCost, setAverageGasCost] = useState<string>('0')
-  const [currentCycleList, setCurrentCycleList] = useState<string>('N/A')
+  const [currentCycleList, setCurrentCycleList] = useState<string[]>([])
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null)
   const [lastNewPairTime, setLastNewPairTime] = useState<Date>(new Date())
   const [pollInterval, setPollInterval] = useState<number>(1000) // Start with 1 second
@@ -199,52 +199,9 @@ export default function Home() {
   }, [isLoaded, newBlock, status])
 
   useEffect(() => {
-    const fetchCurrentCycleList = async () => {
-      try {
-        const response = await fetch('/api/current-cycle')
-        const data = await response.json()
-
-        // Skip processing if data is invalid
-        if (!data.cycleList || !Array.isArray(data.cycleList)) {
-          setCurrentCycleList('N/A')
-          return
-        }
-
-        // Just format with bullet points, we'll handle columns in the render
-        const formattedList = data.cycleList.map(
-          (item: any) => item.queryParams
-        )
-        setCurrentCycleList(formattedList || 'N/A')
-
-        // Check if we found any new pairs
-        if (data.cycleList.length > previousPairCount) {
-          setLastNewPairTime(new Date())
-          setPreviousPairCount(data.cycleList.length)
-        } else {
-          // If no new pairs for 5 minutes, switch to daily polling
-          const timeSinceLastNewPair =
-            new Date().getTime() - lastNewPairTime.getTime()
-          if (
-            timeSinceLastNewPair > 5 * 60 * 1000 &&
-            pollInterval !== 24 * 60 * 60 * 1000
-          ) {
-            console.log('Switching to daily polling')
-            setPollInterval(24 * 60 * 60 * 1000)
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching cycle list:', error)
-        setCurrentCycleList('N/A')
-      }
-    }
-
-    // Initial fetch
-    fetchCurrentCycleList()
-
-    // Set up polling with current interval
-    const intervalId = setInterval(fetchCurrentCycleList, pollInterval)
-    return () => clearInterval(intervalId)
-  }, [pollInterval, lastNewPairTime, previousPairCount])
+    const hardCodedList = ['btc/usd', 'eth/usd', 'trb/usd']
+    setCurrentCycleList(hardCodedList)
+  }, [])
 
   return (
     <>
@@ -326,7 +283,7 @@ export default function Home() {
               <BoxInfo
                 bgColor={BOX_ICON_BG}
                 color={BOX_ICON_COLOR}
-                icon={BsPersonCheck}
+                icon={FiUsers}
                 name="Validators"
                 value={validators}
               />
@@ -414,10 +371,9 @@ export default function Home() {
                       lineHeight: '1rem',
                     }}
                   >
-                    {Array.isArray(currentCycleList) &&
-                      currentCycleList.map((pair, index) => (
-                        <div key={index}>• {pair}</div>
-                      ))}
+                    {currentCycleList.map((pair, index) => (
+                      <div key={index}>• {pair}</div>
+                    ))}
                   </div>
                 }
               />

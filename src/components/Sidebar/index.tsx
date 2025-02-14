@@ -129,40 +129,61 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
       borderRightColor={useColorModeValue('gray.200', 'gray.700')}
       w={{ base: 'full', md: 60 }}
       pos="fixed"
-      h="full"
-      pt="20px"
+      h="100vh"
+      overflowY="auto"
+      display="flex"
+      flexDirection="column"
+      css={{
+        '&::-webkit-scrollbar': {
+          width: '4px',
+        },
+        '&::-webkit-scrollbar-track': {
+          width: '6px',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          background: useColorModeValue('gray.300', 'gray.700'),
+          borderRadius: '24px',
+        },
+      }}
       {...rest}
     >
-      <VStack spacing={4} align="stretch">
-        <Box>
-          {LinkItems.map((link) => (
-            <NavItem key={link.name} icon={link.icon} route={link.route}>
-              {link.name}
-            </NavItem>
-          ))}
-          <Heading
-            mt="6"
-            p="4"
-            mx="4"
-            size={'xs'}
-            textTransform="uppercase"
-            textColor={useColorModeValue('gray.500', 'gray.100')}
-            fontWeight="medium"
-          >
-            Links
-          </Heading>
-          {RefLinkItems.map((link) => (
-            <NavItem
-              key={link.name}
-              icon={link.icon}
-              route={link.route}
-              isBlank={link.isBlank}
+      <Box
+        flex="1"
+        pt="20px"
+        pb="80px" // Increased bottom padding significantly
+        minH="min-content"
+      >
+        <VStack spacing={4} align="stretch" w="100%">
+          <Box>
+            {LinkItems.map((link) => (
+              <NavItem key={link.name} icon={link.icon} route={link.route}>
+                {link.name}
+              </NavItem>
+            ))}
+            <Heading
+              mt="6"
+              p="4"
+              mx="4"
+              size={'xs'}
+              textTransform="uppercase"
+              textColor={useColorModeValue('gray.500', 'gray.100')}
+              fontWeight="medium"
             >
-              {link.name}
-            </NavItem>
-          ))}
-        </Box>
-      </VStack>
+              Links
+            </Heading>
+            {RefLinkItems.map((link) => (
+              <NavItem
+                key={link.name}
+                icon={link.icon}
+                route={link.route}
+                isBlank={link.isBlank}
+              >
+                {link.name}
+              </NavItem>
+            ))}
+          </Box>
+        </VStack>
+      </Box>
     </Box>
   )
 }
