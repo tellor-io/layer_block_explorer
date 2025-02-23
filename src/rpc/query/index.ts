@@ -134,27 +134,66 @@ export const getAllowedAmountExp = async (): Promise<string | undefined> => {
 }
 
 export async function getReporterCount(queryId: string, timestamp: string) {
-  try {
-    const response = await fetch(
-      `/api/reporter-count?queryId=${queryId}&timestamp=${timestamp}`
-    )
-    const data = await response.json()
-    return {
-      count: data.count || 0,
-      queryType: data.queryType || 'N/A',
-      aggregateMethod: data.aggregateMethod || 'N/A',
-      cycleList: data.cycleList || false,
-      totalPower: data.totalPower || 0,
+  const maxRetries = 3
+  const retryDelay = 1000 // 1 second
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      console.log(
+        `[getReporterCount] Attempt ${attempt + 1} for queryId: ${queryId}`
+      )
+      const response = await fetch(
+        `/api/reporter-count?queryId=${queryId}&timestamp=${timestamp}`
+      )
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log(`[getReporterCount] Response data:`, data)
+
+      if (!data || typeof data.count === 'undefined') {
+        console.log('[getReporterCount] Invalid response data structure')
+        throw new Error('Invalid response data')
+      }
+
+      // Only return if we have valid data
+      if (
+        data.queryType !== 'N/A' &&
+        data.aggregateMethod !== 'N/A' &&
+        data.count > 0
+      ) {
+        console.log('[getReporterCount] Valid data received:', data)
+        return {
+          count: data.count,
+          queryType: data.queryType,
+          aggregateMethod: data.aggregateMethod,
+          cycleList: data.cycleList,
+          totalPower: data.totalPower,
+        }
+      }
+
+      console.log('[getReporterCount] Received N/A values, will retry')
+      throw new Error('Received N/A values from API')
+    } catch (error) {
+      console.error(`[getReporterCount] Attempt ${attempt + 1} failed:`, error)
+      if (attempt < maxRetries - 1) {
+        const delay = retryDelay * (attempt + 1)
+        console.log(`[getReporterCount] Waiting ${delay}ms before retry`)
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        continue
+      }
     }
-  } catch (error) {
-    console.error('Error in getReporterCount:', error)
-    return {
-      count: 0,
-      queryType: 'N/A',
-      aggregateMethod: 'N/A',
-      cycleList: false,
-      totalPower: 0,
-    }
+  }
+
+  console.error('[getReporterCount] All retries failed')
+  return {
+    count: 0,
+    queryType: 'N/A',
+    aggregateMethod: 'N/A',
+    cycleList: false,
+    totalPower: 0,
   }
 }
 
