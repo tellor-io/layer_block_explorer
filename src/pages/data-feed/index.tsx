@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Head from 'next/head'
 import {
   Box,
@@ -31,6 +31,7 @@ import { ExternalLinkIcon } from '@chakra-ui/icons'
 import axios from 'axios'
 import { getReporterCount, decodeQueryData } from '@/rpc/query'
 import { rpcManager } from '@/utils/rpcManager'
+import { debounce } from 'lodash'
 
 interface ReportAttribute {
   key: string
@@ -75,163 +76,156 @@ export default function DataFeed() {
   const tmClient = useSelector(selectTmClient)
   const newBlock = useSelector(selectNewBlock)
   const [aggregateReports, setAggregateReports] = useState<OracleReport[]>([])
+  const processedBlocksRef = useRef(new Set<number>())
   const toast = useToast()
 
-  useEffect(() => {
-    const processedBlocks = new Set()
-
-    if (newBlock) {
-      const blockHeight = newBlock.header.height
-
-      // Skip if we've already processed this block
-      if (processedBlocks.has(blockHeight)) {
+  const processBlock = useCallback(
+    debounce(async (block) => {
+      const blockHeight = block.header.height
+      if (processedBlocksRef.current.has(blockHeight)) {
         return
       }
-      processedBlocks.add(blockHeight)
+      processedBlocksRef.current.add(blockHeight)
 
-      // Get the current endpoint from rpcManager
-      rpcManager.getCurrentEndpoint().then((endpoint) => {
-        axios
-          .get(`${endpoint}/block_results?height=${blockHeight}`)
-          .then(async (response) => {
-            const blockResults = response.data.result
-            const finalizeEvents = blockResults.finalize_block_events || []
+      try {
+        const endpoint = await rpcManager.getCurrentEndpoint()
+        const response = await axios.get(
+          `${endpoint}/block_results?height=${blockHeight}`
+        )
+        const blockResults = response.data.result
+        const finalizeEvents = blockResults.finalize_block_events || []
 
-            // Process each event sequentially
-            for (const aggregateEvent of finalizeEvents) {
-              if (aggregateEvent.type === 'aggregate_report') {
-                try {
-                  const attributes: ReportAttribute[] =
-                    aggregateEvent.attributes.map(
-                      (attr: {
-                        key: string
-                        value: string
-                        index?: boolean
-                      }) => {
-                        let decodedValue = attr.value
-                        try {
-                          if (
-                            attr.key === 'value' &&
-                            attr.value.match(/^[0-9a-fA-F]+$/)
-                          ) {
-                            decodedValue = attr.value
-                          }
-                        } catch (error) {
-                          // Removed console.error
-                        }
-
-                        return {
-                          key: attr.key,
-                          value: decodedValue,
-                        }
-                      }
-                    )
-
-                  const formattedAttributes = attributes.map(
-                    (attr: {
-                      key: string
-                      value: string
-                      displayValue?: string
-                    }) => {
+        for (const aggregateEvent of finalizeEvents) {
+          if (aggregateEvent.type === 'aggregate_report') {
+            try {
+              const attributes: ReportAttribute[] =
+                aggregateEvent.attributes.map(
+                  (attr: { key: string; value: string; index?: boolean }) => {
+                    let decodedValue = attr.value
+                    try {
                       if (
                         attr.key === 'value' &&
-                        attr.value.startsWith('0000')
+                        attr.value.match(/^[0-9a-fA-F]+$/)
                       ) {
-                        try {
-                          const valueInWei = BigInt('0x' + attr.value)
-                          const valueInEth = Number(valueInWei) / 1e18
-
-                          const queryData = attributes.find(
-                            (a) => a.key === 'query_data'
-                          )?.value
-
-                          if (
-                            queryData &&
-                            queryData.toLowerCase().includes('spotprice')
-                          ) {
-                            const formattedValue = `$${valueInEth.toLocaleString(
-                              undefined,
-                              {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              }
-                            )}`
-                            return { ...attr, displayValue: formattedValue }
-                          }
-
-                          return {
-                            ...attr,
-                            displayValue: valueInEth.toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }),
-                          }
-                        } catch (e) {
-                          return attr
-                        }
+                        decodedValue = attr.value
                       }
+                    } catch (error) {
+                      // Removed console.error
+                    }
+
+                    return {
+                      key: attr.key,
+                      value: decodedValue,
+                    }
+                  }
+                )
+
+              const formattedAttributes = attributes.map(
+                (attr: {
+                  key: string
+                  value: string
+                  displayValue?: string
+                }) => {
+                  if (attr.key === 'value' && attr.value.startsWith('0000')) {
+                    try {
+                      const valueInWei = BigInt('0x' + attr.value)
+                      const valueInEth = Number(valueInWei) / 1e18
+
+                      const queryData = attributes.find(
+                        (a) => a.key === 'query_data'
+                      )?.value
+
+                      if (
+                        queryData &&
+                        queryData.toLowerCase().includes('spotprice')
+                      ) {
+                        const formattedValue = `$${valueInEth.toLocaleString(
+                          undefined,
+                          {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          }
+                        )}`
+                        return { ...attr, displayValue: formattedValue }
+                      }
+
+                      return {
+                        ...attr,
+                        displayValue: valueInEth.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }),
+                      }
+                    } catch (e) {
                       return attr
                     }
-                  )
-
-                  const valueAttr = formattedAttributes.find(
-                    (attr) => attr.key === 'value'
-                  )
-                  const queryId =
-                    attributes.find(
-                      (attr: ReportAttribute) => attr.key === 'query_id'
-                    )?.value || ''
-                  const timestamp = newBlock.header.time.getTime().toString()
-                  const reporterData = await getReporterCount(
-                    queryId,
-                    timestamp
-                  )
-
-                  const queryTypeAttr = attributes.find(
-                    (attr) => attr.key === 'query_type'
-                  )
-                  const aggregateMethodAttr = attributes.find(
-                    (attr) => attr.key === 'aggregate_method'
-                  )
-                  const cycleListAttr = attributes.find(
-                    (attr) => attr.key === 'cyclelist'
-                  )
-
-                  const newReport: OracleReport = {
-                    type: aggregateEvent.type,
-                    queryId: queryId || 'Unknown',
-                    value:
-                      valueAttr?.displayValue || valueAttr?.value || 'Unknown',
-                    numberOfReporters: reporterData.count.toString(),
-                    microReportHeight:
-                      attributes.find(
-                        (attr: ReportAttribute) =>
-                          attr.key === 'micro_report_height'
-                      )?.value || '0',
-                    blockHeight: Number(blockHeight),
-                    timestamp: new Date(newBlock.header.time.toISOString()),
-                    attributes: formattedAttributes,
-                    queryType: reporterData.queryType || 'N/A',
-                    aggregateMethod: reporterData.aggregateMethod || 'N/A',
-                    cycleList: reporterData.cycleList || false,
-                    totalPower: reporterData.totalPower,
                   }
-
-                  setAggregateReports((prev) =>
-                    [newReport, ...prev].slice(0, 100)
-                  )
-                } catch (error) {
-                  // Removed console.error
+                  return attr
                 }
+              )
+
+              const valueAttr = formattedAttributes.find(
+                (attr) => attr.key === 'value'
+              )
+              const queryId =
+                attributes.find(
+                  (attr: ReportAttribute) => attr.key === 'query_id'
+                )?.value || ''
+              const timestamp = block.header.time.getTime().toString()
+              const reporterData = await getReporterCount(queryId, timestamp)
+
+              if (reporterData.queryType !== 'N/A' && reporterData.count > 0) {
+                const queryTypeAttr = attributes.find(
+                  (attr) => attr.key === 'query_type'
+                )
+                const aggregateMethodAttr = attributes.find(
+                  (attr) => attr.key === 'aggregate_method'
+                )
+                const cycleListAttr = attributes.find(
+                  (attr) => attr.key === 'cyclelist'
+                )
+
+                const newReport: OracleReport = {
+                  type: aggregateEvent.type,
+                  queryId: queryId || 'Unknown',
+                  value:
+                    valueAttr?.displayValue || valueAttr?.value || 'Unknown',
+                  numberOfReporters: reporterData.count.toString(),
+                  microReportHeight:
+                    attributes.find(
+                      (attr: ReportAttribute) =>
+                        attr.key === 'micro_report_height'
+                    )?.value || '0',
+                  blockHeight: Number(blockHeight),
+                  timestamp: new Date(block.header.time),
+                  attributes: formattedAttributes,
+                  queryType: reporterData.queryType || 'N/A',
+                  aggregateMethod: reporterData.aggregateMethod || 'N/A',
+                  cycleList: reporterData.cycleList || false,
+                  totalPower: reporterData.totalPower,
+                }
+
+                setAggregateReports((prev) =>
+                  [newReport, ...prev].slice(0, 100)
+                )
               }
+            } catch (error) {
+              console.error(`[DataFeed] Aggregate event error:`, error)
             }
-          })
-          .catch((error) => {
-            // Removed console.error
-          })
-      })
+          }
+        }
+      } catch (error) {
+        console.error(`[DataFeed] Block processing error:`, error)
+      }
+    }, 500),
+    []
+  )
+
+  useEffect(() => {
+    if (newBlock) {
+      processBlock(newBlock)
     }
-  }, [newBlock])
+  }, [newBlock, processBlock])
 
   return (
     <>

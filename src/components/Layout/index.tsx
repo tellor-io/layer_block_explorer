@@ -52,12 +52,13 @@ export default function Layout({ children }: LayoutProps) {
     try {
       setIsLoading(true)
 
-      // Get all available endpoints, with the provided address first
-      const endpoints = [address, ...rpcManager.getEndpoints()]
-      console.log('Available endpoints:', endpoints)
+      // Get all available endpoints and remove duplicates
+      const allEndpoints = [address, ...rpcManager.getEndpoints()]
+      const uniqueEndpoints = Array.from(new Set(allEndpoints))
+      console.log('Available endpoints:', uniqueEndpoints)
 
       // Try each endpoint
-      for (const endpoint of endpoints) {
+      for (const endpoint of uniqueEndpoints) {
         try {
           console.log('Attempting connection to:', endpoint)
           const tmClient = await connectWebsocketClient(endpoint)

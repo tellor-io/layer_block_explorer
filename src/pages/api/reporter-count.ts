@@ -10,17 +10,16 @@ const cache = new Map<
   }
 >()
 
-const CACHE_DURATION = 5000 // 5 seconds cache
+const CACHE_DURATION = 10000 // 5 seconds cache
 const RPC_ENDPOINTS = ['https://rpc.layer-node.com', 'https://tellorlayer.com']
+const INITIAL_DELAY = 1000 // 1 second wait before first attempt
+const AXIOS_TIMEOUT = 5000 // Increase from 3000 to 5000ms
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   const { queryId, timestamp } = req.query
-  console.log(
-    `[reporter-count] Request received for queryId: ${queryId}, timestamp: ${timestamp}`
-  )
 
   if (
     !queryId ||
@@ -28,7 +27,6 @@ export default async function handler(
     typeof queryId !== 'string' ||
     typeof timestamp !== 'string'
   ) {
-    console.log('[reporter-count] Invalid request parameters')
     return res
       .status(400)
       .json({ error: 'Query ID and timestamp are required' })
@@ -38,46 +36,36 @@ export default async function handler(
   const cachedData = cache.get(cacheKey)
 
   if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
-    console.log('[reporter-count] Returning cached data:', cachedData.data)
     return res.status(200).json(cachedData.data)
   }
 
   let timestampNum = parseInt(timestamp, 10)
   const currentTime = Date.now()
   if (timestampNum > currentTime) {
-    console.log(
-      `[reporter-count] Adjusting future timestamp from ${timestampNum} to ${currentTime}`
-    )
     timestampNum = currentTime
   }
 
   let lastError = null
   let successfulResponse = null
 
+  await new Promise((resolve) => setTimeout(resolve, INITIAL_DELAY))
+
   for (const endpoint of RPC_ENDPOINTS) {
     try {
-      console.log(`[reporter-count] Trying endpoint: ${endpoint}`)
       const url = `${endpoint}/tellor-io/layer/oracle/get_reports_by_aggregate/${queryId}/${timestampNum}?pagination.limit=600`
-
       const response = await axios.get(url, {
-        timeout: 3000,
-        headers: {
-          Accept: 'application/json',
-        },
+        timeout: AXIOS_TIMEOUT,
+        headers: { Accept: 'application/json' },
       })
 
       const data = response.data
-      console.log(`[reporter-count] Raw response from ${endpoint}:`, data)
-
       if (!data || !data.microReports || !Array.isArray(data.microReports)) {
-        console.log(`[reporter-count] Invalid data structure from ${endpoint}`)
         continue
       }
 
       const uniqueReporters = new Set(
         data.microReports.map((report: any) => report.reporter)
       )
-
       const totalPower = data.microReports.reduce(
         (sum: number, report: any) => {
           const power = parseInt(report.power || '0', 10)
@@ -87,7 +75,6 @@ export default async function handler(
       )
 
       const firstReport = data.microReports[0] || {}
-
       successfulResponse = {
         count:
           uniqueReporters.size || parseInt(data.pagination?.total || '0', 10),
@@ -97,14 +84,8 @@ export default async function handler(
         totalPower,
         endpoint,
       }
-
-      console.log(
-        `[reporter-count] Successful response from ${endpoint}:`,
-        successfulResponse
-      )
       break
     } catch (error) {
-      console.error(`[reporter-count] Error with endpoint ${endpoint}:`, error)
       lastError = error
       continue
     }
@@ -119,10 +100,6 @@ export default async function handler(
   }
 
   if (cachedData) {
-    console.log(
-      '[reporter-count] Using expired cache as fallback:',
-      cachedData.data
-    )
     return res.status(200).json(cachedData.data)
   }
 

@@ -95,7 +95,6 @@ export class RPCManager {
 
     const endpoint =
       availableEndpoints[this.state.currentIndex % availableEndpoints.length]
-    console.debug('Selected endpoint:', endpoint)
     return endpoint
   }
 

@@ -134,14 +134,11 @@ export const getAllowedAmountExp = async (): Promise<string | undefined> => {
 }
 
 export async function getReporterCount(queryId: string, timestamp: string) {
-  const maxRetries = 3
-  const retryDelay = 1000 // 1 second
+  const maxRetries = 2
+  const retryDelay = 2000
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      console.log(
-        `[getReporterCount] Attempt ${attempt + 1} for queryId: ${queryId}`
-      )
       const response = await fetch(
         `/api/reporter-count?queryId=${queryId}&timestamp=${timestamp}`
       )
@@ -151,7 +148,6 @@ export async function getReporterCount(queryId: string, timestamp: string) {
       }
 
       const data = await response.json()
-      console.log(`[getReporterCount] Response data:`, data)
 
       if (!data || typeof data.count === 'undefined') {
         console.log('[getReporterCount] Invalid response data structure')
@@ -164,7 +160,6 @@ export async function getReporterCount(queryId: string, timestamp: string) {
         data.aggregateMethod !== 'N/A' &&
         data.count > 0
       ) {
-        console.log('[getReporterCount] Valid data received:', data)
         return {
           count: data.count,
           queryType: data.queryType,
