@@ -188,18 +188,10 @@ export default function Blocks() {
         setIsLoading(false)
       } catch (error) {
         if (axios.isAxiosError(error)) {
-          console.error('Axios error:', {
-            message: error.message,
-            code: error.code,
-            response: error.response?.data,
-          })
-          // Handle the error appropriately in your UI
-          // For example:
           setError(
             'Failed to fetch data. Please check your network connection.'
           )
         } else {
-          console.error('Unexpected error:', error)
           setError('An unexpected error occurred.')
         }
       }

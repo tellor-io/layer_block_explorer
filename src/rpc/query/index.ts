@@ -5,15 +5,8 @@ import {
   IndexedTx,
   StargateClient,
 } from '@cosmjs/stargate'
-import {
-  Tendermint37Client,
-  TxSearchResponse,
-  ValidatorsResponse,
-} from '@cosmjs/tendermint-rpc'
+import { Tendermint37Client, TxSearchResponse } from '@cosmjs/tendermint-rpc'
 import axios from 'axios'
-import { ethers } from 'ethers'
-import { keccak256 } from '@ethersproject/keccak256'
-import { defaultAbiCoder } from '@ethersproject/abi'
 
 export async function getChainId(
   tmClient: Tendermint37Client
@@ -83,7 +76,6 @@ const convertToDisplayAmount = (amount: string): string => {
     const numberAmount = Number(amount) / 1_000_000
     return numberAmount.toString()
   } catch (error) {
-    console.error('Error converting amount:', error)
     return '0'
   }
 }
@@ -99,7 +91,6 @@ export const getAllowedAmounts = async (): Promise<{
       unstaking_amount: convertToDisplayAmount(response.data.unstaking_amount),
     }
   } catch (error) {
-    console.error('Error in getAllowedAmounts:', error)
     return {}
   }
 }
@@ -111,7 +102,6 @@ export const getAllowedStakingAmount = async (): Promise<
     const amounts = await getAllowedAmounts()
     return amounts.staking_amount
   } catch (error) {
-    console.error('Error in getAllowedStakingAmount:', error)
     return undefined
   }
 }
@@ -123,7 +113,6 @@ export const getAllowedUnstakingAmount = async (): Promise<
     const amounts = await getAllowedAmounts()
     return amounts.unstaking_amount
   } catch (error) {
-    console.error('Error in getAllowedUnstakingAmount:', error)
     return undefined
   }
 }
@@ -140,48 +129,32 @@ export const getAllowedAmountExp = async (): Promise<string | undefined> => {
     }
     return undefined
   } catch (error) {
-    console.error('Error in getAllowedAmountExp:', error)
     return undefined
   }
 }
 
-export const getReporterCount = async (
-  queryId?: string,
-  timestamp?: string
-): Promise<number> => {
+export async function getReporterCount(queryId: string, timestamp: string) {
   try {
-    // If no parameters provided, get total reporter count
-    if (!queryId || !timestamp) {
-      const response = await axios.get('/api/reporters')
-      if (response.data && Array.isArray(response.data.reporters)) {
-        return response.data.reporters.length
-      }
-      return 0
+    const response = await fetch(
+      `/api/reporter-count?queryId=${queryId}&timestamp=${timestamp}`
+    )
+    const data = await response.json()
+    return {
+      count: data.count || 0,
+      queryType: data.queryType || 'N/A',
+      aggregateMethod: data.aggregateMethod || 'N/A',
+      cycleList: data.cycleList || false,
+      totalPower: data.totalPower || 0,
     }
-
-    // Otherwise, get reporter count for specific query/timestamp
-    const response = await axios.get(`/api/reporter-count`, {
-      params: {
-        queryId,
-        timestamp,
-      },
-    })
-
-    if (typeof response.data.count !== 'number') {
-      return 0
-    }
-
-    return response.data.count
   } catch (error) {
-    console.error('Error in getReporterCount:', {
-      error,
-      message: error instanceof Error ? error.message : 'Unknown error',
-      response:
-        error instanceof Error && 'response' in error
-          ? error.response
-          : undefined,
-    })
-    return 0
+    console.error('Error in getReporterCount:', error)
+    return {
+      count: 0,
+      queryType: 'N/A',
+      aggregateMethod: 'N/A',
+      cycleList: false,
+      totalPower: 0,
+    }
   }
 }
 
@@ -192,11 +165,9 @@ export const getReporterList = async (): Promise<string[] | undefined> => {
     if (response.data && Array.isArray(response.data.reporters)) {
       return response.data.reporters
     } else {
-      console.error('Unexpected response structure:', response.data)
       return undefined
     }
   } catch (error) {
-    console.error('Error fetching reporter list:', error)
     return undefined
   }
 }
@@ -209,11 +180,9 @@ export const getReporterSelectors = async (
     if (response.data && typeof response.data.num_of_selectors === 'number') {
       return response.data.num_of_selectors
     } else {
-      console.error('Unexpected response structure:', response.data)
       return undefined
     }
   } catch (error) {
-    console.error('Error fetching reporter selectors:', error)
     return undefined
   }
 }
@@ -240,7 +209,6 @@ export const getBlockResults = async (height: number): Promise<any> => {
     const response = await axios.get(url)
     return response.data.result
   } catch (error) {
-    console.error('Error fetching block results:', error)
     return undefined
   }
 }
@@ -251,7 +219,6 @@ export const getValidatorMoniker = async (address: string): Promise<string> => {
     const response = await axios.get(url)
     return response.data.validator.description.moniker
   } catch (error) {
-    console.error('Error fetching validator moniker:', error)
     return 'Unknown'
   }
 }
@@ -293,11 +260,8 @@ export const getCurrentCycleList = async (): Promise<
     if (response.data && Array.isArray(response.data)) {
       return response.data
     }
-
-    console.error('Client: Invalid response structure:', response.data)
     return []
   } catch (error) {
-    console.error('Client: Error fetching current cycle list:', error)
     return []
   }
 }
@@ -314,8 +278,6 @@ interface QueryTypeConfig {
 
 export function decodeQueryData(queryId: string, queryData?: string): any {
   try {
-    console.log('Decoding with:', { queryId, queryData })
-
     // If we have queryData, try to decode that first
     if (queryData) {
       try {
@@ -323,8 +285,6 @@ export function decodeQueryData(queryId: string, queryData?: string): any {
         const asciiData = queryData.startsWith('0x')
           ? Buffer.from(queryData.slice(2), 'hex').toString('ascii')
           : Buffer.from(queryData, 'hex').toString('ascii')
-
-        console.log('Decoded ASCII:', asciiData)
 
         // Look for known patterns
         if (asciiData.includes('SpotPrice')) {
@@ -343,7 +303,7 @@ export function decodeQueryData(queryId: string, queryData?: string): any {
           decodedValue: `Raw: ${asciiData}`,
         }
       } catch (error) {
-        console.error('Error decoding query data:', error)
+        // Silent fail and return default response
       }
     }
 
@@ -353,7 +313,6 @@ export function decodeQueryData(queryId: string, queryData?: string): any {
       decodedValue: 'Query data not available',
     }
   } catch (error) {
-    console.error('Error in decodeQueryData:', error)
     return {
       queryType: 'Unknown',
       decodedValue: 'Decode error',
@@ -366,7 +325,26 @@ export const getValidators = async () => {
     const response = await axios.get('/api/validators')
     return response.data
   } catch (error) {
-    console.error('Error fetching validators:', error)
     return undefined
+  }
+}
+
+export async function getTotalReporterCount(): Promise<number> {
+  try {
+    // First try to get reporters list
+    const response = await fetch('/api/reporters')
+    const data = await response.json()
+
+    if (data && Array.isArray(data.reporters)) {
+      return data.reporters.length
+    }
+
+    // Fallback to reporter-selectors count if reporters list fails
+    const countResponse = await fetch('/api/reporter-selectors/count')
+    const countData = await countResponse.json()
+    return countData.count || 0
+  } catch (error) {
+    console.error('Error fetching total reporter count:', error)
+    return 0
   }
 }

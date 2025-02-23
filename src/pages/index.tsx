@@ -38,7 +38,7 @@ import { displayDate } from '@/utils/helper'
 import { StatusResponse } from '@cosmjs/tendermint-rpc'
 import { getAllowedUnstakingAmount } from '@/rpc/query'
 import { getAllowedStakingAmount } from '@/rpc/query'
-import { getReporterCount } from '@/rpc/query'
+import { getTotalReporterCount } from '@/rpc/query'
 import { getAllowedAmountExp } from '@/rpc/query'
 //import { getAverageGasCost } from '@/rpc/query' // Add this import
 import { FiDollarSign } from 'react-icons/fi' // Add this import
@@ -163,16 +163,12 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
-    getReporterCount()
-      .then((parsedAmounts) => {
-        if (parsedAmounts !== undefined) {
-          setReporterCount(parsedAmounts)
-        } else {
-          console.log('Failed to fetch allowed amount')
-        }
+    getTotalReporterCount()
+      .then((count) => {
+        setReporterCount(count)
       })
       .catch((error) => {
-        console.error('Error in getAllowedAmount:', error)
+        console.error('Error in getTotalReporterCount:', error)
       })
   }, [])
 

@@ -48,6 +48,10 @@ interface OracleReport {
   blockHeight: number
   timestamp: Date
   attributes?: ReportAttribute[]
+  aggregateMethod?: string
+  cycleList?: boolean
+  queryType?: string
+  totalPower?: number
 }
 
 interface EventAttribute {
@@ -58,6 +62,13 @@ interface EventAttribute {
 interface AggregateReportEvent {
   type: string
   attributes: EventAttribute[]
+}
+
+const getQueryPairName = (queryId: string): string => {
+  if (queryId.endsWith('ad78ac')) return 'BTC/USD'
+  if (queryId.endsWith('67ded0')) return 'TRB/USD'
+  if (queryId.endsWith('ce4992')) return 'ETH/USD'
+  return queryId
 }
 
 export default function DataFeed() {
@@ -96,13 +107,26 @@ export default function DataFeed() {
                         key: string
                         value: string
                         index?: boolean
-                      }) => ({
-                        key: attr.key,
-                        value: attr.value,
-                      })
+                      }) => {
+                        let decodedValue = attr.value
+                        try {
+                          if (
+                            attr.key === 'value' &&
+                            attr.value.match(/^[0-9a-fA-F]+$/)
+                          ) {
+                            decodedValue = attr.value
+                          }
+                        } catch (error) {
+                          // Removed console.error
+                        }
+
+                        return {
+                          key: attr.key,
+                          value: decodedValue,
+                        }
+                      }
                     )
 
-                  // Format the value if it's a hex string
                   const formattedAttributes = attributes.map(
                     (attr: {
                       key: string
@@ -117,12 +141,10 @@ export default function DataFeed() {
                           const valueInWei = BigInt('0x' + attr.value)
                           const valueInEth = Number(valueInWei) / 1e18
 
-                          // Check for query_data attribute
                           const queryData = attributes.find(
                             (a) => a.key === 'query_data'
                           )?.value
 
-                          // If query data exists and includes SpotPrice
                           if (
                             queryData &&
                             queryData.toLowerCase().includes('spotprice')
@@ -145,7 +167,6 @@ export default function DataFeed() {
                             }),
                           }
                         } catch (e) {
-                          console.error('Failed to format value:', e)
                           return attr
                         }
                       }
@@ -156,18 +177,24 @@ export default function DataFeed() {
                   const valueAttr = formattedAttributes.find(
                     (attr) => attr.key === 'value'
                   )
-
                   const queryId =
                     attributes.find(
                       (attr: ReportAttribute) => attr.key === 'query_id'
                     )?.value || ''
-
-                  // Format timestamp in milliseconds
                   const timestamp = newBlock.header.time.getTime().toString()
-
-                  const reporterCount = await getReporterCount(
+                  const reporterData = await getReporterCount(
                     queryId,
                     timestamp
+                  )
+
+                  const queryTypeAttr = attributes.find(
+                    (attr) => attr.key === 'query_type'
+                  )
+                  const aggregateMethodAttr = attributes.find(
+                    (attr) => attr.key === 'aggregate_method'
+                  )
+                  const cycleListAttr = attributes.find(
+                    (attr) => attr.key === 'cyclelist'
                   )
 
                   const newReport: OracleReport = {
@@ -175,7 +202,7 @@ export default function DataFeed() {
                     queryId: queryId || 'Unknown',
                     value:
                       valueAttr?.displayValue || valueAttr?.value || 'Unknown',
-                    numberOfReporters: reporterCount.toString(),
+                    numberOfReporters: reporterData.count.toString(),
                     microReportHeight:
                       attributes.find(
                         (attr: ReportAttribute) =>
@@ -184,19 +211,23 @@ export default function DataFeed() {
                     blockHeight: Number(blockHeight),
                     timestamp: new Date(newBlock.header.time.toISOString()),
                     attributes: formattedAttributes,
+                    queryType: reporterData.queryType || 'N/A',
+                    aggregateMethod: reporterData.aggregateMethod || 'N/A',
+                    cycleList: reporterData.cycleList || false,
+                    totalPower: reporterData.totalPower,
                   }
 
                   setAggregateReports((prev) =>
                     [newReport, ...prev].slice(0, 100)
                   )
                 } catch (error) {
-                  console.error('Error processing aggregate report:', error)
+                  // Removed console.error
                 }
               }
             }
           })
           .catch((error) => {
-            console.error('Error fetching block results:', error)
+            // Removed console.error
           })
       })
     }
@@ -213,33 +244,37 @@ export default function DataFeed() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <main>
-        <HStack h="24px">
-          <Heading size={'md'}>Live Aggregate Reports</Heading>
-          <Divider borderColor={'gray'} size="10px" orientation="vertical" />
-          <Link
-            as={NextLink}
-            href={'/'}
-            style={{ textDecoration: 'none' }}
-            _focus={{ boxShadow: 'none' }}
-          >
-            <Icon
-              fontSize="16"
-              color={useColorModeValue('light-theme', 'dark-theme')}
-              as={FiHome}
-            />
-          </Link>
-          <Icon fontSize="16" as={FiChevronRight} />
-          <Text>Data Feed</Text>
-        </HStack>
+      <main
+        style={{
+          backgroundColor: useColorModeValue(
+            'var(--chakra-colors-light-container)',
+            'var(--chakra-colors-dark-container)'
+          ),
+          padding: '1rem',
+        }}
+      >
+        <Box p={4} borderRadius={4} mb={4}>
+          <HStack h="24px">
+            <Heading size={'md'}>Live Aggregate Reports</Heading>
+            <Divider borderColor={'gray'} size="10px" orientation="vertical" />
+            <Link
+              as={NextLink}
+              href={'/'}
+              style={{ textDecoration: 'none' }}
+              _focus={{ boxShadow: 'none' }}
+            >
+              <Icon
+                fontSize="16"
+                color={useColorModeValue('light-theme', 'dark-theme')}
+                as={FiHome}
+              />
+            </Link>
+            <Icon fontSize="16" as={FiChevronRight} />
+            <Text>Data Feed</Text>
+          </HStack>
+        </Box>
 
-        <Box
-          mt={8}
-          bg={useColorModeValue('light-container', 'dark-container')}
-          shadow={'base'}
-          borderRadius={4}
-          p={4}
-        >
+        <Box shadow={'base'} borderRadius={4} p={4}>
           <Text fontSize="2xl" mb={4}>
             Aggregate Reports
           </Text>
@@ -247,11 +282,15 @@ export default function DataFeed() {
             <Table variant="simple" size="sm">
               <Thead>
                 <Tr>
-                  <Th>Query ID</Th>
+                  <Th>Name</Th>
                   <Th isNumeric>Value</Th>
-                  <Th isNumeric>Number of Reporters</Th>
-                  <Th isNumeric>Micro Report Height</Th>
+                  <Th isNumeric># Reporters</Th>
+                  <Th isNumeric>TOTAL Reprtr Pwr</Th>
+                  <Th>Query Type</Th>
+                  <Th>Aggregate Method</Th>
+                  <Th>Cycle List</Th>
                   <Th isNumeric>Block Height</Th>
+                  <Th isNumeric>Micro Report Height</Th>
                   <Th>Timestamp</Th>
                 </Tr>
               </Thead>
@@ -260,13 +299,23 @@ export default function DataFeed() {
                   <Tr key={index}>
                     <Td>
                       <Text isTruncated maxW="200px" title={report.queryId}>
-                        {report.queryId.slice(0, 8)}...
-                        {report.queryId.slice(-6)}
+                        {getQueryPairName(report.queryId)}
                       </Text>
                     </Td>
-                    <Td isNumeric>{report.value}</Td>
+                    <Td isNumeric>
+                      {report.queryType === 'SpotPrice'
+                        ? report.value.startsWith('$')
+                          ? report.value
+                          : `$${report.value}`
+                        : report.value}
+                    </Td>
                     <Td isNumeric>{report.numberOfReporters}</Td>
-                    <Td isNumeric>{report.microReportHeight}</Td>
+                    <Td isNumeric>
+                      {report.totalPower?.toLocaleString() + ' TRB' || '0 TRB'}
+                    </Td>
+                    <Td>{report.queryType || 'N/A'}</Td>
+                    <Td>{report.aggregateMethod || 'N/A'}</Td>
+                    <Td>{report.cycleList ? 'Yes' : 'No'}</Td>
                     <Td isNumeric>
                       <Link
                         href={`/blocks/${report.blockHeight}`}
@@ -277,6 +326,7 @@ export default function DataFeed() {
                         <ExternalLinkIcon mx="2px" />
                       </Link>
                     </Td>
+                    <Td isNumeric>{report.microReportHeight}</Td>
                     <Td>{report.timestamp.toLocaleString()}</Td>
                   </Tr>
                 ))}

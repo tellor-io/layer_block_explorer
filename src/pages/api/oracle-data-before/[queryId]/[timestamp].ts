@@ -21,7 +21,7 @@ export default async function handler(
     const formattedQueryId = queryId.startsWith('0x')
       ? queryId.slice(2)
       : queryId
-    const url = `https://tellorlayer.com/tellor-io/layer/oracle/get_data_before/${formattedQueryId}/${timestamp}`
+    const url = `https://rpc.layer-node.com/tellor-io/layer/oracle/get_data_before/${formattedQueryId}/${timestamp}`
     console.log('', url)
 
     const response = await fetch(url)

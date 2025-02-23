@@ -43,8 +43,6 @@ export default function Transactions() {
   const txHashColor = useColorModeValue('light-theme', 'dark-theme')
 
   const updateTxs = (txEvent: TxEvent) => {
-    console.log('Incoming transaction:', txEvent)
-
     const tx = {
       TxEvent: txEvent,
       Timestamp: new Date(),
