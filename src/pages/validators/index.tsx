@@ -181,8 +181,8 @@ export default function Validators() {
   return (
     <>
       <Head>
-        <title>Blocks | Layer Explorer</title>
-        <meta name="description" content="Blocks | Layer Explorer" />
+        <title>Blocks | Tellor Explorer</title>
+        <meta name="description" content="Blocks | Tellor Explorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>

@@ -202,8 +202,8 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Home | Layer Explorer</title>
-        <meta name="description" content="Home | Layer Explorer" />
+        <title>Home | Tellor Explorer</title>
+        <meta name="description" content="Home | Tellor Explorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -279,7 +279,7 @@ export default function Home() {
               <BoxInfo
                 bgColor={BOX_ICON_BG}
                 color={BOX_ICON_COLOR}
-                icon={FiUsers}
+                icon={BsPersonCheck}
                 name="Validators"
                 value={validators}
               />

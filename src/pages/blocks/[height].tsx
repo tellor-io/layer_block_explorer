@@ -245,8 +245,8 @@ export default function DetailBlock() {
   return (
     <ErrorBoundary>
       <Head>
-        <title>Detail Block | Layer Explorer</title>
-        <meta name="description" content="Block | Layer Explorer" />
+        <title>Detail Block | Tellor Explorer</title>
+        <meta name="description" content="Block | Tellor Explorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
