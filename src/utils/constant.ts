@@ -1,4 +1,4 @@
-export const HARDCODED_RPC_ADDRESS = 'https://rpc.layer-node.com/'
+export const HARDCODED_RPC_ADDRESS = 'https://rpc.layer-node.com'
 export const LS_RPC_ADDRESS = 'RPC_ADDRESS'
 export const GOV_PARAMS_TYPE = {
   VOTING: 'voting',
