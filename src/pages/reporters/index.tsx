@@ -102,9 +102,15 @@ const columns = [
     },
     cell: (props) => (
       <div style={{ width: '120px', textAlign: 'left' }}>
-        {`${props.getValue()} TRB`}
+        {`${Number(props.getValue()).toLocaleString()} TRB`}
       </div>
     ),
+    sortingFn: (rowA, rowB) => {
+      // Convert string values to numbers for comparison
+      const a = parseFloat(rowA.original.power)
+      const b = parseFloat(rowB.original.power)
+      return a - b
+    },
   }),
   columnHelper.accessor('min_tokens_required', {
     header: () => (

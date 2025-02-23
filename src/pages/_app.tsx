@@ -20,8 +20,13 @@ function App({
           className={ppNeueMontreal.variable}
           style={{
             fontFamily: 'var(--font-pp-neue-montreal), sans-serif',
-            backgroundColor: useColorModeValue('light-bg', 'dark-bg'),
+            backgroundColor: useColorModeValue(
+              'var(--chakra-colors-page-bg-light)',
+              'var(--chakra-colors-page-bg-dark)'
+            ),
             minHeight: '100vh',
+            width: '100%',
+            overflowX: 'auto',
           }}
         >
           <Layout>

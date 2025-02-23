@@ -59,20 +59,15 @@ export default function Connect() {
       setError(false)
       setState('submitting')
 
-      // Initialize endpoints array with RPC_ENDPOINTS
       const endpoints = [...RPC_ENDPOINTS]
-
-      // If custom RPC address provided, add it to the start
       if (rpcAddress && !endpoints.includes(rpcAddress)) {
         endpoints.unshift(rpcAddress)
       }
 
-      console.log('Available endpoints:', endpoints)
-
-      // Try each endpoint
+      let lastError = null
       for (const endpoint of endpoints) {
         try {
-          console.log('Attempting connection to:', endpoint)
+          console.debug('Attempting connection to:', endpoint)
           const tmClient = await connectWebsocketClient(endpoint)
 
           if (tmClient) {
@@ -87,24 +82,20 @@ export default function Connect() {
             return
           }
         } catch (endpointError) {
-          console.log('Connection failed for:', endpoint, endpointError)
-          const errorMessage = getConnectionErrorMessage(endpointError)
-          setError(true)
-          setErrorMessage(errorMessage)
+          lastError = endpointError
+          console.debug('Connection failed for:', endpoint, endpointError)
           const rpcManager = new RPCManager()
           await rpcManager.reportFailure(endpoint)
-          // Continue to next endpoint
           continue
         }
       }
 
       // If we get here, all endpoints failed
-      console.error('All connection attempts failed')
+      console.error('All connection attempts failed', lastError)
+      throw lastError || new Error('Failed to connect to any endpoint')
+    } catch (error) {
       setError(true)
-      setState('initial')
-    } catch (err) {
-      console.error('Connection error:', err)
-      setError(true)
+      setErrorMessage(getConnectionErrorMessage(error))
       setState('initial')
     }
   }

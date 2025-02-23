@@ -23,12 +23,11 @@ export default async function handler(
   let timestampNum = parseInt(timestamp, 10)
   const currentTime = Date.now()
   if (timestampNum > currentTime) {
-    console.warn('Future timestamp detected, using current time instead')
     timestampNum = currentTime
   }
 
   let lastError = null
-  const endpoints = ['https://tellorlayer.com', 'https://rpc.layer-node.com']
+  const endpoints = ['https://rpc.layer-node.com', 'https://tellorlayer.com']
 
   for (const endpoint of endpoints) {
     try {
@@ -48,20 +47,32 @@ export default async function handler(
         data.microReports?.map((report: any) => report.reporter) || []
       )
 
+      // Calculate total power from microReports
+      const totalPower =
+        data.microReports?.reduce((sum: number, report: any) => {
+          const power = parseInt(report.power || '0', 10)
+          return sum + power
+        }, 0) || 0
+
+      // Extract additional fields from the first microReport
+      const firstReport = data.microReports?.[0] || {}
+
       return res.status(200).json({
         count:
           uniqueReporters.size || parseInt(data.pagination?.total || '0', 10),
+        queryType: firstReport.query_type,
+        aggregateMethod: firstReport.aggregate_method,
+        cycleList: firstReport.cyclelist,
+        totalPower,
         endpoint,
       })
     } catch (error) {
-      console.error(`Error with endpoint ${endpoint}:`, error)
       lastError = error
       continue // Try next endpoint
     }
   }
 
   // If we get here, all endpoints failed
-  console.error('All endpoints failed')
   return res.status(500).json({
     error: 'Failed to fetch reporter count',
     details: lastError instanceof Error ? lastError.message : 'Unknown error',

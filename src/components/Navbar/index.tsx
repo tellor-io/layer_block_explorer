@@ -215,7 +215,7 @@ export default function Navbar() {
     >
       <Flex h="80px" alignItems={'center'} justifyContent={'space-between'}>
         <Flex alignItems={'center'} h="full">
-          <Box px={6} py={4}>
+          <Box px={0} py={4}>
             <Flex alignItems="center" gap={4}>
               <Image
                 src={useColorModeValue('/AllDrk.png', '/AllWht.png')}

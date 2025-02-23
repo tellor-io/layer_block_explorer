@@ -76,7 +76,6 @@ export default function OracleBridge() {
     try {
       const response = await fetch(`/api/oracle-data/${oracleQueryId}`)
       const data = await response.json()
-      console.log('Oracle API Response:', data)
       if (response.ok) {
         setOracleData(data)
         setIsOracleModalOpen(true)
@@ -628,16 +627,7 @@ export default function OracleBridge() {
                                   const attestDataObj = JSON.parse(
                                     withdrawalData.attestData || '{}'
                                   )
-                                  console.log(
-                                    'Parsed attestData:',
-                                    attestDataObj
-                                  )
-
                                   const report = attestDataObj.report || {}
-                                  console.log(
-                                    'Report before formatting:',
-                                    report
-                                  )
 
                                   const formattedReport = [
                                     report.value || '0x',
@@ -648,23 +638,13 @@ export default function OracleBridge() {
                                     ).toString(),
                                     (report.nextTimestamp || '0').toString(),
                                   ]
-                                  console.log(
-                                    'Formatted report:',
-                                    formattedReport
-                                  )
 
                                   copyToClipboard(
                                     JSON.stringify(formattedReport)
                                   )
                                 } catch (error) {
-                                  console.error('Full error details:', error)
-                                  console.error(
-                                    'withdrawalData state:',
-                                    withdrawalData
-                                  )
                                   toast({
-                                    title: 'Error copying report',
-                                    description: 'Failed to format report data',
+                                    title: 'Error formatting data',
                                     status: 'error',
                                     duration: 3000,
                                     isClosable: true,

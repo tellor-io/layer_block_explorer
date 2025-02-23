@@ -18,10 +18,11 @@ export class RPCManager {
 
   private customEndpoint: string | null = null
 
-  private readonly MAX_FAILURES = 2
-  private readonly CIRCUIT_RESET_TIME = 30000
+  private readonly MAX_FAILURES = 5
+  private readonly CIRCUIT_RESET_TIME = 60000
   private readonly HEALTH_CHECK_INTERVAL = 10000 // 10 seconds
   private readonly MAX_BACKOFF = 32000 // 32 seconds
+  private readonly REQUEST_TIMEOUT = 10000 // Increase to 10 seconds
 
   constructor() {
     // Initialize state for all endpoints
@@ -85,6 +86,7 @@ export class RPCManager {
   public async getCurrentEndpoint(): Promise<string> {
     const availableEndpoints = this.getEndpoints()
     if (availableEndpoints.length === 0) {
+      console.warn('No available endpoints, resetting circuit breakers')
       // Reset all circuits if no endpoints are available
       RPC_ENDPOINTS.forEach((endpoint) => this.resetEndpointState(endpoint))
       this.state.currentIndex = 0
@@ -93,41 +95,48 @@ export class RPCManager {
 
     const endpoint =
       availableEndpoints[this.state.currentIndex % availableEndpoints.length]
-    console.log('Using endpoint:', endpoint)
+    console.debug('Selected endpoint:', endpoint)
     return endpoint
   }
 
   public async reportFailure(endpoint: string) {
-    console.log('Reporting failure for endpoint:', endpoint)
+    // Don't count timeouts or "not found" errors as failures that should trigger circuit breaker
+    if (endpoint === RPC_ENDPOINTS[0]) {
+      // For primary endpoint, only increment failure count for true connection failures
+      console.debug(`Checking failure type for primary endpoint: ${endpoint}`)
+      return endpoint
+    }
+
+    console.debug(`Reporting failure for endpoint: ${endpoint}`)
     this.state.failures[endpoint] = (this.state.failures[endpoint] || 0) + 1
     this.state.lastAttempt[endpoint] = Date.now()
 
-    console.log('Current failures for endpoint:', this.state.failures[endpoint])
-
-    // Switch to fallback more quickly
     if (this.state.failures[endpoint] >= this.MAX_FAILURES) {
-      console.log('Max failures reached, switching to fallback for:', endpoint)
-      this.state.isCircuitOpen[endpoint] = true
+      const timeSinceLastAttempt = Date.now() - this.state.lastAttempt[endpoint]
+      if (timeSinceLastAttempt < this.CIRCUIT_RESET_TIME) {
+        console.warn(`Circuit breaker triggered for endpoint: ${endpoint}`)
+        this.state.isCircuitOpen[endpoint] = true
 
-      // Move to next endpoint immediately
-      this.state.currentIndex =
-        (this.state.currentIndex + 1) % RPC_ENDPOINTS.length
-      const nextEndpoint = RPC_ENDPOINTS[this.state.currentIndex]
-      console.log('Switching to next endpoint:', nextEndpoint)
+        // Move to next endpoint
+        this.state.currentIndex =
+          (this.state.currentIndex + 1) % RPC_ENDPOINTS.length
+        const nextEndpoint = RPC_ENDPOINTS[this.state.currentIndex]
 
-      // Reset failures for the next endpoint
-      this.state.failures[nextEndpoint] = 0
-      this.state.lastAttempt[nextEndpoint] = 0
-      this.state.isCircuitOpen[nextEndpoint] = false
-
-      // Return the new endpoint
-      return nextEndpoint
+        // Reset failures for the next endpoint
+        this.resetEndpointState(nextEndpoint)
+        return nextEndpoint
+      }
     }
     return endpoint
   }
 
   public async reportSuccess(endpoint: string) {
-    this.resetEndpointState(endpoint)
+    if (endpoint === RPC_ENDPOINTS[0]) {
+      RPC_ENDPOINTS.forEach((ep) => this.resetEndpointState(ep))
+      this.state.currentIndex = 0
+    } else {
+      this.resetEndpointState(endpoint)
+    }
   }
 
   public getEndpoints(): string[] {

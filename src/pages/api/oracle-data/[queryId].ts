@@ -22,7 +22,9 @@ export default async function handler(
     const data = await response.json()
     res.status(200).json(data)
   } catch (error) {
-    console.error('Error fetching oracle data:', error)
-    res.status(500).json({ error: 'Failed to fetch oracle data' })
+    res.status(500).json({
+      error: 'Failed to fetch oracle data',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    })
   }
 }
