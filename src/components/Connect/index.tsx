@@ -115,10 +115,10 @@ export default function Connect() {
   return (
     <>
       <Head>
-        <title>Layer Explorer| Connect</title>
+        <title>Tellor Explorer| Connect</title>
         <meta
           name="description"
-          content="Layer Explorer | Connect to RPC Address"
+          content="Tellor Explorer | Connect to RPC Address"
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
@@ -145,10 +145,10 @@ export default function Connect() {
             fontFamily="monospace"
             fontWeight="bold"
           >
-            Layer Explorer
+            Tellor Explorer
           </Heading>
           <Text as={'h2'} fontSize="lg" textAlign={'center'} mb={5}>
-            Disposable Cosmos SDK Chain Explorer
+            Tellor Layer Block Explorer
           </Text>
           <Stack
             direction={{ base: 'column', md: 'row' }}
