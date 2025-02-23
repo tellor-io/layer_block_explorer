@@ -326,8 +326,8 @@ export default function Reporters() {
   return (
     <>
       <Head>
-        <title>Reporters | Layer Explorer</title>
-        <meta name="description" content="Reporters | Layer Explorer" />
+        <title>Reporters | Tellor Explorer</title>
+        <meta name="description" content="Reporters | Tellor Explorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>

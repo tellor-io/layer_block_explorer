@@ -101,8 +101,8 @@ export default function Transactions() {
   return (
     <>
       <Head>
-        <title>Transactions | Layer Explorer</title>
-        <meta name="description" content="Transactions | Layer Explorer" />
+        <title>Transactions | Tellor Explorer</title>
+        <meta name="description" content="Transactions | Tellor Explorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
