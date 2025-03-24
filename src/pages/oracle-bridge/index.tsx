@@ -316,8 +316,10 @@ export default function OracleBridge() {
           : '0x',
         timestamp: attestDataResult.attestation_timestamp || '0',
         aggregatePower: attestDataResult.aggregate_power || '0',
-        previousTimestamp: '0',
-        nextTimestamp: '0',
+        lastConsensusTimestamp:
+          attestDataResult.last_consensus_timestamp || '0',
+        previousTimestamp: attestDataResult.previous_report_timestamp || '0',
+        nextTimestamp: attestDataResult.next_report_timestamp || '0',
       }
 
       console.log('Mapped Report Data:', reportData)
@@ -634,6 +636,9 @@ export default function OracleBridge() {
                                     (report.timestamp || '0').toString(),
                                     (report.aggregatePower || '0').toString(),
                                     (
+                                      report.lastConsensusTimestamp || '0'
+                                    ).toString(),
+                                    (
                                       report.previousTimestamp || '0'
                                     ).toString(),
                                     (report.nextTimestamp || '0').toString(),
@@ -675,6 +680,13 @@ export default function OracleBridge() {
                             {
                               JSON.parse(withdrawalData.attestData || '{}')
                                 .report?.aggregatePower
+                            }
+                          </Text>
+                          <Text>
+                            lastConsensusTimestamp (uint256):{' '}
+                            {
+                              JSON.parse(withdrawalData.attestData || '{}')
+                                .report?.lastConsensusTimestamp
                             }
                           </Text>
                           <Text>
