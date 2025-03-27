@@ -39,6 +39,7 @@ export default function DisputeParameters() {
 
     if (params) {
       console.log('Current dispute params:', params)
+      setIsLoaded(true)
     }
   }, [tmClient, params, isLoaded])
 

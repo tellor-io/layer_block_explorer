@@ -34,6 +34,11 @@ export default function ReporterParameters() {
           setIsLoaded(true)
         })
     }
+
+    if (params) {
+      console.log('Current reporter params:', params)
+      setIsLoaded(true)
+    }
   }, [tmClient, params, isLoaded])
 
   const renderParams = (params: any) => {
