@@ -1,7 +1,15 @@
 import { createSlice } from '@reduxjs/toolkit'
-import type { RootState } from './store'
+import type { RootState } from '.'
 
 const initialState = {
+  // Original parameters
+  value: null,
+  timestamp: null,
+  aggregatePower: null,
+  previousTimestamp: null,
+  nextTimestamp: null,
+  lastConsensusTimestamp: null,
+  // Module parameters
   oracle: null,
   registry: null,
   dispute: null,
@@ -19,6 +27,26 @@ export const paramsSlice = createSlice({
   name: 'params',
   initialState,
   reducers: {
+    // Original parameter reducers
+    setValue: (state, action) => {
+      state.value = action.payload
+    },
+    setTimestamp: (state, action) => {
+      state.timestamp = action.payload
+    },
+    setAggregatePower: (state, action) => {
+      state.aggregatePower = action.payload
+    },
+    setPreviousTimestamp: (state, action) => {
+      state.previousTimestamp = action.payload
+    },
+    setNextTimestamp: (state, action) => {
+      state.nextTimestamp = action.payload
+    },
+    setLastConsensusTimestamp: (state, action) => {
+      state.lastConsensusTimestamp = action.payload
+    },
+    // Module parameter reducers
     setOracleParams: (state, action) => {
       state.oracle = action.payload
     },
@@ -56,6 +84,14 @@ export const paramsSlice = createSlice({
 })
 
 export const {
+  // Original parameter actions
+  setValue,
+  setTimestamp,
+  setAggregatePower,
+  setPreviousTimestamp,
+  setNextTimestamp,
+  setLastConsensusTimestamp,
+  // Module parameter actions
   setOracleParams,
   setRegistryParams,
   setDisputeParams,
@@ -69,6 +105,19 @@ export const {
   setGovTallyParams,
 } = paramsSlice.actions
 
+// Original parameter selectors
+export const selectValue = (state: RootState) => state.params.value
+export const selectTimestamp = (state: RootState) => state.params.timestamp
+export const selectAggregatePower = (state: RootState) =>
+  state.params.aggregatePower
+export const selectPreviousTimestamp = (state: RootState) =>
+  state.params.previousTimestamp
+export const selectNextTimestamp = (state: RootState) =>
+  state.params.nextTimestamp
+export const selectLastConsensusTimestamp = (state: RootState) =>
+  state.params.lastConsensusTimestamp
+
+// Module parameter selectors
 export const selectOracleParams = (state: RootState) => state.params.oracle
 export const selectRegistryParams = (state: RootState) => state.params.registry
 export const selectDisputeParams = (state: RootState) => state.params.dispute
