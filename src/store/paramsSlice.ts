@@ -1,7 +1,30 @@
 import { createSlice } from '@reduxjs/toolkit'
 import type { RootState } from '.'
 
-const initialState = {
+// Add this interface definition
+export interface ParamsState {
+  // Original parameters
+  value: any | null
+  timestamp: any | null
+  aggregatePower: any | null
+  previousTimestamp: any | null
+  nextTimestamp: any | null
+  lastConsensusTimestamp: any | null
+  // Module parameters
+  oracle: any | null
+  registry: any | null
+  dispute: any | null
+  reporter: any | null
+  mint: any | null
+  staking: any | null
+  slashing: any | null
+  distribution: any | null
+  govVoting: any | null
+  govDeposit: any | null
+  govTally: any | null
+}
+
+const initialState: ParamsState = {
   // Original parameters
   value: null,
   timestamp: null,
