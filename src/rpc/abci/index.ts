@@ -33,6 +33,7 @@ import {
 import { Vote, VoteOption } from 'cosmjs-types/cosmos/gov/v1beta1/gov'
 import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination'
 import Long from 'long'
+import axios from 'axios'
 
 export async function queryAllValidators(
   tmClient: Tendermint37Client
@@ -183,5 +184,65 @@ export async function queryProposalVotes(
       veto: formatVote(noWithVeto),
     },
     totalPower: totalPower / 1_000_000,
+  }
+}
+
+export async function queryOracleParams(
+  tmClient: Tendermint37Client
+): Promise<any> {
+  try {
+    const response = await axios.get(
+      'https://layer-node.com/layer/oracle/params'
+    )
+    console.log('Oracle params raw response:', response.data)
+    return response.data.params
+  } catch (error) {
+    console.error('Oracle params query error:', error)
+    throw error
+  }
+}
+
+export async function queryRegistryParams(
+  tmClient: Tendermint37Client
+): Promise<any> {
+  try {
+    const response = await axios.get(
+      'https://layer-node.com/layer/registry/params'
+    )
+    console.log('Registry params raw response:', response.data)
+    return response.data.params
+  } catch (error) {
+    console.error('Registry params query error:', error)
+    throw error
+  }
+}
+
+export async function queryDisputeParams(
+  tmClient: Tendermint37Client
+): Promise<any> {
+  try {
+    const response = await axios.get(
+      'https://layer-node.com/tellor-io/layer/dispute/params'
+    )
+    console.log('Dispute params raw response:', response.data)
+    return response.data.params
+  } catch (error) {
+    console.error('Dispute params query error:', error)
+    throw error
+  }
+}
+
+export async function queryReporterParams(
+  tmClient: Tendermint37Client
+): Promise<any> {
+  try {
+    const response = await axios.get(
+      'https://layer-node.com/tellor-io/layer/reporter/params'
+    )
+    console.log('Reporter params raw response:', response.data)
+    return response.data.params
+  } catch (error) {
+    console.error('Reporter params query error:', error)
+    throw error
   }
 }

@@ -636,12 +636,12 @@ export default function OracleBridge() {
                                     (report.timestamp || '0').toString(),
                                     (report.aggregatePower || '0').toString(),
                                     (
-                                      report.lastConsensusTimestamp || '0'
-                                    ).toString(),
-                                    (
                                       report.previousTimestamp || '0'
                                     ).toString(),
                                     (report.nextTimestamp || '0').toString(),
+                                    (
+                                      report.lastConsensusTimestamp || '0'
+                                    ).toString(),
                                   ]
 
                                   copyToClipboard(
@@ -683,13 +683,6 @@ export default function OracleBridge() {
                             }
                           </Text>
                           <Text>
-                            lastConsensusTimestamp (uint256):{' '}
-                            {
-                              JSON.parse(withdrawalData.attestData || '{}')
-                                .report?.lastConsensusTimestamp
-                            }
-                          </Text>
-                          <Text>
                             previousTimestamp (uint256):{' '}
                             {
                               JSON.parse(withdrawalData.attestData || '{}')
@@ -701,6 +694,13 @@ export default function OracleBridge() {
                             {
                               JSON.parse(withdrawalData.attestData || '{}')
                                 .report?.nextTimestamp
+                            }
+                          </Text>
+                          <Text>
+                            lastConsensusTimestamp (uint256):{' '}
+                            {
+                              JSON.parse(withdrawalData.attestData || '{}')
+                                .report?.lastConsensusTimestamp
                             }
                           </Text>
                         </VStack>
