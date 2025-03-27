@@ -1,104 +1,87 @@
-import { createSlice, Action } from '@reduxjs/toolkit'
-import { AppState } from './types'
-import { HYDRATE } from 'next-redux-wrapper'
-import { Params as StakingParams } from 'cosmjs-types/cosmos/staking/v1beta1/staking'
-import { Params as MintParams } from 'cosmjs-types/cosmos/mint/v1beta1/mint'
-import { Params as DistributionParams } from 'cosmjs-types/cosmos/distribution/v1beta1/distribution'
-import { Params as SlashingParams } from 'cosmjs-types/cosmos/slashing/v1beta1/slashing'
-import {
-  VotingParams,
-  DepositParams,
-  TallyParams,
-} from 'cosmjs-types/cosmos/gov/v1beta1/gov'
+import { createSlice } from '@reduxjs/toolkit'
+import type { RootState } from './store'
 
-// Type for our state
-export interface ParamsState {
-  stakingParams: StakingParams | null
-  mintParams: MintParams | null
-  distributionParams: DistributionParams | null
-  slashingParams: SlashingParams | null
-  govVotingParams: VotingParams | null
-  govDepositParams: DepositParams | null
-  govTallyParams: TallyParams | null
+const initialState = {
+  oracle: null,
+  registry: null,
+  dispute: null,
+  reporter: null,
+  mint: null,
+  staking: null,
+  slashing: null,
+  distribution: null,
+  govVoting: null,
+  govDeposit: null,
+  govTally: null,
 }
 
-// Initial state
-const initialState: ParamsState = {
-  stakingParams: null,
-  mintParams: null,
-  distributionParams: null,
-  slashingParams: null,
-  govVotingParams: null,
-  govDepositParams: null,
-  govTallyParams: null,
-}
-
-// Define a type for the HYDRATE action
-type HydrateAction = Action<typeof HYDRATE> & {
-  payload: AppState
-}
-
-// Actual Slice
 export const paramsSlice = createSlice({
   name: 'params',
   initialState,
   reducers: {
-    setStakingParams(state, action) {
-      state.stakingParams = action.payload
+    setOracleParams: (state, action) => {
+      state.oracle = action.payload
     },
-    setMintParams(state, action) {
-      state.mintParams = action.payload
+    setRegistryParams: (state, action) => {
+      state.registry = action.payload
     },
-    setDistributionParams(state, action) {
-      state.distributionParams = action.payload
+    setDisputeParams: (state, action) => {
+      state.dispute = action.payload
     },
-    setSlashingParams(state, action) {
-      state.slashingParams = action.payload
+    setReporterParams: (state, action) => {
+      state.reporter = action.payload
     },
-    setGovVotingParams(state, action) {
-      state.govVotingParams = action.payload
+    setMintParams: (state, action) => {
+      state.mint = action.payload
     },
-    setGovDepositParams(state, action) {
-      state.govDepositParams = action.payload
+    setStakingParams: (state, action) => {
+      state.staking = action.payload
     },
-    setGovTallyParams(state, action) {
-      state.govTallyParams = action.payload
+    setSlashingParams: (state, action) => {
+      state.slashing = action.payload
     },
-  },
-
-  // Special reducer for hydrating the state. Special case for next-redux-wrapper
-  extraReducers: (builder) => {
-    builder.addCase(HYDRATE, (state, action: HydrateAction) => {
-      return {
-        ...state,
-        ...action.payload.params,
-      }
-    })
+    setDistributionParams: (state, action) => {
+      state.distribution = action.payload
+    },
+    setGovVotingParams: (state, action) => {
+      state.govVoting = action.payload
+    },
+    setGovDepositParams: (state, action) => {
+      state.govDeposit = action.payload
+    },
+    setGovTallyParams: (state, action) => {
+      state.govTally = action.payload
+    },
   },
 })
 
 export const {
-  setStakingParams,
+  setOracleParams,
+  setRegistryParams,
+  setDisputeParams,
+  setReporterParams,
   setMintParams,
-  setDistributionParams,
+  setStakingParams,
   setSlashingParams,
+  setDistributionParams,
   setGovVotingParams,
   setGovDepositParams,
   setGovTallyParams,
 } = paramsSlice.actions
 
-export const selectStakingParams = (state: AppState) =>
-  state.params.stakingParams
-export const selectMintParams = (state: AppState) => state.params.mintParams
-export const selectDistributionParams = (state: AppState) =>
-  state.params.distributionParams
-export const selectSlashingParams = (state: AppState) =>
-  state.params.slashingParams
-export const selectGovVotingParams = (state: AppState) =>
-  state.params.govVotingParams
-export const selectGovDepositParams = (state: AppState) =>
-  state.params.govDepositParams
-export const selectGovTallyParams = (state: AppState) =>
-  state.params.govTallyParams
+export const selectOracleParams = (state: RootState) => state.params.oracle
+export const selectRegistryParams = (state: RootState) => state.params.registry
+export const selectDisputeParams = (state: RootState) => state.params.dispute
+export const selectReporterParams = (state: RootState) => state.params.reporter
+export const selectMintParams = (state: RootState) => state.params.mint
+export const selectStakingParams = (state: RootState) => state.params.staking
+export const selectSlashingParams = (state: RootState) => state.params.slashing
+export const selectDistributionParams = (state: RootState) =>
+  state.params.distribution
+export const selectGovVotingParams = (state: RootState) =>
+  state.params.govVoting
+export const selectGovDepositParams = (state: RootState) =>
+  state.params.govDeposit
+export const selectGovTallyParams = (state: RootState) => state.params.govTally
 
 export default paramsSlice.reducer
