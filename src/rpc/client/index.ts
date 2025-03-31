@@ -6,19 +6,15 @@ export const isBraveBrowser = () => {
 }
 
 export async function validateConnection(rpcAddress: string): Promise<Boolean> {
-  return new Promise((resolve) => {
-    const wsUrl = replaceHTTPtoWebsocket(rpcAddress)
-    const path = wsUrl.endsWith('/') ? 'websocket' : '/websocket'
-    const socket = new StreamingSocket(wsUrl + path, 3000)
-    socket.events.subscribe({
-      error: () => {
-        resolve(false)
-      },
-    })
-
-    socket.connect()
-    socket.connected.then(() => resolve(true)).catch(() => resolve(false))
-  })
+  try {
+    const httpClient = new HttpClient(rpcAddress)
+    const tmClient = await Tendermint37Client.create(httpClient)
+    const status = await tmClient.status()
+    return !!status
+  } catch (error) {
+    console.debug('Connection validation failed:', error)
+    return false
+  }
 }
 
 export async function connectWebsocketClient(
