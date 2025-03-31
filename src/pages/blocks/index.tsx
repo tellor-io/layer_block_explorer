@@ -124,11 +124,16 @@ export default function Blocks() {
         const blocksResponse = await axios.get(
           'https://tellorlayer.com/cosmos/base/tendermint/v1beta1/blocks/latest'
         )
+        
+        if (!blocksResponse?.data?.block) {
+          throw new Error('Invalid block data received')
+        }
+
         const latestBlock = blocksResponse.data.block
         const blocksData = [
           {
             header: {
-              version: { block: 0, app: 0 }, // Change to numbers
+              version: { block: 0, app: 0 },
               height: latestBlock.header.height,
               time: new Date(latestBlock.header.time),
               proposerAddress: fromBase64(latestBlock.header.proposer_address),
@@ -145,43 +150,51 @@ export default function Blocks() {
               lastResultsHash: fromBase64(latestBlock.header.last_results_hash),
               evidenceHash: fromBase64(latestBlock.header.evidence_hash),
             },
-            txs: latestBlock.data.txs,
+            txs: latestBlock.data?.txs || [],
             lastCommit: latestBlock.last_commit,
             evidence: latestBlock.evidence,
           },
         ]
 
-        // Fetch a few more blocks
+        // Fetch previous blocks
         for (let i = 1; i < 10; i++) {
-          const prevBlockResponse = await axios.get(
-            `https://tellorlayer.com/cosmos/base/tendermint/v1beta1/blocks/${
-              parseInt(latestBlock.header.height) - i
-            }`
-          )
-          const prevBlock = prevBlockResponse.data.block
-          blocksData.push({
-            header: {
-              version: { block: 0, app: 0 }, // Change to numbers
-              height: prevBlock.header.height,
-              time: new Date(prevBlock.header.time),
-              proposerAddress: fromBase64(prevBlock.header.proposer_address),
-              chainId: prevBlock.header.chain_id,
-              lastBlockId: prevBlock.header.last_block_id,
-              lastCommitHash: fromBase64(prevBlock.header.last_commit_hash),
-              dataHash: fromBase64(prevBlock.header.data_hash),
-              validatorsHash: fromBase64(prevBlock.header.validators_hash),
-              nextValidatorsHash: fromBase64(
-                prevBlock.header.next_validators_hash
-              ),
-              consensusHash: fromBase64(prevBlock.header.consensus_hash),
-              appHash: fromBase64(prevBlock.header.app_hash),
-              lastResultsHash: fromBase64(prevBlock.header.last_results_hash),
-              evidenceHash: fromBase64(prevBlock.header.evidence_hash),
-            },
-            txs: prevBlock.data.txs,
-            lastCommit: prevBlock.last_commit,
-            evidence: prevBlock.evidence,
-          })
+          try {
+            const prevBlockResponse = await axios.get(
+              `https://tellorlayer.com/cosmos/base/tendermint/v1beta1/blocks/${
+                parseInt(latestBlock.header.height) - i
+              }`
+            )
+            
+            if (prevBlockResponse?.data?.block) {
+              const prevBlock = prevBlockResponse.data.block
+              blocksData.push({
+                header: {
+                  version: { block: 0, app: 0 },
+                  height: prevBlock.header.height,
+                  time: new Date(prevBlock.header.time),
+                  proposerAddress: fromBase64(prevBlock.header.proposer_address),
+                  chainId: prevBlock.header.chain_id,
+                  lastBlockId: prevBlock.header.last_block_id,
+                  lastCommitHash: fromBase64(prevBlock.header.last_commit_hash),
+                  dataHash: fromBase64(prevBlock.header.data_hash),
+                  validatorsHash: fromBase64(prevBlock.header.validators_hash),
+                  nextValidatorsHash: fromBase64(
+                    prevBlock.header.next_validators_hash
+                  ),
+                  consensusHash: fromBase64(prevBlock.header.consensus_hash),
+                  appHash: fromBase64(prevBlock.header.app_hash),
+                  lastResultsHash: fromBase64(prevBlock.header.last_results_hash),
+                  evidenceHash: fromBase64(prevBlock.header.evidence_hash),
+                },
+                txs: prevBlock.data?.txs || [],
+                lastCommit: prevBlock.last_commit,
+                evidence: prevBlock.evidence,
+              })
+            }
+          } catch (error) {
+            console.warn(`Failed to fetch block at height ${parseInt(latestBlock.header.height) - i}:`, error)
+            continue // Skip this block and continue with the next one
+          }
         }
 
         setBlocks(blocksData as NewBlockEvent[])
@@ -194,6 +207,7 @@ export default function Blocks() {
         } else {
           setError('An unexpected error occurred.')
         }
+        setIsLoading(false)
       }
     }
     fetchData()
@@ -213,19 +227,25 @@ export default function Blocks() {
 
   const updateBlocks = (block: NewBlockEvent) => {
     setBlocks((prevBlocks) => {
+      // Ensure block.txs exists
+      const newBlock = {
+        ...block,
+        txs: block.txs || [], // Ensure txs is always an array
+      }
+
       // Check if this exact block already exists
       const exists = prevBlocks.some(
         (existingBlock) =>
-          existingBlock.header.height === block.header.height &&
-          existingBlock.header.time.getTime() === block.header.time.getTime()
+          existingBlock.header.height === newBlock.header.height &&
+          existingBlock.header.time.getTime() === newBlock.header.time.getTime()
       )
 
       if (
         !exists &&
         (!prevBlocks.length ||
-          block.header.height > prevBlocks[0].header.height)
+          newBlock.header.height > prevBlocks[0].header.height)
       ) {
-        return [block, ...prevBlocks.slice(0, MAX_ROWS - 1)]
+        return [newBlock, ...prevBlocks.slice(0, MAX_ROWS - 1)]
       }
       return prevBlocks
     })
@@ -376,7 +396,7 @@ export default function Blocks() {
                               return null
                             })()}
                           </Td>
-                          <Td>{block.txs.length}</Td>
+                          <Td>{block.txs?.length || 0}</Td>
                           <Td>
                             {timeFromNow(block.header.time.toISOString())}
                           </Td>

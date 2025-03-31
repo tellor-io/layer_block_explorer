@@ -30,10 +30,6 @@ export const displayDurationSeconds = (seconds: number | undefined): string => {
   return dayjs.duration({ seconds: seconds }).humanize()
 }
 
-export function replaceHTTPtoWebsocket(url: string): string {
-  return url.replace(/^http/, 'ws')
-}
-
 export const isBech32Address = (address: string): Boolean => {
   try {
     const decoded = bech32.decode(address)

@@ -57,6 +57,7 @@ export default function Layout({ children }: LayoutProps) {
       const uniqueEndpoints = Array.from(new Set(allEndpoints))
       console.log('Available endpoints:', uniqueEndpoints)
 
+      let lastError = null
       // Try each endpoint
       for (const endpoint of uniqueEndpoints) {
         try {
@@ -69,23 +70,28 @@ export default function Layout({ children }: LayoutProps) {
             dispatch(setConnectState(true))
             dispatch(setTmClient(tmClient))
             dispatch(setRPCAddress(endpoint))
+            setIsLoading(false)
             return
           }
         } catch (endpointError) {
+          lastError = endpointError
           console.log('Connection failed for:', endpoint, endpointError)
           await rpcManager.reportFailure(endpoint)
-          // Continue to next endpoint
+          
+          // Force move to next endpoint by updating RPC manager state
+          const nextEndpoint = await rpcManager.reportFailure(endpoint)
+          if (nextEndpoint !== endpoint) {
+            console.log('Switching to next endpoint:', nextEndpoint)
+          }
           continue
         }
       }
 
       // If we get here, all endpoints failed
-      console.error('All connection attempts failed')
-      dispatch(setConnectState(false))
+      throw lastError || new Error('All connection attempts failed')
     } catch (err) {
       console.error('Connection error:', err)
       dispatch(setConnectState(false))
-    } finally {
       setIsLoading(false)
     }
   }
