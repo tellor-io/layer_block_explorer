@@ -1,6 +1,4 @@
-import { replaceHTTPtoWebsocket } from '@/utils/helper'
-import { Tendermint37Client, WebsocketClient } from '@cosmjs/tendermint-rpc'
-import { StreamingSocket } from '@cosmjs/socket'
+import { HttpClient, Tendermint37Client } from '@cosmjs/tendermint-rpc'
 
 export const isBraveBrowser = () => {
   // @ts-ignore - Brave modifies navigator
@@ -27,25 +25,21 @@ export async function connectWebsocketClient(
   rpcAddress: string
 ): Promise<Tendermint37Client | null> {
   try {
-    if (isBraveBrowser()) {
-    }
-
-    const wsUrl = replaceHTTPtoWebsocket(rpcAddress)
-    // Remove trailing slash if it exists and add websocket path
-    const baseUrl = wsUrl.endsWith('/') ? wsUrl.slice(0, -1) : wsUrl
-    const fullUrl = `${baseUrl}`
-
-    console.log('Attempting to connect to:', fullUrl)
-
-    // Create WebSocket client without error handler to match main branch
-    const wsClient = new WebsocketClient(fullUrl)
-    const tmClient = await Tendermint37Client.create(wsClient)
-
+    // Create HTTP client instead of WebSocket
+    const httpClient = new HttpClient(rpcAddress)
+    const tmClient = await Tendermint37Client.create(httpClient)
+    
     // Verify connection with a status check
     const status = await tmClient.status()
     if (!status) {
       throw new Error('Could not get client status')
     }
+
+    console.log('Successfully connected via HTTP RPC:', {
+      moniker: status.nodeInfo.moniker,
+      version: status.nodeInfo.version,
+      network: status.nodeInfo.network,
+    })
 
     return tmClient
   } catch (error) {

@@ -38,8 +38,10 @@ export class RPCManager {
 
   private async checkEndpointHealth(endpoint: string): Promise<boolean> {
     try {
-      const response = await axios.get(`${endpoint}/health`)
-      return response.status === 200
+      const response = await axios.get(`${endpoint}/status`, {
+        timeout: this.REQUEST_TIMEOUT,
+      })
+      return response.status === 200 && response.data?.result?.sync_info !== undefined
     } catch {
       return false
     }
@@ -99,30 +101,19 @@ export class RPCManager {
   }
 
   public async reportFailure(endpoint: string) {
-    // Don't count timeouts or "not found" errors as failures that should trigger circuit breaker
-    if (endpoint === RPC_ENDPOINTS[0]) {
-      // For primary endpoint, only increment failure count for true connection failures
-      console.debug(`Checking failure type for primary endpoint: ${endpoint}`)
-      return endpoint
-    }
-
     console.debug(`Reporting failure for endpoint: ${endpoint}`)
     this.state.failures[endpoint] = (this.state.failures[endpoint] || 0) + 1
     this.state.lastAttempt[endpoint] = Date.now()
 
-    if (this.state.failures[endpoint] >= this.MAX_FAILURES) {
-      const timeSinceLastAttempt = Date.now() - this.state.lastAttempt[endpoint]
-      if (timeSinceLastAttempt < this.CIRCUIT_RESET_TIME) {
-        console.warn(`Circuit breaker triggered for endpoint: ${endpoint}`)
-        this.state.isCircuitOpen[endpoint] = true
-
-        // Move to next endpoint
-        this.state.currentIndex =
-          (this.state.currentIndex + 1) % RPC_ENDPOINTS.length
-        const nextEndpoint = RPC_ENDPOINTS[this.state.currentIndex]
-
-        // Reset failures for the next endpoint
-        this.resetEndpointState(nextEndpoint)
+    if (this.state.failures[endpoint] >= this.MAX_FAILURES || endpoint === RPC_ENDPOINTS[0]) {
+      console.warn(`Circuit breaker triggered for endpoint: ${endpoint}`)
+      this.state.isCircuitOpen[endpoint] = true
+      
+      // Move to next endpoint immediately
+      const availableEndpoints = this.getEndpoints()
+      if (availableEndpoints.length > 0) {
+        const nextEndpoint = availableEndpoints[0]
+        this.state.currentIndex = RPC_ENDPOINTS.indexOf(nextEndpoint)
         return nextEndpoint
       }
     }
