@@ -29,12 +29,12 @@ export function subscribeNewBlock(
       if (currentHeight > lastHeight) {
         const block = await tmClient.block(currentHeight)
         if (block) {
-          // Create a NewBlockEvent-like object
+          // Create a NewBlockEvent object matching the structure used in blocks/index.tsx
           const event: NewBlockEvent = {
             header: block.block.header,
-            hash: block.blockId.hash,
-            events: [], // We don't get events from HTTP, but the interface requires this
-            tx: block.block.txs,
+            txs: block.block.txs || [],
+            lastCommit: block.block.lastCommit,
+            evidence: block.block.evidence
           }
           callback(event)
           lastHeight = currentHeight
@@ -84,11 +84,12 @@ export function subscribeTx(
               try {
                 const txResponse = await tmClient.tx({ hash: tx })
                 if (txResponse) {
-                  // Create a TxEvent-like object
+                  // Create a TxEvent object with all required properties
                   const event: TxEvent = {
                     hash: tx,
                     height: currentHeight,
                     result: txResponse.result,
+                    tx: txResponse.tx // Add the tx property from the response
                   }
                   callback(event)
                 }
