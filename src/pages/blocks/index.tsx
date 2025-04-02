@@ -44,6 +44,8 @@ import { timeFromNow, trimHash, getTypeMsg } from '@/utils/helper'
 import { sha256 } from '@cosmjs/crypto'
 import { getValidators } from '@/rpc/query'
 import { CopyableHash } from '@/components/CopyableHash'
+import { rpcManager } from '@/utils/rpcManager'
+import { selectTmClient } from '@/store/connectSlice'
 
 const MAX_ROWS = 20
 
@@ -70,6 +72,7 @@ interface ValidatorMap {
 export default function Blocks() {
   const newBlock = useSelector(selectNewBlock)
   const txEvent = useSelector(selectTxEvent)
+  const tmClient = useSelector(selectTmClient)
   const [blocks, setBlocks] = useState<NewBlockEvent[]>([])
   const [txs, setTxs] = useState<Tx[]>([])
   const [validatorMap, setValidatorMap] = useState<ValidatorMap>({})
@@ -106,11 +109,11 @@ export default function Blocks() {
     [selectedTextColor, selectedBgColor, tabHoverColor, tabTextColor]
   )
 
-  useEffect(() => {
-    async function fetchData() {
+  const fetchValidators = async () => {
+    if (tmClient) {
       try {
-        // Fetch validators using new endpoint
-        const validatorsResponse = await getValidators()
+        const endpoint = await rpcManager.getCurrentEndpoint()
+        const validatorsResponse = await getValidators(endpoint)
         if (validatorsResponse?.validators) {
           const map: { [key: string]: string } = {}
           validatorsResponse.validators.forEach((validator: Validator) => {
@@ -119,6 +122,17 @@ export default function Blocks() {
           })
           setValidatorMap(map)
         }
+      } catch (error) {
+        console.error('Error fetching validators:', error)
+      }
+    }
+  }
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        // Fetch validators using new endpoint
+        await fetchValidators()
 
         // Fetch blocks
         const blocksResponse = await axios.get('/api/latest-block')

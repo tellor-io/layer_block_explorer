@@ -1,3 +1,4 @@
+import axios from 'axios'
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { rpcManager } from '../../utils/rpcManager'
 
@@ -35,6 +36,7 @@ export const getReporters = async (endpoint: string) => {
     })
     return response.data
   } catch (error) {
-    return undefined
+    console.error('Failed to fetch reporters:', error)
+    throw error
   }
 }

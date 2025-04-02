@@ -8,7 +8,6 @@ export default async function handler(
   try {
     const endpoint = req.query.endpoint as string || await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
-    console.log('API: Fetching unstaking amount from endpoint:', baseEndpoint)
     
     const response = await fetch(
       `${baseEndpoint}/tellor-io/layer/reporter/allowed-amount`

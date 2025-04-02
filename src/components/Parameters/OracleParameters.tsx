@@ -13,7 +13,7 @@ import { useState, useEffect } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { selectTmClient } from '@/store/connectSlice'
 import { selectOracleParams, setOracleParams } from '@/store/paramsSlice'
-import { queryOracleParams } from '@/rpc/abci'
+import { getOracleParams } from '@/rpc/abci'
 
 export default function OracleParameters() {
   const [isHidden, setIsHidden] = useState(false)
@@ -25,7 +25,7 @@ export default function OracleParameters() {
   useEffect(() => {
     if (tmClient && !params && !isLoaded) {
       console.log('Attempting to query oracle params...')
-      queryOracleParams(tmClient)
+      getOracleParams()
         .then((response) => {
           console.log('Oracle params raw response:', response)
           dispatch(setOracleParams(response))

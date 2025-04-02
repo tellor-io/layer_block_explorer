@@ -193,11 +193,11 @@ export async function queryProposalVotes(
   }
 }
 
-export async function queryOracleParams(
-  tmClient: Tendermint37Client
+export async function getOracleParams(
+  endpoint?: string
 ): Promise<any> {
   try {
-    const rpcManager = new RPCManager()
+    const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
     console.log('Fetching oracle params from endpoint:', baseEndpoint)
@@ -208,8 +208,8 @@ export async function queryOracleParams(
     console.log('Oracle params raw response:', response.data)
     return response.data.params
   } catch (error) {
-    console.error('Oracle params query error:', error)
-    throw error
+    console.error('Error in getOracleParams:', error)
+    return undefined
   }
 }
 
@@ -217,7 +217,7 @@ export async function queryRegistryParams(
   tmClient: Tendermint37Client
 ): Promise<any> {
   try {
-    const rpcManager = new RPCManager()
+    const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
     console.log('Fetching registry params from endpoint:', baseEndpoint)
@@ -237,7 +237,7 @@ export async function queryDisputeParams(
   tmClient: Tendermint37Client
 ): Promise<any> {
   try {
-    const rpcManager = new RPCManager()
+    const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
     console.log('Fetching dispute params from endpoint:', baseEndpoint)
@@ -257,7 +257,7 @@ export async function queryReporterParams(
   tmClient: Tendermint37Client
 ): Promise<any> {
   try {
-    const rpcManager = new RPCManager()
+    const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
     console.log('Fetching reporter params from endpoint:', baseEndpoint)

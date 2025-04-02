@@ -26,7 +26,7 @@ import {
   connectWebsocketClient,
   isBraveBrowser,
 } from '@/rpc/client'
-import { RPCManager } from '@/utils/rpcManager'
+import { rpcManager } from '@/utils/rpcManager'
 import { RPC_ENDPOINTS } from '@/utils/constant'
 
 const chainList = [
@@ -72,7 +72,6 @@ export default function Connect() {
 
           if (tmClient) {
             console.log('Successfully connected to:', endpoint)
-            const rpcManager = new RPCManager()
             await rpcManager.reportSuccess(endpoint)
             dispatch(setConnectState(true))
             dispatch(setTmClient(tmClient))
@@ -84,7 +83,6 @@ export default function Connect() {
         } catch (endpointError) {
           lastError = endpointError
           console.debug('Connection failed for:', endpoint, endpointError)
-          const rpcManager = new RPCManager()
           await rpcManager.reportFailure(endpoint)
           continue
         }
