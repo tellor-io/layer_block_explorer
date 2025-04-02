@@ -8,7 +8,6 @@ export default async function handler(
   try {
     const endpoint = req.query.endpoint as string || await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
-    console.log('API: Fetching EVM validators from endpoint:', baseEndpoint)
     
     const response = await fetch(
       `${baseEndpoint}/layer/bridge/get_evm_validators`

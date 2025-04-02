@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { RPCManager } from '../../../../utils/rpcManager'
+import { rpcManager } from '../../../../utils/rpcManager'
 
 export default async function handler(
   req: NextApiRequest,
@@ -19,13 +19,15 @@ export default async function handler(
   }
 
   try {
-    const rpcManager = new RPCManager()
+    const formattedQueryId = queryId.startsWith('0x')
+      ? queryId.slice(2)
+      : queryId
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
     
     // First, fetch snapshots
     const snapshotsResponse = await fetch(
-      `${baseEndpoint}/layer/bridge/get_snapshots_by_report/${queryId}/${timestamp}`
+      `${baseEndpoint}/layer/bridge/get_snapshots_by_report/${formattedQueryId}/${timestamp}`
     )
 
     if (!snapshotsResponse.ok) {

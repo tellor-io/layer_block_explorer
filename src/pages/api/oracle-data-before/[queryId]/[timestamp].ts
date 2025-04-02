@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { RPCManager } from '../../../../utils/rpcManager'
+import { rpcManager } from '../../../../utils/rpcManager'
 
 export default async function handler(
   req: NextApiRequest,
@@ -22,13 +22,17 @@ export default async function handler(
     const formattedQueryId = queryId.startsWith('0x')
       ? queryId.slice(2)
       : queryId
-    const rpcManager = new RPCManager()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
     const url = `${baseEndpoint}/tellor-io/layer/oracle/get_data_before/${formattedQueryId}/${timestamp}`
     console.log('', url)
 
     const response = await fetch(url)
+
+    if (!response.ok) {
+      throw new Error(`External API responded with status: ${response.status}`)
+    }
+
     const data = await response.json()
 
     // If the response has code 2, it means no data found - this is a valid response
@@ -40,16 +44,11 @@ export default async function handler(
       })
     }
 
-    // For other non-200 responses, treat as error
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
     res.status(200).json(data)
   } catch (error) {
-    console.error('Error fetching oracle data before:', error)
+    console.error('API Route Error:', error)
     res.status(500).json({
-      error: 'Failed to fetch oracle data before',
+      error: 'Failed to fetch oracle data',
       details: error instanceof Error ? error.message : 'Unknown error',
     })
   }

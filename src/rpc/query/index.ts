@@ -137,62 +137,24 @@ export const getAllowedAmountExp = async (): Promise<string | undefined> => {
   }
 }
 
-export async function getReporterCount(queryId: string, timestamp: string) {
-  const maxRetries = 2
-  const retryDelay = 2000
-
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      const response = await fetch(
-        `/api/reporter-count?queryId=${queryId}&timestamp=${timestamp}`
-      )
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-
-      if (!data || typeof data.count === 'undefined') {
-        console.log('[getReporterCount] Invalid response data structure')
-        throw new Error('Invalid response data')
-      }
-
-      // Only return if we have valid data
-      if (
-        data.queryType !== 'N/A' &&
-        data.aggregateMethod !== 'N/A' &&
-        data.count > 0
-      ) {
-        return {
-          count: data.count,
-          queryType: data.queryType,
-          aggregateMethod: data.aggregateMethod,
-          cycleList: data.cycleList,
-          totalPower: data.totalPower,
-        }
-      }
-
-      console.log('[getReporterCount] Received N/A values, will retry')
-      throw new Error('Received N/A values from API')
-    } catch (error) {
-      console.error(`[getReporterCount] Attempt ${attempt + 1} failed:`, error)
-      if (attempt < maxRetries - 1) {
-        const delay = retryDelay * (attempt + 1)
-        console.log(`[getReporterCount] Waiting ${delay}ms before retry`)
-        await new Promise((resolve) => setTimeout(resolve, delay))
-        continue
-      }
-    }
-  }
-
-  console.error('[getReporterCount] All retries failed')
-  return {
-    count: 0,
-    queryType: 'N/A',
-    aggregateMethod: 'N/A',
-    cycleList: false,
-    totalPower: 0,
+export const getReporterCount = async (
+  queryId: string,
+  timestamp: string
+): Promise<{
+  count: number
+  queryType: string
+  aggregateMethod: string
+  cycleList: boolean
+  totalPower: number
+} | null> => {
+  try {
+    const response = await axios.get('/api/reporter-count', {
+      params: { queryId, timestamp }
+    })
+    return response.data
+  } catch (error) {
+    console.error('Error in getReporterCount:', error)
+    return null
   }
 }
 
@@ -356,14 +318,14 @@ export function decodeQueryData(queryId: string, queryData?: string): any {
   }
 }
 
-export const getValidators = async (endpoint: string) => {
+export const getValidators = async (endpoint: string): Promise<any> => {
   try {
-    const response = await axios.get('/api/validators', {
-      params: { endpoint }
-    })
+    const baseEndpoint = endpoint.replace('/rpc', '')
+    const response = await axios.get(`${baseEndpoint}/cosmos/staking/v1beta1/validators`)
     return response.data
   } catch (error) {
-    return undefined
+    console.error('Failed to fetch validators:', error)
+    throw error
   }
 }
 

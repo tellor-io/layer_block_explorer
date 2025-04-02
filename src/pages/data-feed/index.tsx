@@ -21,6 +21,7 @@ import {
   useToast,
   TableContainer,
 } from '@chakra-ui/react'
+import { NewBlockEvent, TxEvent } from '@cosmjs/tendermint-rpc'
 import NextLink from 'next/link'
 import { FiChevronRight, FiHome } from 'react-icons/fi'
 import { useSelector } from 'react-redux'
@@ -70,6 +71,29 @@ const getQueryPairName = (queryId: string): string => {
   if (queryId.endsWith('67ded0')) return 'TRB/USD'
   if (queryId.endsWith('ce4992')) return 'ETH/USD'
   return queryId
+}
+
+const fetchReporterData = async (block: NewBlockEvent, attributes: any[]) => {
+  try {
+    const queryIdAttr = attributes.find((attr) => attr.key === 'query_id')
+    const queryId = queryIdAttr?.value
+
+    if (!queryId) {
+      console.warn('No queryId found in attributes')
+      return null
+    }
+
+    const timestamp = block.header.time.getTime().toString()
+    const reporterData = await getReporterCount(queryId, timestamp)
+
+    const valueAttr = attributes.find(
+      (attr) => attr.key === 'value'
+    )
+    // ... rest of the function
+  } catch (error) {
+    console.error('Error fetching reporter data:', error)
+    return null
+  }
 }
 
 export default function DataFeed() {
@@ -125,9 +149,19 @@ export default function DataFeed() {
                 (attr) => attr.key === 'query_id'
               )?.value
 
+              if (!queryId) {
+                console.warn('No queryId found in attributes')
+                continue
+              }
+
               // Use the API endpoint for reporter data
               const timestamp = block.header.time.getTime().toString()
               const reporterData = await getReporterCount(queryId, timestamp)
+
+              if (!reporterData) {
+                console.warn('No reporter data found for queryId:', queryId)
+                continue
+              }
 
               const valueAttr = attributes.find(
                 (attr) => attr.key === 'value'
@@ -156,15 +190,15 @@ export default function DataFeed() {
                 [newReport, ...prev].slice(0, 100)
               )
             } catch (error) {
-              console.error(`[DataFeed] Aggregate event error:`, error)
+              console.error('Error processing aggregate event:', error)
             }
           }
         }
       } catch (error) {
-        console.error(`[DataFeed] Block processing error:`, error)
+        console.error('Error in processBlock:', error)
       }
-    }, 500),
-    []
+    }, 1000),
+    [toast]
   )
 
   useEffect(() => {
