@@ -1,4 +1,9 @@
-export const HARDCODED_RPC_ADDRESS = 'https://rpc.layer-node.com'
+export const formatRPCEndpoint = (endpoint: string, includeRPC: boolean = true) => {
+  const baseEndpoint = endpoint.replace('/rpc', '')
+  return includeRPC ? `${baseEndpoint}/rpc` : baseEndpoint
+}
+
+export const HARDCODED_RPC_ADDRESS = 'node-palmito.tellorlayer.com/rpc'
 export const LS_RPC_ADDRESS = 'RPC_ADDRESS'
 export const GOV_PARAMS_TYPE = {
   VOTING: 'voting',
@@ -45,6 +50,6 @@ export const proposalStatusList: proposalStatus[] = [
 ]
 
 export const RPC_ENDPOINTS = [
-  'https://rpc.layer-node.com', // primary URL
-  'https://tellorlayer.com/rpc', // fallback URL (no trailing slash)
+  'https://node-palmito.tellorlayer.com/rpc', // primary URL
+  'https://tellor-testnet.nirvanalabs.xyz/tellor-testnet-amer/9c6ef4f75548392504e9451539c7603446c5/', // fallback URL
 ]

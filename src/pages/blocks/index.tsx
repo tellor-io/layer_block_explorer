@@ -121,9 +121,7 @@ export default function Blocks() {
         }
 
         // Fetch blocks
-        const blocksResponse = await axios.get(
-          'https://tellorlayer.com/cosmos/base/tendermint/v1beta1/blocks/latest'
-        )
+        const blocksResponse = await axios.get('/api/latest-block')
         
         if (!blocksResponse?.data?.block) {
           throw new Error('Invalid block data received')
@@ -160,9 +158,7 @@ export default function Blocks() {
         for (let i = 1; i < 10; i++) {
           try {
             const prevBlockResponse = await axios.get(
-              `https://tellorlayer.com/cosmos/base/tendermint/v1beta1/blocks/${
-                parseInt(latestBlock.header.height) - i
-              }`
+              `/api/block-by-height/${parseInt(latestBlock.header.height) - i}`
             )
             
             if (prevBlockResponse?.data?.block) {

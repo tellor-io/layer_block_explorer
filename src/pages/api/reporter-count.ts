@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import axios from 'axios'
+import { RPC_ENDPOINTS } from '@/utils/constant'
 
 // Add a simple in-memory cache
 const cache = new Map<
@@ -11,7 +12,6 @@ const cache = new Map<
 >()
 
 const CACHE_DURATION = 10000 // 5 seconds cache
-const RPC_ENDPOINTS = ['https://rpc.layer-node.com', 'https://tellorlayer.com']
 const INITIAL_DELAY = 1000 // 1 second wait before first attempt
 const AXIOS_TIMEOUT = 5000 // Increase from 3000 to 5000ms
 
@@ -52,7 +52,11 @@ export default async function handler(
 
   for (const endpoint of RPC_ENDPOINTS) {
     try {
-      const url = `${endpoint}/tellor-io/layer/oracle/get_reports_by_aggregate/${queryId}/${timestampNum}?pagination.limit=600`
+      const baseEndpoint = endpoint.endsWith('/rpc') 
+        ? endpoint.slice(0, -4) // Remove '/rpc'
+        : endpoint
+
+      const url = `${baseEndpoint}/tellor-io/layer/oracle/get_reports_by_aggregate/${queryId}/${timestampNum}?pagination.limit=600`
       const response = await axios.get(url, {
         timeout: AXIOS_TIMEOUT,
         headers: { Accept: 'application/json' },
@@ -76,13 +80,12 @@ export default async function handler(
 
       const firstReport = data.microReports[0] || {}
       successfulResponse = {
-        count:
-          uniqueReporters.size || parseInt(data.pagination?.total || '0', 10),
+        count: uniqueReporters.size || parseInt(data.pagination?.total || '0', 10),
         queryType: firstReport.query_type || 'N/A',
         aggregateMethod: firstReport.aggregate_method || 'N/A',
         cycleList: firstReport.cyclelist || false,
         totalPower,
-        endpoint,
+        endpoint: baseEndpoint,
       }
       break
     } catch (error) {

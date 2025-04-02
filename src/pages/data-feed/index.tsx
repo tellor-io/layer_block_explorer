@@ -102,17 +102,18 @@ export default function DataFeed() {
                 aggregateEvent.attributes.map(
                   (attr: { key: string; value: string; index?: boolean }) => {
                     let decodedValue = attr.value
-                    try {
-                      if (
-                        attr.key === 'value' &&
-                        attr.value.match(/^[0-9a-fA-F]+$/)
-                      ) {
-                        decodedValue = attr.value
+                    if (attr.key === 'value' && attr.value.match(/^[0-9a-fA-F]+$/)) {
+                      try {
+                        const valueInWei = BigInt(`0x${attr.value}`)
+                        const valueInEth = Number(valueInWei) / 1e18
+                        decodedValue = valueInEth.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        })
+                      } catch (error) {
+                        console.debug('Error decoding hex value:', error)
                       }
-                    } catch (error) {
-                      // Removed console.error
                     }
-
                     return {
                       key: attr.key,
                       value: decodedValue,
@@ -120,95 +121,40 @@ export default function DataFeed() {
                   }
                 )
 
-              const formattedAttributes = attributes.map(
-                (attr: {
-                  key: string
-                  value: string
-                  displayValue?: string
-                }) => {
-                  if (attr.key === 'value' && attr.value.startsWith('0000')) {
-                    try {
-                      const valueInWei = BigInt('0x' + attr.value)
-                      const valueInEth = Number(valueInWei) / 1e18
+              const queryId = attributes.find(
+                (attr) => attr.key === 'query_id'
+              )?.value
 
-                      const queryData = attributes.find(
-                        (a) => a.key === 'query_data'
-                      )?.value
-
-                      if (
-                        queryData &&
-                        queryData.toLowerCase().includes('spotprice')
-                      ) {
-                        const formattedValue = `$${valueInEth.toLocaleString(
-                          undefined,
-                          {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          }
-                        )}`
-                        return { ...attr, displayValue: formattedValue }
-                      }
-
-                      return {
-                        ...attr,
-                        displayValue: valueInEth.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        }),
-                      }
-                    } catch (e) {
-                      return attr
-                    }
-                  }
-                  return attr
-                }
-              )
-
-              const valueAttr = formattedAttributes.find(
-                (attr) => attr.key === 'value'
-              )
-              const queryId =
-                attributes.find(
-                  (attr: ReportAttribute) => attr.key === 'query_id'
-                )?.value || ''
+              // Use the API endpoint for reporter data
               const timestamp = block.header.time.getTime().toString()
               const reporterData = await getReporterCount(queryId, timestamp)
 
-              if (reporterData.queryType !== 'N/A' && reporterData.count > 0) {
-                const queryTypeAttr = attributes.find(
-                  (attr) => attr.key === 'query_type'
-                )
-                const aggregateMethodAttr = attributes.find(
-                  (attr) => attr.key === 'aggregate_method'
-                )
-                const cycleListAttr = attributes.find(
-                  (attr) => attr.key === 'cyclelist'
-                )
+              const valueAttr = attributes.find(
+                (attr) => attr.key === 'value'
+              )
 
-                const newReport: OracleReport = {
-                  type: aggregateEvent.type,
-                  queryId: queryId || 'Unknown',
-                  value:
-                    valueAttr?.displayValue || valueAttr?.value || 'Unknown',
-                  numberOfReporters: reporterData.count.toString(),
-                  microReportHeight:
-                    attributes.find(
-                      (attr: ReportAttribute) =>
-                        attr.key === 'micro_report_height'
-                    )?.value || '0',
-                  blockHeight: Number(blockHeight),
-                  timestamp: new Date(block.header.time),
-                  attributes: formattedAttributes,
-                  queryType: reporterData.queryType || 'N/A',
-                  aggregateMethod: reporterData.aggregateMethod || 'N/A',
-                  cycleList: reporterData.cycleList || false,
-                  totalPower: reporterData.totalPower,
-                }
-
-                setAggregateReports((prev) =>
-                  [newReport, ...prev].slice(0, 100)
-                )
+              const newReport: OracleReport = {
+                type: aggregateEvent.type,
+                queryId: queryId || 'Unknown',
+                value: valueAttr?.value || 'Unknown',
+                numberOfReporters: reporterData.count.toString(),
+                microReportHeight:
+                  attributes.find(
+                    (attr) => attr.key === 'micro_report_height'
+                  )?.value || '0',
+                blockHeight: Number(blockHeight),
+                timestamp: new Date(block.header.time),
+                attributes,
+                queryType: reporterData.queryType || 'N/A',
+                aggregateMethod: reporterData.aggregateMethod || 'N/A',
+                cycleList: reporterData.cycleList || false,
+                totalPower: reporterData.totalPower,
               }
+
+              console.log('Created new report:', newReport)
+              setAggregateReports((prev) =>
+                [newReport, ...prev].slice(0, 100)
+              )
             } catch (error) {
               console.error(`[DataFeed] Aggregate event error:`, error)
             }
@@ -223,9 +169,31 @@ export default function DataFeed() {
 
   useEffect(() => {
     if (newBlock) {
+      console.log('Received new block:', newBlock.header.height)
       processBlock(newBlock)
     }
   }, [newBlock, processBlock])
+
+  // Remove or comment out this useEffect
+  /*
+  useEffect(() => {
+    if (tmClient) {
+      const subscribeToOracle = async () => {
+        try {
+          const subscription = await tmClient.subscribe(
+            "tm.event = 'Tx' AND oracle.report.exists = 'true'"
+          )
+          console.log('Subscribed to oracle events')
+          return subscription
+        } catch (error) {
+          console.error('Failed to subscribe to oracle events:', error)
+        }
+      }
+      
+      subscribeToOracle()
+    }
+  }, [tmClient])
+  */
 
   return (
     <>

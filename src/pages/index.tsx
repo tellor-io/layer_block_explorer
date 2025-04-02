@@ -30,9 +30,9 @@ import { HiUserGroup } from 'react-icons/hi2'
 import { IconType } from 'react-icons'
 import NextLink from 'next/link'
 import { useEffect, useState } from 'react'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
 import { getValidators } from '@/rpc/query'
-import { selectTmClient } from '@/store/connectSlice'
+import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
 import { selectNewBlock } from '@/store/streamSlice'
 import { displayDate } from '@/utils/helper'
 import { StatusResponse } from '@cosmjs/tendermint-rpc'
@@ -40,12 +40,17 @@ import { getAllowedUnstakingAmount } from '@/rpc/query'
 import { getAllowedStakingAmount } from '@/rpc/query'
 import { getTotalReporterCount } from '@/rpc/query'
 import { getAllowedAmountExp } from '@/rpc/query'
-//import { getAverageGasCost } from '@/rpc/query' // Add this import
-import { FiDollarSign } from 'react-icons/fi' // Add this import
+import { FiDollarSign } from 'react-icons/fi'
 import { getCurrentCycleList } from '@/rpc/query'
 import { FiList } from 'react-icons/fi'
 import { MdPersonSearch } from 'react-icons/md'
 import { BsPersonFillAdd, BsPersonCheck } from 'react-icons/bs'
+import { getLatestBlock } from '@/rpc/query'
+import { getEvmValidators } from '@/rpc/query'
+import { getReporters } from '@/rpc/query'
+import axios from 'axios'
+import { setNewBlock } from '@/store/streamSlice'
+import { getSupplyByDenom } from '@/rpc/query'
 
 export default function Home() {
   const BOX_ICON_BG = useColorModeValue('#003734', '#eefffb') // Light mode, Dark mode
@@ -53,9 +58,10 @@ export default function Home() {
 
   const tmClient = useSelector(selectTmClient)
   const newBlock = useSelector(selectNewBlock)
+  const endpoint = useSelector(selectRPCAddress)
   const [validators, setValidators] = useState<number>(0)
   const [isLoaded, setIsLoaded] = useState(false)
-  const [status, setStatus] = useState<StatusResponse | null>()
+  const [status, setStatus] = useState<any>(null)
   const [totalVotingPower, setTotalVotingPower] = useState<string>('0')
   const [stakingAmount, setStakingAmount] = useState<string>('0 TRB')
   const [unstakingAmount, setUnstakingAmount] = useState<string>('0 TRB')
@@ -69,11 +75,14 @@ export default function Home() {
   const [lastNewPairTime, setLastNewPairTime] = useState<Date>(new Date())
   const [pollInterval, setPollInterval] = useState<number>(1000) // Start with 1 second
   const [previousPairCount, setPreviousPairCount] = useState<number>(0)
+  const [totalSupply, setTotalSupply] = useState<string>('0 LOYA')
+
+  const dispatch = useDispatch()
 
   useEffect(() => {
     const fetchValidators = async () => {
       try {
-        const response = await getValidators()
+        const response = await getValidators(endpoint)
         if (response?.validators) {
           // Only count active validators
           const activeValidators = response.validators.filter(
@@ -100,50 +109,75 @@ export default function Home() {
       }
     }
 
-    fetchValidators()
-  }, []) // Empty dependency array since we only need to fetch this once
+    if (endpoint) {
+      fetchValidators()
+    }
+  }, [endpoint])
 
   useEffect(() => {
-    getAllowedStakingAmount()
-      .then((amount) => {
-        if (amount !== undefined) {
-          const numAmount = Number(amount)
-          const formattedAmount = !isNaN(numAmount)
-            ? new Intl.NumberFormat().format(numAmount) + ' TRB'
-            : '0 TRB'
-          setStakingAmount(formattedAmount)
-        } else {
+    if (endpoint) {
+      getAllowedStakingAmount(endpoint)
+        .then((amount) => {
+          if (amount !== undefined) {
+            const numAmount = Number(amount)
+            const formattedAmount = !isNaN(numAmount)
+              ? new Intl.NumberFormat().format(numAmount) + ' TRB'
+              : '0 TRB'
+            setStakingAmount(formattedAmount)
+          } else {
+            setStakingAmount('0 TRB')
+          }
+        })
+        .catch((error) => {
+          console.error('Error in getAllowedStakingAmount:', error)
           setStakingAmount('0 TRB')
-        }
-      })
-      .catch((error) => {
-        console.error('Error in getAllowedStakingAmount:', error)
-        setStakingAmount('0 TRB')
-      })
-  }, [])
+        })
+    }
+  }, [endpoint])
 
   useEffect(() => {
-    getAllowedUnstakingAmount()
-      .then((amount) => {
-        if (amount !== undefined) {
-          const formattedAmount =
-            new Intl.NumberFormat().format(Math.abs(Number(amount))) + ' TRB'
-          setUnstakingAmount(formattedAmount)
-        } else {
+    if (endpoint) {
+      console.log('Fetching reporters for endpoint:', endpoint)
+      getReporters(endpoint)
+        .then((data) => {
+          console.log('Received reporters data:', data)
+          if (data?.reporters) {
+            console.log('Setting reporter count to:', data.reporters.length)
+            setReporterCount(data.reporters.length)
+          } else {
+            console.log('No reporters data, setting count to 0')
+            setReporterCount(0)
+          }
+        })
+        .catch((error) => {
+          console.error('Error fetching reporters:', error)
+          setReporterCount(0)
+        })
+    }
+  }, [endpoint])
+
+  useEffect(() => {
+    if (endpoint) {
+      getAllowedUnstakingAmount(endpoint)
+        .then((amount) => {
+          if (amount !== undefined) {
+            const formattedAmount = new Intl.NumberFormat().format(Math.abs(Number(amount))) + ' TRB'
+            setUnstakingAmount(formattedAmount)
+          } else {
+            setUnstakingAmount('0 TRB')
+          }
+        })
+        .catch((error) => {
+          console.error('Error in getAllowedUnstakingAmount:', error)
           setUnstakingAmount('0 TRB')
-        }
-      })
-      .catch((error) => {
-        console.error('Error in getAllowedUnstakingAmount:', error)
-        setUnstakingAmount('0 TRB')
-      })
-  }, [])
+        })
+    }
+  }, [endpoint])
 
   useEffect(() => {
     getAllowedAmountExp()
       .then((parsedAmount) => {
         if (parsedAmount) {
-          // Convert the date string to a timestamp
           const timestamp = new Date(parsedAmount).getTime()
           if (!isNaN(timestamp)) {
             setAllowedAmountExp(timestamp)
@@ -160,33 +194,7 @@ export default function Home() {
         console.error('Error in getAllowedAmountExp:', error)
         setAllowedAmountExp(undefined)
       })
-  }, [])
-
-  useEffect(() => {
-    getTotalReporterCount()
-      .then((count) => {
-        setReporterCount(count)
-      })
-      .catch((error) => {
-        console.error('Error in getTotalReporterCount:', error)
-      })
-  }, [])
-
-  /*useEffect(() => {
-    getAverageGasCost()
-      .then((cost) => {
-        if (cost !== undefined) {
-          const formattedCost = new Intl.NumberFormat().format(cost) + ' gas'
-          setAverageGasCost(formattedCost)
-        } else {
-          setAverageGasCost('N/A')
-        }
-      })
-      .catch((error) => {
-        console.error('Error in getAverageGasCost:', error)
-        setAverageGasCost('N/A')
-      })
-  }, [])*/
+  }, [endpoint])
 
   useEffect(() => {
     if ((!isLoaded && newBlock) || (!isLoaded && status)) {
@@ -195,9 +203,84 @@ export default function Home() {
   }, [isLoaded, newBlock, status])
 
   useEffect(() => {
-    const hardCodedList = ['btc/usd', 'eth/usd', 'trb/usd']
-    setCurrentCycleList(hardCodedList)
-  }, [])
+    if (endpoint) {
+      const fetchCycleList = async () => {
+        try {
+          const cycleList = await getCurrentCycleList(endpoint)
+          console.log('Received cycleList:', cycleList)
+          if (cycleList && Array.isArray(cycleList)) {
+            const params = cycleList.map(item => item.queryParams)
+            console.log('Formatted params:', params)
+            setCurrentCycleList(prev => {
+              const combined = Array.from(new Set([...prev, ...params]))
+              return combined
+            })
+          }
+        } catch (error) {
+          console.error('Error in getCurrentCycleList:', error)
+        }
+      }
+
+      // Initial fetch
+      fetchCycleList()
+
+      // Set up polling every 3 seconds
+      const interval = setInterval(fetchCycleList, 3000)
+
+      // Stop polling after 10 seconds
+      const timeout = setTimeout(() => {
+        clearInterval(interval)
+      }, 10000)
+
+      // Cleanup both interval and timeout
+      return () => {
+        clearInterval(interval)
+        clearTimeout(timeout)
+      }
+    }
+  }, [endpoint])
+
+  useEffect(() => {
+    if (endpoint) {
+      // Clear existing block data when endpoint changes
+      dispatch(setNewBlock(null))
+      
+      const fetchLatestBlock = async () => {
+        try {
+          const response = await getLatestBlock(endpoint)
+          if (response?.block?.header?.height) {
+            dispatch(setNewBlock({
+              header: {
+                height: response.block.header.height
+              }
+            }))
+          }
+        } catch (error) {
+          console.error('Error fetching latest block:', error)
+        }
+      }
+      fetchLatestBlock()
+    }
+  }, [endpoint, dispatch])
+
+  useEffect(() => {
+    if (endpoint) {
+      getSupplyByDenom(endpoint, 'loya')
+        .then((amount) => {
+          if (amount !== undefined) {
+            const numAmount = Number(amount.amount) / 1_000_000 // Move decimal 6 places left
+            const formattedAmount = new Intl.NumberFormat().format(numAmount) + ' TRB'
+            setTotalSupply(formattedAmount)
+          } else {
+            setTotalSupply('0 TRB')
+          }
+        })
+        .catch((error) => {
+          console.error('Error fetching supply:', error)
+          setTotalSupply('0 TRB')
+        })
+    }
+  }, [endpoint])
 
   return (
     <>
@@ -279,7 +362,7 @@ export default function Home() {
               <BoxInfo
                 bgColor={BOX_ICON_BG}
                 color={BOX_ICON_COLOR}
-                icon={BsPersonCheck}
+                icon={FiUsers}
                 name="Validators"
                 value={validators}
               />
@@ -372,6 +455,17 @@ export default function Home() {
                     ))}
                   </div>
                 }
+              />
+            </Skeleton>
+
+            <Skeleton isLoaded={isLoaded}>
+              <BoxInfo
+                bgColor={BOX_ICON_BG}
+                color={BOX_ICON_COLOR}
+                icon={FiDatabase}
+                name="Total TRB"
+                value={totalSupply}
+                formatNumber={true}
               />
             </Skeleton>
           </SimpleGrid>
