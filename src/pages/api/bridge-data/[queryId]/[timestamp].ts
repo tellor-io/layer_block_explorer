@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { RPCManager } from '../../../../utils/rpcManager'
 
 export default async function handler(
   req: NextApiRequest,
@@ -17,11 +18,15 @@ export default async function handler(
       .json({ error: 'Query ID and timestamp are required' })
   }
 
-  const snapshotsUrl = `https://tellorlayer.com/layer/bridge/get_snapshots_by_report/${queryId}/${timestamp}`
-
   try {
+    const rpcManager = new RPCManager()
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
+    
     // First, fetch snapshots
-    const snapshotsResponse = await fetch(snapshotsUrl)
+    const snapshotsResponse = await fetch(
+      `${baseEndpoint}/layer/bridge/get_snapshots_by_report/${queryId}/${timestamp}`
+    )
 
     if (!snapshotsResponse.ok) {
       const errorText = await snapshotsResponse.text()
@@ -47,9 +52,9 @@ export default async function handler(
       snapshotsData.snapshots[snapshotsData.snapshots.length - 1]
 
     // Fetch attestations for the last snapshot
-    const attestationsUrl = `https://tellorlayer.com/layer/bridge/get_attestations_by_snapshot/${lastSnapshot}`
-
-    const attestationsResponse = await fetch(attestationsUrl)
+    const attestationsResponse = await fetch(
+      `${baseEndpoint}/layer/bridge/get_attestations_by_snapshot/${lastSnapshot}`
+    )
 
     if (!attestationsResponse.ok) {
       const errorText = await attestationsResponse.text()
@@ -71,7 +76,6 @@ export default async function handler(
     res.status(500).json({
       error: 'Failed to fetch data',
       details: error instanceof Error ? error.message : 'Unknown error',
-      url: snapshotsUrl,
     })
   }
 }

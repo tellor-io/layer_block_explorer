@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { RPCManager } from '../../../../utils/rpcManager'
 
 export default async function handler(
   req: NextApiRequest,
@@ -21,7 +22,10 @@ export default async function handler(
     const formattedQueryId = queryId.startsWith('0x')
       ? queryId.slice(2)
       : queryId
-    const url = `https://rpc.layer-node.com/tellor-io/layer/oracle/get_data_before/${formattedQueryId}/${timestamp}`
+    const rpcManager = new RPCManager()
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
+    const url = `${baseEndpoint}/tellor-io/layer/oracle/get_data_before/${formattedQueryId}/${timestamp}`
     console.log('', url)
 
     const response = await fetch(url)

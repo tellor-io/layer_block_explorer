@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { RPCManager } from '../../../utils/rpcManager'
 
 export default async function handler(
   req: NextApiRequest,
@@ -11,9 +12,13 @@ export default async function handler(
   }
 
   try {
-    const url = `https://tellorlayer.com/layer/bridge/get_attestation_data_by_snapshot/${snapshot}`
+    const rpcManager = RPCManager.getInstance()
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
 
-    const response = await fetch(url)
+    const response = await fetch(
+      `${baseEndpoint}/layer/bridge/get_attestation_data_by_snapshot/${snapshot}`
+    )
 
     if (!response.ok) {
       const errorText = await response.text()

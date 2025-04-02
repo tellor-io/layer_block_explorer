@@ -10,7 +10,7 @@ export default async function handler(
     const baseEndpoint = endpoint.replace('/rpc', '')
     
     const response = await fetch(
-      `${baseEndpoint}/tellor-io/layer/reporter/reporters`
+      `${baseEndpoint}/cosmos/base/tendermint/v1beta1/blocks/latest`
     )
 
     if (!response.ok) {
@@ -22,19 +22,8 @@ export default async function handler(
   } catch (error) {
     console.error('API Route Error:', error)
     res.status(500).json({
-      error: 'Failed to fetch reporters',
+      error: 'Failed to fetch latest block',
       details: error instanceof Error ? error.message : 'Unknown error',
     })
   }
-}
-
-export const getReporters = async (endpoint: string) => {
-  try {
-    const response = await axios.get('/api/reporters', {
-      params: { endpoint }
-    })
-    return response.data
-  } catch (error) {
-    return undefined
-  }
-}
+} 

@@ -95,24 +95,28 @@ export const getAllowedAmounts = async (): Promise<{
   }
 }
 
-export const getAllowedStakingAmount = async (): Promise<
-  string | undefined
-> => {
+export const getAllowedStakingAmount = async (endpoint: string) => {
   try {
-    const amounts = await getAllowedAmounts()
-    return amounts.staking_amount
+    console.log('Fetching staking amount with endpoint:', endpoint)
+    const response = await axios.get('/api/staking-amount', {
+      params: { endpoint }
+    })
+    return convertToDisplayAmount(response.data.amount)
   } catch (error) {
+    console.error('Error in getAllowedStakingAmount:', error)
     return undefined
   }
 }
 
-export const getAllowedUnstakingAmount = async (): Promise<
-  string | undefined
-> => {
+export const getAllowedUnstakingAmount = async (endpoint: string) => {
   try {
-    const amounts = await getAllowedAmounts()
-    return amounts.unstaking_amount
+    console.log('Fetching unstaking amount with endpoint:', endpoint)
+    const response = await axios.get('/api/unstaking-amount', {
+      params: { endpoint }
+    })
+    return convertToDisplayAmount(response.data.amount)
   } catch (error) {
+    console.error('Error in getAllowedUnstakingAmount:', error)
     return undefined
   }
 }
@@ -285,18 +289,16 @@ export const getValidatorMoniker = async (address: string): Promise<string> => {
   }
 }*/
 
-export const getCurrentCycleList = async (): Promise<
-  Array<{ queryParams: string }>
-> => {
+export const getCurrentCycleList = async (endpoint: string) => {
   try {
-    const response = await axios.get('/api/current-cycle')
-
-    if (response.data && Array.isArray(response.data)) {
-      return response.data
-    }
-    return []
+    console.log('Fetching current cycle list with endpoint:', endpoint)
+    const response = await axios.get('/api/current-cycle', {
+      params: { endpoint }
+    })
+    return response.data.cycleList
   } catch (error) {
-    return []
+    console.error('Error in getCurrentCycleList:', error)
+    return undefined
   }
 }
 
@@ -354,9 +356,11 @@ export function decodeQueryData(queryId: string, queryData?: string): any {
   }
 }
 
-export const getValidators = async () => {
+export const getValidators = async (endpoint: string) => {
   try {
-    const response = await axios.get('/api/validators')
+    const response = await axios.get('/api/validators', {
+      params: { endpoint }
+    })
     return response.data
   } catch (error) {
     return undefined
@@ -380,5 +384,52 @@ export async function getTotalReporterCount(): Promise<number> {
   } catch (error) {
     console.error('Error fetching total reporter count:', error)
     return 0
+  }
+}
+
+export const getLatestBlock = async (endpoint: string) => {
+  try {
+    const response = await axios.get('/api/latest-block', {
+      params: { endpoint }
+    })
+    return response.data
+  } catch (error) {
+    return undefined
+  }
+}
+
+export const getEvmValidators = async (endpoint: string) => {
+  try {
+    const response = await axios.get('/api/evm-validators', {
+      params: { endpoint }
+    })
+    return response.data
+  } catch (error) {
+    return undefined
+  }
+}
+
+export const getReporters = async (endpoint: string) => {
+  try {
+    console.log('Fetching reporters with endpoint:', endpoint)
+    const response = await axios.get('/api/reporters', {
+      params: { endpoint }
+    })
+    console.log('Reporters response:', response.data)
+    return response.data
+  } catch (error) {
+    console.error('Error in getReporters:', error)
+    return undefined
+  }
+}
+
+export const getSupplyByDenom = async (endpoint: string, denom: string) => {
+  try {
+    const baseEndpoint = endpoint.replace('/rpc', '')
+    const response = await axios.get(`${baseEndpoint}/cosmos/bank/v1beta1/supply/by_denom?denom=${denom}`)
+    return response.data.amount
+  } catch (error) {
+    console.error('Error in getSupplyByDenom:', error)
+    return undefined
   }
 }

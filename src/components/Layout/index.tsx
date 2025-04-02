@@ -97,20 +97,22 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   useEffect(() => {
-    if (tmClient && !newBlock) {
+    if (tmClient) {
       const subscription = subscribeNewBlock(tmClient, updateNewBlock)
       dispatch(setSubsNewBlock(subscription))
+      
+      const txSubscription = subscribeTx(tmClient, updateTxEvent)
+      dispatch(setSubsTxEvent(txSubscription))
     }
-
-    if (tmClient && !txEvent) {
-      const subscription = subscribeTx(tmClient, updateTxEvent)
-      dispatch(setSubsTxEvent(subscription))
-    }
-  }, [tmClient, newBlock, txEvent, dispatch])
+  }, [tmClient, dispatch])
 
   useEffect(() => {
     if (isLoading) {
-      connect(HARDCODED_RPC_ADDRESS)
+      const initializeConnection = async () => {
+        const endpoint = await rpcManager.getCurrentEndpoint()
+        connect(endpoint)
+      }
+      initializeConnection()
     }
   }, [isLoading])
 

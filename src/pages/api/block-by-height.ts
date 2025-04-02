@@ -1,16 +1,23 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { rpcManager } from '../../utils/rpcManager'
+import { RPCManager } from '../../utils/rpcManager'
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  const { height } = req.query
+
+  if (!height || typeof height !== 'string') {
+    return res.status(400).json({ error: 'Height is required' })
+  }
+
   try {
-    const endpoint = req.query.endpoint as string || await rpcManager.getCurrentEndpoint()
+    const rpcManager = RPCManager.getInstance()
+    const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
     
     const response = await fetch(
-      `${baseEndpoint}/tellor-io/layer/reporter/reporters`
+      `${baseEndpoint}/cosmos/base/tendermint/v1beta1/blocks/${height}`
     )
 
     if (!response.ok) {
@@ -22,19 +29,8 @@ export default async function handler(
   } catch (error) {
     console.error('API Route Error:', error)
     res.status(500).json({
-      error: 'Failed to fetch reporters',
+      error: 'Failed to fetch block',
       details: error instanceof Error ? error.message : 'Unknown error',
     })
-  }
-}
-
-export const getReporters = async (endpoint: string) => {
-  try {
-    const response = await axios.get('/api/reporters', {
-      params: { endpoint }
-    })
-    return response.data
-  } catch (error) {
-    return undefined
   }
 }

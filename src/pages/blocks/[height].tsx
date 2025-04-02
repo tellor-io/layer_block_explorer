@@ -45,6 +45,7 @@ import { decodeData } from '@/utils/decodeHelper' // Import the decoding functio
 import ErrorBoundary from '../../components/ErrorBoundary'
 import axios from 'axios'
 import { FaExpand, FaCompress, FaCopy } from 'react-icons/fa'
+import { rpcManager } from '@/utils/rpcManager'
 
 // Extend the Block type to include rawData
 interface ExtendedBlock extends Block {
@@ -116,7 +117,7 @@ export default function DetailBlock() {
   useEffect(() => {
     if (tmClient && height) {
       getBlock(tmClient, parseInt(height as string, 10))
-        .then((blockData: Block) => {
+        .then(async (blockData: Block) => {
           const extendedBlockData = blockData as ExtendedBlock // Type assertion
 
           try {
@@ -131,10 +132,12 @@ export default function DetailBlock() {
           }
           setBlock(extendedBlockData)
 
-          // Move the API call here
+          // Get the endpoint from rpcManager
+          const endpoint = await rpcManager.getCurrentEndpoint()
+          const baseEndpoint = endpoint.replace('/rpc', '')
           axios
             .get(
-              `https://rpc.layer-node.com/block?height=${extendedBlockData.header.height}`
+              `${baseEndpoint}/block?height=${extendedBlockData.header.height}`
             )
             .then((response) => {
               const txData = response.data.result.block.data.txs[0]

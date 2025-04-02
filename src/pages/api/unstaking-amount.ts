@@ -1,22 +1,44 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { rpcManager } from '../../utils/rpcManager'
 
 export default async function handler(
-  _req: NextApiRequest,
+  req: NextApiRequest,
   res: NextApiResponse
 ) {
   try {
+    const endpoint = req.query.endpoint as string || await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
+    console.log('API: Fetching unstaking amount from endpoint:', baseEndpoint)
+    
     const response = await fetch(
-      'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount'
+      `${baseEndpoint}/tellor-io/layer/reporter/allowed-amount`
     )
 
     if (!response.ok) {
+      const errorText = await response.text()
+      console.error('External API error details:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText,
+        url: response.url
+      })
       throw new Error(`External API responded with status: ${response.status}`)
     }
 
     const data = await response.json()
-    res.status(200).json(data)
+    console.log('Received unstaking amount data:', data)
+    
+    if (data?.unstaking_amount !== undefined) {
+      res.status(200).json({ amount: data.unstaking_amount })
+    } else {
+      console.error('Unexpected data structure:', data)
+      throw new Error('Unexpected data structure from external API')
+    }
   } catch (error) {
     console.error('API Route Error:', error)
-    res.status(500).json({ error: 'Failed to fetch staking amount' })
+    res.status(500).json({
+      error: 'Failed to fetch unstaking amount',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    })
   }
 }

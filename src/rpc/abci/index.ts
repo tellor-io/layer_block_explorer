@@ -34,6 +34,7 @@ import { Vote, VoteOption } from 'cosmjs-types/cosmos/gov/v1beta1/gov'
 import { PageRequest } from 'cosmjs-types/cosmos/base/query/v1beta1/pagination'
 import Long from 'long'
 import axios from 'axios'
+import { RPCManager } from '../../utils/rpcManager'
 
 export async function queryAllValidators(
   tmClient: Tendermint37Client
@@ -143,47 +144,52 @@ export async function queryProposalVotes(
   tmClient: Tendermint37Client,
   proposalId: number
 ) {
-  const queryClient = new QueryClient(tmClient)
+  try {
+    const queryClient = new QueryClient(tmClient)
 
-  const proposalPath = `/cosmos.gov.v1beta1.Query/Proposal`
-  const proposalRequest = QueryProposalRequest.encode({
-    proposalId: Long.fromNumber(proposalId),
-  }).finish()
+    const proposalPath = `/cosmos.gov.v1beta1.Query/Proposal`
+    const proposalRequest = QueryProposalRequest.encode({
+      proposalId: Long.fromNumber(proposalId),
+    }).finish()
 
-  const { value: proposalValue } = await queryClient.queryAbci(
-    proposalPath,
-    proposalRequest
-  )
-  const proposalResponse = QueryProposalResponse.decode(proposalValue)
+    const { value: proposalValue } = await queryClient.queryAbci(
+      proposalPath,
+      proposalRequest
+    )
+    const proposalResponse = QueryProposalResponse.decode(proposalValue)
 
-  if (!proposalResponse.proposal) {
-    return { hasVotes: false, voteDistribution: null, totalPower: 0 }
-  }
-
-  const { yes, no, abstain, noWithVeto } =
-    proposalResponse.proposal.finalTallyResult || {}
-  const totalPower =
-    Number(yes) + Number(no) + Number(abstain) + Number(noWithVeto)
-
-  const formatVote = (vote: string | undefined) => {
-    const voteNumber = Number(vote) / 1_000_000
-    const percentage =
-      totalPower > 0 ? (voteNumber / (totalPower / 1_000_000)) * 100 : 0
-    return {
-      value: voteNumber,
-      percentage: (Math.floor(percentage * 100) / 100).toFixed(2),
+    if (!proposalResponse.proposal) {
+      return { hasVotes: false, voteDistribution: null, totalPower: 0 }
     }
-  }
 
-  return {
-    hasVotes: totalPower > 0,
-    voteDistribution: {
-      yes: formatVote(yes),
-      no: formatVote(no),
-      abstain: formatVote(abstain),
-      veto: formatVote(noWithVeto),
-    },
-    totalPower: totalPower / 1_000_000,
+    const { yes, no, abstain, noWithVeto } =
+      proposalResponse.proposal.finalTallyResult || {}
+    const totalPower =
+      Number(yes) + Number(no) + Number(abstain) + Number(noWithVeto)
+
+    const formatVote = (vote: string | undefined) => {
+      const voteNumber = Number(vote) / 1_000_000
+      const percentage =
+        totalPower > 0 ? (voteNumber / (totalPower / 1_000_000)) * 100 : 0
+      return {
+        value: voteNumber,
+        percentage: (Math.floor(percentage * 100) / 100).toFixed(2),
+      }
+    }
+
+    return {
+      hasVotes: totalPower > 0,
+      voteDistribution: {
+        yes: formatVote(yes),
+        no: formatVote(no),
+        abstain: formatVote(abstain),
+        veto: formatVote(noWithVeto),
+      },
+      totalPower: totalPower / 1_000_000,
+    }
+  } catch (error) {
+    console.error('Error querying proposal votes:', error)
+    return { hasVotes: false, voteDistribution: null, totalPower: 0 }
   }
 }
 
@@ -191,8 +197,13 @@ export async function queryOracleParams(
   tmClient: Tendermint37Client
 ): Promise<any> {
   try {
+    const rpcManager = new RPCManager()
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
+    console.log('Fetching oracle params from endpoint:', baseEndpoint)
+    
     const response = await axios.get(
-      'https://layer-node.com/layer/oracle/params'
+      `${baseEndpoint}/layer/oracle/params`
     )
     console.log('Oracle params raw response:', response.data)
     return response.data.params
@@ -206,8 +217,13 @@ export async function queryRegistryParams(
   tmClient: Tendermint37Client
 ): Promise<any> {
   try {
+    const rpcManager = new RPCManager()
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
+    console.log('Fetching registry params from endpoint:', baseEndpoint)
+    
     const response = await axios.get(
-      'https://layer-node.com/layer/registry/params'
+      `${baseEndpoint}/layer/registry/params`
     )
     console.log('Registry params raw response:', response.data)
     return response.data.params
@@ -221,8 +237,13 @@ export async function queryDisputeParams(
   tmClient: Tendermint37Client
 ): Promise<any> {
   try {
+    const rpcManager = new RPCManager()
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
+    console.log('Fetching dispute params from endpoint:', baseEndpoint)
+    
     const response = await axios.get(
-      'https://layer-node.com/tellor-io/layer/dispute/params'
+      `${baseEndpoint}/tellor-io/layer/dispute/params`
     )
     console.log('Dispute params raw response:', response.data)
     return response.data.params
@@ -236,8 +257,13 @@ export async function queryReporterParams(
   tmClient: Tendermint37Client
 ): Promise<any> {
   try {
+    const rpcManager = new RPCManager()
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
+    console.log('Fetching reporter params from endpoint:', baseEndpoint)
+    
     const response = await axios.get(
-      'https://layer-node.com/tellor-io/layer/reporter/params'
+      `${baseEndpoint}/tellor-io/layer/reporter/params`
     )
     console.log('Reporter params raw response:', response.data)
     return response.data.params

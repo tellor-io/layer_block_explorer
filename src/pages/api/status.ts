@@ -9,32 +9,19 @@ export default async function handler(
     const endpoint = req.query.endpoint as string || await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
     
-    const response = await fetch(
-      `${baseEndpoint}/tellor-io/layer/reporter/reporters`
-    )
-
+    const response = await fetch(`${baseEndpoint}/status`)
+    
     if (!response.ok) {
       throw new Error(`External API responded with status: ${response.status}`)
     }
 
     const data = await response.json()
-    res.status(200).json(data)
+    res.status(200).json(data.result)
   } catch (error) {
     console.error('API Route Error:', error)
     res.status(500).json({
-      error: 'Failed to fetch reporters',
+      error: 'Failed to fetch status',
       details: error instanceof Error ? error.message : 'Unknown error',
     })
   }
-}
-
-export const getReporters = async (endpoint: string) => {
-  try {
-    const response = await axios.get('/api/reporters', {
-      params: { endpoint }
-    })
-    return response.data
-  } catch (error) {
-    return undefined
-  }
-}
+} 

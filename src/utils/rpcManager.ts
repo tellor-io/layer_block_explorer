@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { RPC_ENDPOINTS } from './constant'
+import { RPC_ENDPOINTS, LS_RPC_ADDRESS } from './constant'
 
 interface RPCState {
   currentIndex: number
@@ -9,6 +9,7 @@ interface RPCState {
 }
 
 export class RPCManager {
+  private static instance: RPCManager;
   private state: RPCState = {
     currentIndex: 0,
     failures: {},
@@ -16,7 +17,7 @@ export class RPCManager {
     isCircuitOpen: {},
   }
 
-  private customEndpoint: string | null = null
+  private customEndpoint: string | null = null;
 
   private readonly MAX_FAILURES = 5
   private readonly CIRCUIT_RESET_TIME = 60000
@@ -24,7 +25,7 @@ export class RPCManager {
   private readonly MAX_BACKOFF = 32000 // 32 seconds
   private readonly REQUEST_TIMEOUT = 10000 // Increase to 10 seconds
 
-  constructor() {
+  private constructor() {
     // Initialize state for all endpoints
     RPC_ENDPOINTS.forEach((endpoint) => {
       this.state.failures[endpoint] = 0
@@ -32,8 +33,22 @@ export class RPCManager {
       this.state.isCircuitOpen[endpoint] = false
     })
 
-    // Start health checks
+    // Try to restore custom endpoint from localStorage
+    if (typeof window !== 'undefined') {
+      const savedEndpoint = window.localStorage.getItem(LS_RPC_ADDRESS)
+      if (savedEndpoint) {
+        this.setCustomEndpoint(savedEndpoint)
+      }
+    }
+
     this.startHealthChecks()
+  }
+
+  public static getInstance(): RPCManager {
+    if (!RPCManager.instance) {
+      RPCManager.instance = new RPCManager();
+    }
+    return RPCManager.instance;
   }
 
   private async checkEndpointHealth(endpoint: string): Promise<boolean> {
@@ -76,12 +91,18 @@ export class RPCManager {
   }
 
   public setCustomEndpoint(endpoint: string | null) {
-    this.customEndpoint = endpoint
+    this.customEndpoint = endpoint;
     if (endpoint) {
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(LS_RPC_ADDRESS, endpoint);
+      }
       // Initialize state for custom endpoint
-      this.state.failures[endpoint] = 0
-      this.state.lastAttempt[endpoint] = 0
-      this.state.isCircuitOpen[endpoint] = false
+      this.state.failures[endpoint] = 0;
+      this.state.lastAttempt[endpoint] = 0;
+      this.state.isCircuitOpen[endpoint] = false;
+    } else if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(LS_RPC_ADDRESS);
     }
   }
 
@@ -138,5 +159,5 @@ export class RPCManager {
   }
 }
 
-// Create and export a singleton instance
-export const rpcManager = new RPCManager()
+// Export a singleton instance
+export const rpcManager = RPCManager.getInstance()

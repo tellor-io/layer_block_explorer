@@ -1,12 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { rpcManager } from '../../utils/rpcManager'
 
 export default async function handler(
-  _req: NextApiRequest,
+  req: NextApiRequest,
   res: NextApiResponse
 ) {
   try {
+    const endpoint = req.query.endpoint as string || await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
+    console.log('API: Fetching EVM validators from endpoint:', baseEndpoint)
+    
     const response = await fetch(
-      'https://tellorlayer.com/layer/bridge/get_evm_validators'
+      `${baseEndpoint}/layer/bridge/get_evm_validators`
     )
 
     if (!response.ok) {
