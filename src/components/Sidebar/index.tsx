@@ -37,7 +37,7 @@ import {
 import { IconType } from 'react-icons'
 import { RiBearSmileFill, RiBankLine } from 'react-icons/ri'
 import { FaUserCheck } from 'react-icons/fa'
-import { FaBridge } from "react-icons/fa6";
+import { FaBridge } from 'react-icons/fa6'
 
 import NextLink from 'next/link'
 import { useRouter } from 'next/router'

@@ -24,7 +24,7 @@ export async function connectWebsocketClient(
     // Create HTTP client instead of WebSocket
     const httpClient = new HttpClient(rpcAddress)
     const tmClient = await Tendermint37Client.create(httpClient)
-    
+
     // Verify connection with a status check
     const status = await tmClient.status()
     if (!status) {

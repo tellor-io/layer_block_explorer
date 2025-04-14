@@ -6,10 +6,11 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    const endpoint = req.query.endpoint as string || await rpcManager.getCurrentEndpoint()
+    const endpoint =
+      (req.query.endpoint as string) || (await rpcManager.getCurrentEndpoint())
     // Remove '/rpc' from the endpoint if it exists
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
+
     const response = await fetch(
       `${baseEndpoint}/cosmos/staking/v1beta1/validators`
     )

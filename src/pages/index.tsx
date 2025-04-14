@@ -161,7 +161,8 @@ export default function Home() {
       getAllowedUnstakingAmount(endpoint)
         .then((amount) => {
           if (amount !== undefined) {
-            const formattedAmount = new Intl.NumberFormat().format(Math.abs(Number(amount))) + ' TRB'
+            const formattedAmount =
+              new Intl.NumberFormat().format(Math.abs(Number(amount))) + ' TRB'
             setUnstakingAmount(formattedAmount)
           } else {
             setUnstakingAmount('0 TRB')
@@ -209,9 +210,9 @@ export default function Home() {
           const cycleList = await getCurrentCycleList(endpoint)
           console.log('Received cycleList:', cycleList)
           if (cycleList && Array.isArray(cycleList)) {
-            const params = cycleList.map(item => item.queryParams)
+            const params = cycleList.map((item) => item.queryParams)
             console.log('Formatted params:', params)
-            setCurrentCycleList(prev => {
+            setCurrentCycleList((prev) => {
               const combined = Array.from(new Set([...prev, ...params]))
               return combined
             })
@@ -244,16 +245,18 @@ export default function Home() {
     if (endpoint) {
       // Clear existing block data when endpoint changes
       dispatch(setNewBlock(null))
-      
+
       const fetchLatestBlock = async () => {
         try {
           const response = await getLatestBlock(endpoint)
           if (response?.block?.header?.height) {
-            dispatch(setNewBlock({
-              header: {
-                height: response.block.header.height
-              }
-            }))
+            dispatch(
+              setNewBlock({
+                header: {
+                  height: response.block.header.height,
+                },
+              })
+            )
           }
         } catch (error) {
           console.error('Error fetching latest block:', error)
@@ -269,7 +272,8 @@ export default function Home() {
         .then((amount) => {
           if (amount !== undefined) {
             const numAmount = Number(amount.amount) / 1_000_000 // Move decimal 6 places left
-            const formattedAmount = new Intl.NumberFormat().format(numAmount) + ' TRB'
+            const formattedAmount =
+              new Intl.NumberFormat().format(numAmount) + ' TRB'
             setTotalSupply(formattedAmount)
           } else {
             setTotalSupply('0 TRB')
@@ -313,8 +317,7 @@ export default function Home() {
         </HStack>
         <Box mt={8}>
           <SimpleGrid minChildWidth="200px" spacing="40px">
-
-          <Skeleton isLoaded={isLoaded}>
+            <Skeleton isLoaded={isLoaded}>
               <BoxInfo
                 bgColor={BOX_ICON_BG}
                 color={BOX_ICON_COLOR}
@@ -340,7 +343,7 @@ export default function Home() {
                 }
               />
             </Skeleton>
-            
+
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
                 bgColor={BOX_ICON_BG}
@@ -358,7 +361,6 @@ export default function Home() {
                 }
               />
             </Skeleton>
-
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo

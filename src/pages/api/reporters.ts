@@ -7,9 +7,10 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    const endpoint = req.query.endpoint as string || await rpcManager.getCurrentEndpoint()
+    const endpoint =
+      (req.query.endpoint as string) || (await rpcManager.getCurrentEndpoint())
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
+
     const response = await fetch(
       `${baseEndpoint}/tellor-io/layer/reporter/reporters`
     )
@@ -32,7 +33,7 @@ export default async function handler(
 export const getReporters = async (endpoint: string) => {
   try {
     const response = await axios.get('/api/reporters', {
-      params: { endpoint }
+      params: { endpoint },
     })
     return response.data
   } catch (error) {

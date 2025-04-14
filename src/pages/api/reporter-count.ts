@@ -52,7 +52,7 @@ export default async function handler(
 
   for (const endpoint of RPC_ENDPOINTS) {
     try {
-      const baseEndpoint = endpoint.endsWith('/rpc') 
+      const baseEndpoint = endpoint.endsWith('/rpc')
         ? endpoint.slice(0, -4) // Remove '/rpc'
         : endpoint
 
@@ -80,7 +80,8 @@ export default async function handler(
 
       const firstReport = data.microReports[0] || {}
       successfulResponse = {
-        count: uniqueReporters.size || parseInt(data.pagination?.total || '0', 10),
+        count:
+          uniqueReporters.size || parseInt(data.pagination?.total || '0', 10),
         queryType: firstReport.query_type || 'N/A',
         aggregateMethod: firstReport.aggregate_method || 'N/A',
         cycleList: firstReport.cyclelist || false,

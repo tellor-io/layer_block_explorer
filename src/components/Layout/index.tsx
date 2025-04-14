@@ -49,7 +49,7 @@ export default function Layout({ children }: LayoutProps) {
     console.log('Received transaction event:', {
       hash: toHex(event.hash),
       height: event.height,
-      result: event.result
+      result: event.result,
     })
     dispatch(setTxEvent(event))
   }
@@ -83,7 +83,7 @@ export default function Layout({ children }: LayoutProps) {
           lastError = endpointError
           console.log('Connection failed for:', endpoint, endpointError)
           await rpcManager.reportFailure(endpoint)
-          
+
           // Force move to next endpoint by updating RPC manager state
           const nextEndpoint = await rpcManager.reportFailure(endpoint)
           if (nextEndpoint !== endpoint) {
@@ -106,7 +106,7 @@ export default function Layout({ children }: LayoutProps) {
     if (tmClient) {
       const subscription = subscribeNewBlock(tmClient, updateNewBlock)
       dispatch(setSubsNewBlock(subscription))
-      
+
       const txSubscription = subscribeTx(tmClient, updateTxEvent)
       dispatch(setSubsTxEvent(txSubscription))
     }
@@ -134,7 +134,13 @@ export default function Layout({ children }: LayoutProps) {
           <Box display={{ base: 'none', md: 'block' }}>
             <Sidebar />
           </Box>
-          <Box flex={1} ml={{ base: 0, md: 60 }} p="4" width="100%" overflowX="auto">
+          <Box
+            flex={1}
+            ml={{ base: 0, md: 60 }}
+            p="4"
+            width="100%"
+            overflowX="auto"
+          >
             {children}
           </Box>
         </Flex>

@@ -6,9 +6,10 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    const endpoint = req.query.endpoint as string || await rpcManager.getCurrentEndpoint()
+    const endpoint =
+      (req.query.endpoint as string) || (await rpcManager.getCurrentEndpoint())
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
+
     const response = await fetch(
       `${baseEndpoint}/cosmos/base/tendermint/v1beta1/blocks/latest`
     )
@@ -26,4 +27,4 @@ export default async function handler(
       details: error instanceof Error ? error.message : 'Unknown error',
     })
   }
-} 
+}

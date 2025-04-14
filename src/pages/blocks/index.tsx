@@ -136,7 +136,7 @@ export default function Blocks() {
 
         // Fetch blocks
         const blocksResponse = await axios.get('/api/latest-block')
-        
+
         if (!blocksResponse?.data?.block) {
           throw new Error('Invalid block data received')
         }
@@ -174,7 +174,7 @@ export default function Blocks() {
             const prevBlockResponse = await axios.get(
               `/api/block-by-height/${parseInt(latestBlock.header.height) - i}`
             )
-            
+
             if (prevBlockResponse?.data?.block) {
               const prevBlock = prevBlockResponse.data.block
               blocksData.push({
@@ -182,7 +182,9 @@ export default function Blocks() {
                   version: { block: 0, app: 0 },
                   height: prevBlock.header.height,
                   time: new Date(prevBlock.header.time),
-                  proposerAddress: fromBase64(prevBlock.header.proposer_address),
+                  proposerAddress: fromBase64(
+                    prevBlock.header.proposer_address
+                  ),
                   chainId: prevBlock.header.chain_id,
                   lastBlockId: prevBlock.header.last_block_id,
                   lastCommitHash: fromBase64(prevBlock.header.last_commit_hash),
@@ -193,7 +195,9 @@ export default function Blocks() {
                   ),
                   consensusHash: fromBase64(prevBlock.header.consensus_hash),
                   appHash: fromBase64(prevBlock.header.app_hash),
-                  lastResultsHash: fromBase64(prevBlock.header.last_results_hash),
+                  lastResultsHash: fromBase64(
+                    prevBlock.header.last_results_hash
+                  ),
                   evidenceHash: fromBase64(prevBlock.header.evidence_hash),
                 },
                 txs: prevBlock.data?.txs || [],
@@ -203,9 +207,14 @@ export default function Blocks() {
             }
           } catch (error) {
             if (axios.isAxiosError(error) && error.response?.status === 404) {
-              break;
+              break
             } else {
-              console.warn(`Error fetching block at height ${parseInt(latestBlock.header.height) - i}:`, error)
+              console.warn(
+                `Error fetching block at height ${
+                  parseInt(latestBlock.header.height) - i
+                }:`,
+                error
+              )
             }
             continue
           }
@@ -248,19 +257,20 @@ export default function Blocks() {
       }
 
       // Check if this exact block already exists
-      const exists = prevBlocks.some(
-        (existingBlock) => {
-          // Safely compare block heights
-          const heightMatch = existingBlock.header.height === newBlock.header.height
-          
-          // Safely compare timestamps if both exist
-          const timeMatch = existingBlock.header.time && newBlock.header.time
-            ? existingBlock.header.time.getTime() === newBlock.header.time.getTime()
+      const exists = prevBlocks.some((existingBlock) => {
+        // Safely compare block heights
+        const heightMatch =
+          existingBlock.header.height === newBlock.header.height
+
+        // Safely compare timestamps if both exist
+        const timeMatch =
+          existingBlock.header.time && newBlock.header.time
+            ? existingBlock.header.time.getTime() ===
+              newBlock.header.time.getTime()
             : false
 
-          return heightMatch && timeMatch
-        }
-      )
+        return heightMatch && timeMatch
+      })
 
       if (
         !exists &&
@@ -279,27 +289,32 @@ export default function Blocks() {
         ...txEvent,
         result: {
           ...txEvent.result,
-          data: txEvent.tx && txEvent.tx.length > 0 ? txEvent.tx : txEvent.result.data
-        }
+          data:
+            txEvent.tx && txEvent.tx.length > 0
+              ? txEvent.tx
+              : txEvent.result.data,
+        },
       },
       Timestamp: new Date(),
-    };
+    }
 
     setTxs((prevTxs) => {
       const exists = prevTxs.some(
         (existingTx) => toHex(existingTx.TxEvent.hash) === toHex(txEvent.hash)
-      );
+      )
 
       if (!exists) {
-        return [tx, ...prevTxs.slice(0, MAX_ROWS - 1)];
+        return [tx, ...prevTxs.slice(0, MAX_ROWS - 1)]
       }
-      return prevTxs;
-    });
-  };
+      return prevTxs
+    })
+  }
 
   const getProposerMoniker = (proposerAddress: Uint8Array) => {
     try {
-      const hexAddress = Buffer.from(proposerAddress).toString('hex').toLowerCase()
+      const hexAddress = Buffer.from(proposerAddress)
+        .toString('hex')
+        .toLowerCase()
       const moniker = validatorMap[hexAddress] || 'Unknown'
       return moniker
     } catch (error) {
@@ -309,57 +324,66 @@ export default function Blocks() {
   }
 
   const renderMessages = (data: Uint8Array | undefined) => {
-    if (!data) return '';
-    
+    if (!data) return ''
+
     try {
       // First try to decode as protobuf
       try {
-        const txBody = TxBody.decode(data);
+        const txBody = TxBody.decode(data)
         if (txBody.messages && txBody.messages.length > 0) {
           if (txBody.messages.length === 1) {
             return (
               <HStack>
-                <Tag colorScheme="cyan">{getTypeMsg(txBody.messages[0].typeUrl)}</Tag>
+                <Tag colorScheme="cyan">
+                  {getTypeMsg(txBody.messages[0].typeUrl)}
+                </Tag>
               </HStack>
-            );
+            )
           } else {
             return (
               <HStack>
-                <Tag colorScheme="cyan">{getTypeMsg(txBody.messages[0].typeUrl)}</Tag>
+                <Tag colorScheme="cyan">
+                  {getTypeMsg(txBody.messages[0].typeUrl)}
+                </Tag>
                 <Text textColor="cyan.800">+{txBody.messages.length - 1}</Text>
               </HStack>
-            );
+            )
           }
         }
       } catch (e) {
         // If protobuf fails, try JSON
-        const jsonStr = typeof data === 'string' ? data : new TextDecoder().decode(data);
-        const jsonData = JSON.parse(jsonStr);
-        
-        const messages = jsonData.messages || jsonData.body?.messages || [];
+        const jsonStr =
+          typeof data === 'string' ? data : new TextDecoder().decode(data)
+        const jsonData = JSON.parse(jsonStr)
+
+        const messages = jsonData.messages || jsonData.body?.messages || []
         if (messages.length > 0) {
           if (messages.length === 1) {
             return (
               <HStack>
-                <Tag colorScheme="cyan">{getTypeMsg(messages[0].typeUrl || messages[0]['@type'])}</Tag>
+                <Tag colorScheme="cyan">
+                  {getTypeMsg(messages[0].typeUrl || messages[0]['@type'])}
+                </Tag>
               </HStack>
-            );
+            )
           } else {
             return (
               <HStack>
-                <Tag colorScheme="cyan">{getTypeMsg(messages[0].typeUrl || messages[0]['@type'])}</Tag>
+                <Tag colorScheme="cyan">
+                  {getTypeMsg(messages[0].typeUrl || messages[0]['@type'])}
+                </Tag>
                 <Text textColor="cyan.800">+{messages.length - 1}</Text>
               </HStack>
-            );
+            )
           }
         }
       }
 
-      return <Tag colorScheme="gray">Unknown Format</Tag>;
+      return <Tag colorScheme="gray">Unknown Format</Tag>
     } catch (error) {
-      return <Tag colorScheme="gray">Error</Tag>;
+      return <Tag colorScheme="gray">Error</Tag>
     }
-  };
+  }
 
   return (
     <>

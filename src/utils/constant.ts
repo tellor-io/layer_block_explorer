@@ -1,4 +1,7 @@
-export const formatRPCEndpoint = (endpoint: string, includeRPC: boolean = true) => {
+export const formatRPCEndpoint = (
+  endpoint: string,
+  includeRPC: boolean = true
+) => {
   const baseEndpoint = endpoint.replace('/rpc', '')
   return includeRPC ? `${baseEndpoint}/rpc` : baseEndpoint
 }

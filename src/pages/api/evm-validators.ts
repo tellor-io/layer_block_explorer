@@ -6,9 +6,10 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    const endpoint = req.query.endpoint as string || await rpcManager.getCurrentEndpoint()
+    const endpoint =
+      (req.query.endpoint as string) || (await rpcManager.getCurrentEndpoint())
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
+
     const response = await fetch(
       `${baseEndpoint}/layer/bridge/get_evm_validators`
     )

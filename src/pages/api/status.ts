@@ -6,11 +6,12 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    const endpoint = req.query.endpoint as string || await rpcManager.getCurrentEndpoint()
+    const endpoint =
+      (req.query.endpoint as string) || (await rpcManager.getCurrentEndpoint())
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
+
     const response = await fetch(`${baseEndpoint}/status`)
-    
+
     if (!response.ok) {
       throw new Error(`External API responded with status: ${response.status}`)
     }
@@ -24,4 +25,4 @@ export default async function handler(
       details: error instanceof Error ? error.message : 'Unknown error',
     })
   }
-} 
+}

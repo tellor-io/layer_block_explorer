@@ -26,7 +26,7 @@ export function subscribeNewBlock(
     try {
       const status = await tmClient.status()
       const currentHeight = status.syncInfo.latestBlockHeight
-      
+
       if (currentHeight > lastHeight) {
         const block = await tmClient.block(currentHeight)
         if (block) {
@@ -35,7 +35,7 @@ export function subscribeNewBlock(
             header: block.block.header,
             txs: block.block.txs || [],
             lastCommit: block.block.lastCommit,
-            evidence: block.block.evidence
+            evidence: block.block.evidence,
           }
           callback(event)
           lastHeight = currentHeight
@@ -72,12 +72,10 @@ export function subscribeTx(
     try {
       const status = await tmClient.status()
       const currentHeight = status.syncInfo.latestBlockHeight
-      
-      
+
       if (currentHeight > lastHeight) {
         const block = await tmClient.block(currentHeight)
 
-        
         if (block && block.block.txs.length > 0) {
           // Process transactions in parallel with error handling for each
           await Promise.all(
@@ -88,7 +86,7 @@ export function subscribeTx(
                   console.log('Successfully fetched transaction:', {
                     hash: toHex(tx),
                     height: currentHeight,
-                    code: txResponse.result.code
+                    code: txResponse.result.code,
                   })
                   // Create a TxEvent object with all required properties
                   const event: TxEvent = {
@@ -98,17 +96,17 @@ export function subscribeTx(
                       code: txResponse.result.code,
                       data: txResponse.result.data,
                       log: txResponse.result.log,
-                      events: txResponse.result.events.map(event => ({
+                      events: txResponse.result.events.map((event) => ({
                         type: event.type,
-                        attributes: event.attributes.map(attr => ({
+                        attributes: event.attributes.map((attr) => ({
                           key: new TextEncoder().encode(attr.key),
-                          value: new TextEncoder().encode(attr.value)
-                        }))
+                          value: new TextEncoder().encode(attr.value),
+                        })),
                       })),
                       gasWanted: BigInt(txResponse.result.gasWanted || 0),
-                      gasUsed: BigInt(txResponse.result.gasUsed || 0)
+                      gasUsed: BigInt(txResponse.result.gasUsed || 0),
                     },
-                    tx: txResponse.tx
+                    tx: txResponse.tx,
                   }
                   callback(event)
                 }
@@ -116,10 +114,15 @@ export function subscribeTx(
                 // Handle individual transaction errors without breaking the loop
                 if (txError instanceof Error) {
                   // Only log if it's not a "tx not found" error
-                  if (!txError.message.includes('not found') && 
-                      !txError.message.includes('Internal error')) {
+                  if (
+                    !txError.message.includes('not found') &&
+                    !txError.message.includes('Internal error')
+                  ) {
                     console.debug(
-                      `Failed to fetch tx ${tx.slice(0, 10)}... at height ${currentHeight}:`,
+                      `Failed to fetch tx ${tx.slice(
+                        0,
+                        10
+                      )}... at height ${currentHeight}:`,
                       txError.message
                     )
                   }
@@ -132,9 +135,11 @@ export function subscribeTx(
       }
     } catch (error) {
       // Only log serious errors, not transaction-related ones
-      if (error instanceof Error && 
-          !error.message.includes('tx not found') && 
-          !error.message.includes('Internal error')) {
+      if (
+        error instanceof Error &&
+        !error.message.includes('tx not found') &&
+        !error.message.includes('Internal error')
+      ) {
         console.warn('Transaction polling error:', error)
       }
     }

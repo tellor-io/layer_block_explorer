@@ -193,18 +193,14 @@ export async function queryProposalVotes(
   }
 }
 
-export async function getOracleParams(
-  endpoint?: string
-): Promise<any> {
+export async function getOracleParams(endpoint?: string): Promise<any> {
   try {
     const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
     console.log('Fetching oracle params from endpoint:', baseEndpoint)
-    
-    const response = await axios.get(
-      `${baseEndpoint}/layer/oracle/params`
-    )
+
+    const response = await axios.get(`${baseEndpoint}/layer/oracle/params`)
     console.log('Oracle params raw response:', response.data)
     return response.data.params
   } catch (error) {
@@ -221,10 +217,8 @@ export async function queryRegistryParams(
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
     console.log('Fetching registry params from endpoint:', baseEndpoint)
-    
-    const response = await axios.get(
-      `${baseEndpoint}/layer/registry/params`
-    )
+
+    const response = await axios.get(`${baseEndpoint}/layer/registry/params`)
     console.log('Registry params raw response:', response.data)
     return response.data.params
   } catch (error) {
@@ -241,7 +235,7 @@ export async function queryDisputeParams(
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
     console.log('Fetching dispute params from endpoint:', baseEndpoint)
-    
+
     const response = await axios.get(
       `${baseEndpoint}/tellor-io/layer/dispute/params`
     )
@@ -261,7 +255,7 @@ export async function queryReporterParams(
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
     console.log('Fetching reporter params from endpoint:', baseEndpoint)
-    
+
     const response = await axios.get(
       `${baseEndpoint}/tellor-io/layer/reporter/params`
     )
