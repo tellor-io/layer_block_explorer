@@ -24,6 +24,7 @@ import { NewBlockEvent, TxEvent } from '@cosmjs/tendermint-rpc'
 import { HARDCODED_RPC_ADDRESS } from '@/utils/constant'
 import { connectWebsocketClient } from '@/rpc/client'
 import { rpcManager } from '@/utils/rpcManager'
+import { toHex } from '@cosmjs/encoding'
 
 interface LayoutProps {
   children?: ReactNode
@@ -45,6 +46,11 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   const updateTxEvent = (event: TxEvent): void => {
+    console.log('Received transaction event:', {
+      hash: toHex(event.hash),
+      height: event.height,
+      result: event.result
+    })
     dispatch(setTxEvent(event))
   }
 
@@ -121,14 +127,14 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <Box minH="100vh" bg={colorModeValue}>
+    <Box minH="100vh" bg={colorModeValue} position="relative" width="100%">
       <Navbar />
-      <Box pt="80px">
-        <Flex>
+      <Box pt="80px" width="100%">
+        <Flex width="100%">
           <Box display={{ base: 'none', md: 'block' }}>
             <Sidebar />
           </Box>
-          <Box flex={1} ml={{ base: 0, md: 60 }} p="4">
+          <Box flex={1} ml={{ base: 0, md: 60 }} p="4" width="100%" overflowX="auto">
             {children}
           </Box>
         </Flex>

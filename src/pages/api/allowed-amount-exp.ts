@@ -6,7 +6,7 @@ export default async function handler(
 ) {
   try {
     const response = await fetch(
-      'https://tellorlayer.com/tellor-io/layer/reporter/allowed-amount-expiration'
+      'https://node-palmito.tellorlayer.com/tellor-io/layer/reporter/allowed-amount-expiration'
     )
 
     if (!response.ok) {

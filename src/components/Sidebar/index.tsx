@@ -32,16 +32,19 @@ import {
   FiFileText,
   FiUsers,
   FiActivity,
+  FiDollarSign,
 } from 'react-icons/fi'
 import { IconType } from 'react-icons'
 import { RiBearSmileFill, RiBankLine } from 'react-icons/ri'
 import { FaUserCheck } from 'react-icons/fa'
+import { FaBridge } from "react-icons/fa6";
+
 import NextLink from 'next/link'
 import { useRouter } from 'next/router'
 import { selectSubsNewBlock, selectSubsTxEvent } from '@/store/streamSlice'
 import { useSelector } from 'react-redux'
 import { LS_RPC_ADDRESS } from '@/utils/constant'
-import { GiFactory, GiGavel } from 'react-icons/gi'
+import { GiFactory, GiGavel, GiArchBridge } from 'react-icons/gi'
 import { TbChartBubbleFilled } from 'react-icons/tb'
 import { MdPersonSearch } from 'react-icons/md'
 import { BsPersonFillAdd, BsPersonCheck } from 'react-icons/bs'
@@ -61,6 +64,7 @@ export const LinkItems: Array<LinkItemProps> = [
   { name: 'Proposals', icon: GiGavel, route: '/proposals' },
   { name: 'Parameters', icon: FiSliders, route: '/parameters' },
   { name: 'Layer Blobs', icon: TbChartBubbleFilled, route: '/oracle-bridge' },
+  { name: 'Bridge Deposits', icon: FaBridge, route: '/bridge-deposits' },
 ]
 export const RefLinkItems: Array<LinkItemProps> = [
   {

@@ -313,6 +313,20 @@ export default function Home() {
         </HStack>
         <Box mt={8}>
           <SimpleGrid minChildWidth="200px" spacing="40px">
+
+          <Skeleton isLoaded={isLoaded}>
+              <BoxInfo
+                bgColor={BOX_ICON_BG}
+                color={BOX_ICON_COLOR}
+                icon={FiCpu}
+                name="Network"
+                value={
+                  newBlock?.header.chainId
+                    ? newBlock?.header.chainId
+                    : status?.nodeInfo.network
+                }
+              />
+            </Skeleton>
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
                 bgColor={BOX_ICON_BG}
@@ -326,6 +340,7 @@ export default function Home() {
                 }
               />
             </Skeleton>
+            
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
                 bgColor={BOX_ICON_BG}
@@ -344,25 +359,12 @@ export default function Home() {
               />
             </Skeleton>
 
-            <Skeleton isLoaded={isLoaded}>
-              <BoxInfo
-                bgColor={BOX_ICON_BG}
-                color={BOX_ICON_COLOR}
-                icon={FiCpu}
-                name="Network"
-                value={
-                  newBlock?.header.chainId
-                    ? newBlock?.header.chainId
-                    : status?.nodeInfo.network
-                }
-              />
-            </Skeleton>
 
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
                 bgColor={BOX_ICON_BG}
                 color={BOX_ICON_COLOR}
-                icon={FiUsers}
+                icon={FaUserCheck}
                 name="Validators"
                 value={validators}
               />
