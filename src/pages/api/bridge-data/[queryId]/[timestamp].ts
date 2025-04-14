@@ -24,7 +24,7 @@ export default async function handler(
       : queryId
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
+
     // First, fetch snapshots
     const snapshotsResponse = await fetch(
       `${baseEndpoint}/layer/bridge/get_snapshots_by_report/${formattedQueryId}/${timestamp}`

@@ -86,9 +86,7 @@ const fetchReporterData = async (block: NewBlockEvent, attributes: any[]) => {
     const timestamp = block.header.time.getTime().toString()
     const reporterData = await getReporterCount(queryId, timestamp)
 
-    const valueAttr = attributes.find(
-      (attr) => attr.key === 'value'
-    )
+    const valueAttr = attributes.find((attr) => attr.key === 'value')
     // ... rest of the function
   } catch (error) {
     console.error('Error fetching reporter data:', error)
@@ -126,13 +124,16 @@ export default function DataFeed() {
                 aggregateEvent.attributes.map(
                   (attr: { key: string; value: string; index?: boolean }) => {
                     let decodedValue = attr.value
-                    if (attr.key === 'value' && attr.value.match(/^[0-9a-fA-F]+$/)) {
+                    if (
+                      attr.key === 'value' &&
+                      attr.value.match(/^[0-9a-fA-F]+$/)
+                    ) {
                       try {
                         const valueInWei = BigInt(`0x${attr.value}`)
                         const valueInEth = Number(valueInWei) / 1e18
                         decodedValue = valueInEth.toLocaleString(undefined, {
                           minimumFractionDigits: 2,
-                          maximumFractionDigits: 2
+                          maximumFractionDigits: 2,
                         })
                       } catch (error) {
                         console.debug('Error decoding hex value:', error)
@@ -163,9 +164,7 @@ export default function DataFeed() {
                 continue
               }
 
-              const valueAttr = attributes.find(
-                (attr) => attr.key === 'value'
-              )
+              const valueAttr = attributes.find((attr) => attr.key === 'value')
 
               const newReport: OracleReport = {
                 type: aggregateEvent.type,
@@ -173,9 +172,8 @@ export default function DataFeed() {
                 value: valueAttr?.value || 'Unknown',
                 numberOfReporters: reporterData.count.toString(),
                 microReportHeight:
-                  attributes.find(
-                    (attr) => attr.key === 'micro_report_height'
-                  )?.value || '0',
+                  attributes.find((attr) => attr.key === 'micro_report_height')
+                    ?.value || '0',
                 blockHeight: Number(blockHeight),
                 timestamp: new Date(block.header.time),
                 attributes,
@@ -186,9 +184,7 @@ export default function DataFeed() {
               }
 
               console.log('Created new report:', newReport)
-              setAggregateReports((prev) =>
-                [newReport, ...prev].slice(0, 100)
-              )
+              setAggregateReports((prev) => [newReport, ...prev].slice(0, 100))
             } catch (error) {
               console.error('Error processing aggregate event:', error)
             }

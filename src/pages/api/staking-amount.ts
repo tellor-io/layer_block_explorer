@@ -6,9 +6,10 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    const endpoint = req.query.endpoint as string || await rpcManager.getCurrentEndpoint()
+    const endpoint =
+      (req.query.endpoint as string) || (await rpcManager.getCurrentEndpoint())
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
+
     const response = await fetch(
       `${baseEndpoint}/tellor-io/layer/reporter/allowed-amount`
     )
@@ -19,14 +20,14 @@ export default async function handler(
         status: response.status,
         statusText: response.statusText,
         body: errorText,
-        url: response.url
+        url: response.url,
       })
       throw new Error(`External API responded with status: ${response.status}`)
     }
 
     const data = await response.json()
     console.log('Received staking amount data:', data)
-    
+
     if (data?.staking_amount !== undefined) {
       res.status(200).json({ amount: data.staking_amount })
     } else {

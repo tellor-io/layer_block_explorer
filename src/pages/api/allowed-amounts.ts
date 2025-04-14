@@ -9,7 +9,7 @@ export default async function handler(
     const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
+
     const response = await fetch(
       `${baseEndpoint}/tellor-io/layer/reporter/allowed-amount`
     )

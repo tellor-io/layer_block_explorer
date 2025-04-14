@@ -9,7 +9,7 @@ interface RPCState {
 }
 
 export class RPCManager {
-  private static instance: RPCManager;
+  private static instance: RPCManager
   private state: RPCState = {
     currentIndex: 0,
     failures: {},
@@ -17,7 +17,7 @@ export class RPCManager {
     isCircuitOpen: {},
   }
 
-  private customEndpoint: string | null = null;
+  private customEndpoint: string | null = null
 
   private readonly MAX_FAILURES = 5
   private readonly CIRCUIT_RESET_TIME = 60000
@@ -46,9 +46,9 @@ export class RPCManager {
 
   public static getInstance(): RPCManager {
     if (!RPCManager.instance) {
-      RPCManager.instance = new RPCManager();
+      RPCManager.instance = new RPCManager()
     }
-    return RPCManager.instance;
+    return RPCManager.instance
   }
 
   private async checkEndpointHealth(endpoint: string): Promise<boolean> {
@@ -56,7 +56,10 @@ export class RPCManager {
       const response = await axios.get(`${endpoint}/status`, {
         timeout: this.REQUEST_TIMEOUT,
       })
-      return response.status === 200 && response.data?.result?.sync_info !== undefined
+      return (
+        response.status === 200 &&
+        response.data?.result?.sync_info !== undefined
+      )
     } catch {
       return false
     }
@@ -91,18 +94,18 @@ export class RPCManager {
   }
 
   public setCustomEndpoint(endpoint: string | null) {
-    this.customEndpoint = endpoint;
+    this.customEndpoint = endpoint
     if (endpoint) {
       // Save to localStorage
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem(LS_RPC_ADDRESS, endpoint);
+        window.localStorage.setItem(LS_RPC_ADDRESS, endpoint)
       }
       // Initialize state for custom endpoint
-      this.state.failures[endpoint] = 0;
-      this.state.lastAttempt[endpoint] = 0;
-      this.state.isCircuitOpen[endpoint] = false;
+      this.state.failures[endpoint] = 0
+      this.state.lastAttempt[endpoint] = 0
+      this.state.isCircuitOpen[endpoint] = false
     } else if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(LS_RPC_ADDRESS);
+      window.localStorage.removeItem(LS_RPC_ADDRESS)
     }
   }
 
@@ -126,10 +129,13 @@ export class RPCManager {
     this.state.failures[endpoint] = (this.state.failures[endpoint] || 0) + 1
     this.state.lastAttempt[endpoint] = Date.now()
 
-    if (this.state.failures[endpoint] >= this.MAX_FAILURES || endpoint === RPC_ENDPOINTS[0]) {
+    if (
+      this.state.failures[endpoint] >= this.MAX_FAILURES ||
+      endpoint === RPC_ENDPOINTS[0]
+    ) {
       console.warn(`Circuit breaker triggered for endpoint: ${endpoint}`)
       this.state.isCircuitOpen[endpoint] = true
-      
+
       // Move to next endpoint immediately
       const availableEndpoints = this.getEndpoints()
       if (availableEndpoints.length > 0) {

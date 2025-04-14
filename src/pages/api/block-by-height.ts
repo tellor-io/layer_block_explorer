@@ -15,7 +15,7 @@ export default async function handler(
     const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
+
     const response = await fetch(
       `${baseEndpoint}/cosmos/base/tendermint/v1beta1/blocks/${height}`
     )

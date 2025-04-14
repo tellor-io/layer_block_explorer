@@ -15,7 +15,7 @@ export default async function handler(
       `https://node-palmito.tellorlayer.com/tellor-io/layer/oracle/get_current_aggregate_report/${queryId}`,
       {
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
       }
     )

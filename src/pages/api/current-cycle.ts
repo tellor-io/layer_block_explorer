@@ -17,7 +17,8 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    const targetUrl = 'https://node-palmito.tellorlayer.com/tellor-io/layer/oracle/current_cyclelist_query'
+    const targetUrl =
+      'https://node-palmito.tellorlayer.com/tellor-io/layer/oracle/current_cyclelist_query'
     const response = await fetch(targetUrl)
 
     if (!response.ok) {
@@ -28,20 +29,25 @@ export default async function handler(
     const asciiData = Buffer.from(data.query_data, 'hex').toString('ascii')
 
     // Extract currency pairs, ignoring "SpotPrice"
-    const matches = asciiData.match(/[a-z]{3}/g)?.filter(match => 
-      match !== 'pot' && match !== 'ric'
-    ) || []
+    const matches =
+      asciiData
+        .match(/[a-z]{3}/g)
+        ?.filter((match) => match !== 'pot' && match !== 'ric') || []
 
     if (matches && matches.length >= 2) {
       for (let i = 0; i < matches.length - 1; i += 2) {
         const base = matches[i]
         const quote = matches[i + 1]
         const currentPair = {
-          queryParams: `${base.toUpperCase()}/${quote.toUpperCase()}`
+          queryParams: `${base.toUpperCase()}/${quote.toUpperCase()}`,
         }
 
         // Only add if not already in cache
-        if (!cache.data.some((pair) => pair.queryParams === currentPair.queryParams)) {
+        if (
+          !cache.data.some(
+            (pair) => pair.queryParams === currentPair.queryParams
+          )
+        ) {
           cache.data.push(currentPair)
         }
       }
