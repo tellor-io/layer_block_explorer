@@ -204,7 +204,7 @@ export const getAllReportersWithSelectors = async (): Promise<
 }
 
 export const getBlockResults = async (height: number): Promise<any> => {
-  const url = `https://tellorlayer.com/rpc/block_results?height=${height}`
+  const url = `https://node-palmito.tellorlayer.com/rpc/block_results?height=${height}`
   try {
     const response = await axios.get(url)
     return response.data.result
@@ -214,7 +214,7 @@ export const getBlockResults = async (height: number): Promise<any> => {
 }
 
 export const getValidatorMoniker = async (address: string): Promise<string> => {
-  const url = `https://tellorlayer.com/cosmos/staking/v1beta1/validators/${address}`
+  const url = `https://node-palmito.tellorlayer.com/rpc/validators/${address}`
   try {
     const response = await axios.get(url)
     return response.data.validator.description.moniker
@@ -320,9 +320,12 @@ export function decodeQueryData(queryId: string, queryData?: string): any {
 
 export const getValidators = async (endpoint: string): Promise<any> => {
   try {
-    const baseEndpoint = endpoint.replace('/rpc', '')
-    const response = await axios.get(`${baseEndpoint}/cosmos/staking/v1beta1/validators`)
-    return response.data
+    const response = await fetch('/api/validators', {
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
+    return response.json()
   } catch (error) {
     console.error('Failed to fetch validators:', error)
     throw error

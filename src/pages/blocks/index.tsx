@@ -1,4 +1,3 @@
-import Head from 'next/head'
 import { useEffect, useState, useMemo } from 'react'
 import axios from 'axios'
 import { pubkeyToAddress as aminoPubkeyToAddress, Pubkey } from '@cosmjs/amino'
@@ -46,6 +45,7 @@ import { getValidators } from '@/rpc/query'
 import { CopyableHash } from '@/components/CopyableHash'
 import { rpcManager } from '@/utils/rpcManager'
 import { selectTmClient } from '@/store/connectSlice'
+import Head from 'next/head'
 
 const MAX_ROWS = 20
 
@@ -202,8 +202,12 @@ export default function Blocks() {
               })
             }
           } catch (error) {
-            console.warn(`Failed to fetch block at height ${parseInt(latestBlock.header.height) - i}:`, error)
-            continue // Skip this block and continue with the next one
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+              break;
+            } else {
+              console.warn(`Error fetching block at height ${parseInt(latestBlock.header.height) - i}:`, error)
+            }
+            continue
           }
         }
 
@@ -245,9 +249,17 @@ export default function Blocks() {
 
       // Check if this exact block already exists
       const exists = prevBlocks.some(
-        (existingBlock) =>
-          existingBlock.header.height === newBlock.header.height &&
-          existingBlock.header.time.getTime() === newBlock.header.time.getTime()
+        (existingBlock) => {
+          // Safely compare block heights
+          const heightMatch = existingBlock.header.height === newBlock.header.height
+          
+          // Safely compare timestamps if both exist
+          const timeMatch = existingBlock.header.time && newBlock.header.time
+            ? existingBlock.header.time.getTime() === newBlock.header.time.getTime()
+            : false
+
+          return heightMatch && timeMatch
+        }
       )
 
       if (
@@ -263,31 +275,31 @@ export default function Blocks() {
 
   const updateTxs = (txEvent: TxEvent) => {
     const tx = {
-      TxEvent: txEvent,
+      TxEvent: {
+        ...txEvent,
+        result: {
+          ...txEvent.result,
+          data: txEvent.tx && txEvent.tx.length > 0 ? txEvent.tx : txEvent.result.data
+        }
+      },
       Timestamp: new Date(),
-    }
+    };
 
-    if (txs.length) {
-      // Check if transaction already exists in the array using both hash and timestamp
-      const exists = txs.some(
-        (existingTx) =>
-          existingTx.TxEvent.hash === txEvent.hash &&
-          existingTx.Timestamp.getTime() === tx.Timestamp.getTime()
-      )
+    setTxs((prevTxs) => {
+      const exists = prevTxs.some(
+        (existingTx) => toHex(existingTx.TxEvent.hash) === toHex(txEvent.hash)
+      );
 
-      if (!exists && txEvent.height >= txs[0].TxEvent.height) {
-        setTxs((prevTx) => [tx, ...prevTx.slice(0, MAX_ROWS - 1)])
+      if (!exists) {
+        return [tx, ...prevTxs.slice(0, MAX_ROWS - 1)];
       }
-    } else {
-      setTxs([tx])
-    }
-  }
+      return prevTxs;
+    });
+  };
 
   const getProposerMoniker = (proposerAddress: Uint8Array) => {
     try {
-      const hexAddress = Buffer.from(proposerAddress)
-        .toString('hex')
-        .toLowerCase()
+      const hexAddress = Buffer.from(proposerAddress).toString('hex').toLowerCase()
       const moniker = validatorMap[hexAddress] || 'Unknown'
       return moniker
     } catch (error) {
@@ -297,28 +309,57 @@ export default function Blocks() {
   }
 
   const renderMessages = (data: Uint8Array | undefined) => {
-    if (data) {
-      const txBody = TxBody.decode(data)
-      const messages = txBody.messages
-
-      if (messages.length == 1) {
-        return (
-          <HStack>
-            <Tag colorScheme="cyan">{getTypeMsg(messages[0].typeUrl)}</Tag>
-          </HStack>
-        )
-      } else if (messages.length > 1) {
-        return (
-          <HStack>
-            <Tag colorScheme="cyan">{getTypeMsg(messages[0].typeUrl)}</Tag>
-            <Text textColor="cyan.800">+{messages.length - 1}</Text>
-          </HStack>
-        )
+    if (!data) return '';
+    
+    try {
+      // First try to decode as protobuf
+      try {
+        const txBody = TxBody.decode(data);
+        if (txBody.messages && txBody.messages.length > 0) {
+          if (txBody.messages.length === 1) {
+            return (
+              <HStack>
+                <Tag colorScheme="cyan">{getTypeMsg(txBody.messages[0].typeUrl)}</Tag>
+              </HStack>
+            );
+          } else {
+            return (
+              <HStack>
+                <Tag colorScheme="cyan">{getTypeMsg(txBody.messages[0].typeUrl)}</Tag>
+                <Text textColor="cyan.800">+{txBody.messages.length - 1}</Text>
+              </HStack>
+            );
+          }
+        }
+      } catch (e) {
+        // If protobuf fails, try JSON
+        const jsonStr = typeof data === 'string' ? data : new TextDecoder().decode(data);
+        const jsonData = JSON.parse(jsonStr);
+        
+        const messages = jsonData.messages || jsonData.body?.messages || [];
+        if (messages.length > 0) {
+          if (messages.length === 1) {
+            return (
+              <HStack>
+                <Tag colorScheme="cyan">{getTypeMsg(messages[0].typeUrl || messages[0]['@type'])}</Tag>
+              </HStack>
+            );
+          } else {
+            return (
+              <HStack>
+                <Tag colorScheme="cyan">{getTypeMsg(messages[0].typeUrl || messages[0]['@type'])}</Tag>
+                <Text textColor="cyan.800">+{messages.length - 1}</Text>
+              </HStack>
+            );
+          }
+        }
       }
-    }
 
-    return ''
-  }
+      return <Tag colorScheme="gray">Unknown Format</Tag>;
+    } catch (error) {
+      return <Tag colorScheme="gray">Error</Tag>;
+    }
+  };
 
   return (
     <>
@@ -355,13 +396,13 @@ export default function Blocks() {
               >
                 Blocks
               </Tab>
-              <Tab
+              {/* <Tab
                 _selected={tabStyles.selected}
                 _hover={tabStyles.hover}
                 {...tabStyles.normal}
               >
                 Transactions
-              </Tab>
+              </Tab> */}
             </TabList>
             <TabPanels>
               <TabPanel>

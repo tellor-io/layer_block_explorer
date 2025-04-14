@@ -26,7 +26,8 @@ function App({
             ),
             minHeight: '100vh',
             width: '100%',
-            overflowX: 'auto',
+            position: 'relative',
+            overflowX: 'hidden',
           }}
         >
           <Layout>

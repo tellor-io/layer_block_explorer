@@ -12,7 +12,7 @@ export default async function handler(
 
   try {
     const response = await fetch(
-      `https://tellorlayer.com/tellor-io/layer/reporter/num-of-selectors-by-reporter/${reporter}`
+      `https://node-palmito.tellorlayer.com/tellor-io/layer/reporter/num-of-selectors-by-reporter/${reporter}`
     )
 
     if (!response.ok) {
