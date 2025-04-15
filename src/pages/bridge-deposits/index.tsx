@@ -63,6 +63,16 @@ interface Withdrawal {
   claimed: boolean
 }
 
+interface APIDeposit {
+  id: number;
+  sender: string;
+  recipient: string;
+  amount: string;
+  tip: string;
+  blockHeight: string;
+  blockTimestamp?: string;
+}
+
 export default function BridgeDeposits() {
   const [deposits, setDeposits] = useState<Deposit[]>([])
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
@@ -242,15 +252,17 @@ export default function BridgeDeposits() {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
 
-        const deposits = await response.json()
-        const formattedDeposits: Deposit[] = deposits.map((deposit) => ({
+        const { deposits } = await response.json()
+        if (!Array.isArray(deposits)) {
+          throw new Error('Expected deposits to be an array')
+        }
+
+        const formattedDeposits: Deposit[] = deposits.map((deposit: APIDeposit) => ({
           ...deposit,
           amount: BigInt(deposit.amount),
           tip: BigInt(deposit.tip),
           blockHeight: BigInt(deposit.blockHeight),
-          blockTimestamp: deposit.blockTimestamp
-            ? new Date(deposit.blockTimestamp)
-            : undefined,
+          blockTimestamp: deposit.blockTimestamp ? new Date(deposit.blockTimestamp) : undefined,
         }))
 
         setDeposits(formattedDeposits)

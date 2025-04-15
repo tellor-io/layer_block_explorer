@@ -4,11 +4,32 @@ import BRIDGE_ABI from '@/abis/bridge.json'
 
 const BRIDGE_CONTRACT_ADDRESS = '0x5acb5977f35b1A91C4fE0F4386eB669E046776F2'
 
+interface APIDeposit {
+  id: number;
+  sender: string;
+  recipient: string;
+  amount: string;
+  tip: string;
+  blockHeight: string;
+  blockTimestamp?: string;
+}
+
+interface APIResponse {
+  deposits?: APIDeposit[];
+  claimed?: boolean;
+  id?: string;
+  error?: string;
+  details?: string;
+}
+
 // Initialize provider
-const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL, {
-  name: 'sepolia',
-  chainId: 11155111,
-})
+const provider = new ethers.JsonRpcProvider(
+  `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+  {
+    name: 'sepolia',
+    chainId: 11155111
+  }
+);
 
 // Initialize contract
 const contract = new ethers.Contract(
@@ -19,7 +40,7 @@ const contract = new ethers.Contract(
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse<APIResponse>
 ) {
   try {
     const { method } = req.query
@@ -27,7 +48,7 @@ export default async function handler(
     switch (method) {
       case 'deposits': {
         const depositId = await contract.depositId()
-        const deposits = []
+        const deposits: APIDeposit[] = []
 
         for (let i = 1; i <= Number(depositId); i++) {
           const deposit = await contract.deposits(i)
@@ -46,7 +67,7 @@ export default async function handler(
           })
         }
 
-        return res.status(200).json(deposits)
+        return res.status(200).json({ deposits })
       }
 
       case 'withdrawClaimed': {
