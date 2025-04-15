@@ -460,7 +460,11 @@ export default function BridgeDeposits() {
                           </HStack>
                         </Tooltip>
                       </Td>
-                      <Td isNumeric>{formatEther(tx.amount)}</Td>
+                      <Td isNumeric>
+                        {'tip' in tx 
+                          ? formatEther(tx.amount)
+                          : formatEther(tx.amount / BigInt(100))}
+                      </Td>
                       <Td>
                         <Tooltip
                           label={`Block #${tx.blockHeight.toString()}`}
@@ -481,7 +485,7 @@ export default function BridgeDeposits() {
                                     {
                                       reportStatuses[tx.id].data?.aggregate
                                         ?.aggregate_power
-                                    }
+                                  }
                                   </Text>
                                   <Text>
                                     Date:{' '}
