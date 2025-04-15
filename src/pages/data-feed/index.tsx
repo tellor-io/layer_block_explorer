@@ -101,6 +101,13 @@ export default function DataFeed() {
   const processedBlocksRef = useRef(new Set<number>())
   const toast = useToast()
 
+  useEffect(() => {
+    // Clear any stored custom RPC endpoint
+    localStorage.removeItem('LS_RPC_ADDRESS')
+    // Reset the RPC manager
+    rpcManager.setCustomEndpoint(null)
+  }, []) // Empty dependency array means this runs once when component mounts
+
   const processBlock = useCallback(
     debounce(async (block) => {
       const blockHeight = block.header.height
@@ -109,11 +116,18 @@ export default function DataFeed() {
       }
       processedBlocksRef.current.add(blockHeight)
 
+      let endpoint;
       try {
-        const endpoint = await rpcManager.getCurrentEndpoint()
+        endpoint = await rpcManager.getCurrentEndpoint()
+        const baseEndpoint = endpoint.replace('/rpc', '')
+        
         const response = await axios.get(
-          `${endpoint}/block_results?height=${blockHeight}`
+          `${baseEndpoint}/block_results?height=${blockHeight}`,
+          {
+            timeout: 10000
+          }
         )
+        
         const blockResults = response.data.result
         const finalizeEvents = blockResults.finalize_block_events || []
 
@@ -192,8 +206,23 @@ export default function DataFeed() {
         }
       } catch (error) {
         console.error('Error in processBlock:', error)
+        if (axios.isAxiosError(error) && endpoint) {
+          await rpcManager.reportFailure(endpoint)
+          
+          processedBlocksRef.current.delete(blockHeight)
+          
+          if (error.message === 'Network Error') {
+            toast({
+              title: 'Network Error',
+              description: 'Failed to fetch block data. Retrying with different endpoint...',
+              status: 'warning',
+              duration: 5000,
+              isClosable: true,
+            })
+          }
+        }
       }
-    }, 1000),
+    }, 500),
     [toast]
   )
 
