@@ -118,47 +118,30 @@ export default function DetailBlock() {
     if (tmClient && height) {
       getBlock(tmClient, parseInt(height as string, 10))
         .then(async (blockData: Block) => {
-          const extendedBlockData = blockData as ExtendedBlock // Type assertion
-
-          try {
-            if (extendedBlockData.rawData) {
-              decodeData(extendedBlockData.rawData)
-            } else {
-              console.log('No rawData found in extendedBlockData')
-            }
-          } catch (error) {
-            console.error('Error decoding block data:', error)
-            console.error('Raw data:', extendedBlockData.rawData) // Log the raw data
-          }
+          const extendedBlockData = blockData as ExtendedBlock
           setBlock(extendedBlockData)
 
-          // Get the endpoint from rpcManager
-          const endpoint = await rpcManager.getCurrentEndpoint()
-          const baseEndpoint = endpoint.replace('/rpc', '')
-          axios
-            .get(
-              `${baseEndpoint}/block?height=${extendedBlockData.header.height}`
-            )
-            .then((response) => {
-              const txData = response.data.result.block.data.txs[0]
-              if (txData) {
-                const decodedData = JSON.parse(decodeBase64ToUtf8(txData))
-                setDecodedTxData(decodedData)
-              }
-            })
-            .catch((error) =>
-              console.error('Error fetching transaction data:', error)
-            )
+          // Remove the axios call that's failing and instead look for vote extensions
+          // in block results if that's where they are stored
         })
         .catch((error) => {
           console.error('Error fetching or decoding block data:', error)
         })
 
       // Fetch block results
-      // Fetch block results
       getBlockResults(parseInt(Array.isArray(height) ? height[0] : height))
         .then((results) => {
+          console.log('Block Results:', results)
           setBlockResults(results)
+          // If vote extensions are in the block results, decode them here
+          if (results?.vote_extensions) {
+            try {
+              const decodedExtensions = JSON.parse(JSON.stringify(results.vote_extensions))
+              setDecodedTxData(decodedExtensions)
+            } catch (error) {
+              console.error('Error decoding vote extensions:', error)
+            }
+          }
         })
         .catch((error) => {
           console.error('Error fetching block results:', error)
@@ -170,18 +153,28 @@ export default function DetailBlock() {
     if (block?.txs.length && !txs.length) {
       for (const rawTx of block.txs) {
         try {
-          const data = TxData.decode(rawTx)
-          const hash = sha256(rawTx)
-          setTxs((prevTxs) => [
-            ...prevTxs,
-            {
-              data,
-              hash,
-            },
-          ])
+          // Try to decode as JSON first
+          const textDecoder = new TextDecoder();
+          const jsonString = textDecoder.decode(rawTx);
+          
+          // Check if this looks like a vote extension (has block_height field)
+          if (jsonString.includes('"block_height"')) {
+            const jsonData = JSON.parse(jsonString);
+            setDecodedTxData(jsonData);
+          } else {
+            // Only try transaction decoding if it's not a vote extension
+            const data = TxData.decode(rawTx);
+            const hash = sha256(rawTx);
+            setTxs((prevTxs) => [
+              ...prevTxs,
+              {
+                data,
+                hash,
+              },
+            ]);
+          }
         } catch (error) {
-          console.error('Error decoding transaction data:', error)
-          console.error('Raw transaction data:', rawTx) // Log the raw transaction data
+          console.error('Error decoding data:', error);
         }
       }
     }

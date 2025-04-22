@@ -33,6 +33,7 @@ import Head from 'next/head'
 import NextLink from 'next/link'
 import { FiHome, FiChevronRight, FiCopy } from 'react-icons/fi'
 import { ethers } from 'ethers'
+import { RPCManager } from '@/utils/rpcManager'
 
 interface ReportStatus {
   isReported: boolean
@@ -115,12 +116,16 @@ export default function BridgeDeposits() {
   // Function to fetch claim status for a deposit
   const fetchClaimStatus = async (depositId: number) => {
     try {
+      const rpcManager = RPCManager.getInstance()
+      const endpoint = await rpcManager.getCurrentEndpoint()
+      const baseEndpoint = endpoint.replace('/rpc', '')
+
       const response = await fetch(
-        `https://node-palmito.tellorlayer.com/layer/bridge/get_deposit_claimed/${depositId}`
+        `${baseEndpoint}/layer/bridge/get_deposit_claimed/${depositId}`
       )
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`External API responded with status: ${response.status}`)
       }
 
       const data = await response.json()
@@ -141,7 +146,7 @@ export default function BridgeDeposits() {
         `/api/ethereum/bridge?method=withdrawClaimed&id=${withdrawalId}`
       )
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`External API responded with status: ${response.status}`)
       }
       const data = await response.json()
       return { claimed: data.claimed }
@@ -157,11 +162,15 @@ export default function BridgeDeposits() {
   // Function to fetch withdrawals
   const fetchWithdrawals = async () => {
     try {
+      const rpcManager = RPCManager.getInstance()
+      const endpoint = await rpcManager.getCurrentEndpoint()
+      const baseEndpoint = endpoint.replace('/rpc', '')
+
       const response = await fetch(
-        'https://node-palmito.tellorlayer.com/layer/bridge/get_last_withdrawal_id'
+        `${baseEndpoint}/layer/bridge/get_last_withdrawal_id`
       )
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`External API responded with status: ${response.status}`)
       }
       const data = await response.json()
       const lastWithdrawalId = Number(data.withdrawal_id)
@@ -197,13 +206,17 @@ export default function BridgeDeposits() {
   // Function to fetch individual withdrawal data
   const fetchWithdrawalData = async (withdrawalId: number) => {
     try {
+      const rpcManager = RPCManager.getInstance()
+      const endpoint = await rpcManager.getCurrentEndpoint()
+      const baseEndpoint = endpoint.replace('/rpc', '')
+
       const queryId = generateWithdrawalQueryId(withdrawalId)
       const response = await fetch(
-        `https://node-palmito.tellorlayer.com/tellor-io/layer/oracle/get_current_aggregate_report/${queryId}`
+        `${baseEndpoint}/tellor-io/layer/oracle/get_current_aggregate_report/${queryId}`
       )
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`External API responded with status: ${response.status}`)
       }
 
       const data = await response.json()

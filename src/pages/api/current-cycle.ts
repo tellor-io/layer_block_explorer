@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { RPCManager } from '@/utils/rpcManager'
 
 // Define interface for cache structure
 interface CacheData {
@@ -17,8 +18,11 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    const targetUrl =
-      'https://node-palmito.tellorlayer.com/tellor-io/layer/oracle/current_cyclelist_query'
+    const rpcManager = RPCManager.getInstance()
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
+
+    const targetUrl = `${baseEndpoint}/tellor-io/layer/oracle/current_cyclelist_query`
     const response = await fetch(targetUrl)
 
     if (!response.ok) {
@@ -67,6 +71,10 @@ export default async function handler(
         fromCache: true,
       })
     }
-    res.status(500).json({ error: 'Failed to fetch current cycle list' })
+    console.error('API Route Error:', error)
+    res.status(500).json({
+      error: 'Failed to fetch current cycle',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    })
   }
 }

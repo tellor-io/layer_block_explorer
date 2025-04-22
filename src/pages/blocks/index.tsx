@@ -154,9 +154,7 @@ export default function Blocks() {
               lastCommitHash: fromBase64(latestBlock.header.last_commit_hash),
               dataHash: fromBase64(latestBlock.header.data_hash),
               validatorsHash: fromBase64(latestBlock.header.validators_hash),
-              nextValidatorsHash: fromBase64(
-                latestBlock.header.next_validators_hash
-              ),
+              nextValidatorsHash: fromBase64(latestBlock.header.next_validators_hash),
               consensusHash: fromBase64(latestBlock.header.consensus_hash),
               appHash: fromBase64(latestBlock.header.app_hash),
               lastResultsHash: fromBase64(latestBlock.header.last_results_hash),
@@ -168,65 +166,64 @@ export default function Blocks() {
           },
         ]
 
-        // Fetch previous blocks
+        // Fetch previous blocks in parallel
+        const prevBlockPromises = []
         for (let i = 1; i < 10; i++) {
-          try {
-            const prevBlockResponse = await axios.get(
-              `/api/block-by-height/${parseInt(latestBlock.header.height) - i}`
-            )
-
-            if (prevBlockResponse?.data?.block) {
-              const prevBlock = prevBlockResponse.data.block
-              blocksData.push({
-                header: {
-                  version: { block: 0, app: 0 },
-                  height: prevBlock.header.height,
-                  time: new Date(prevBlock.header.time),
-                  proposerAddress: fromBase64(
-                    prevBlock.header.proposer_address
-                  ),
-                  chainId: prevBlock.header.chain_id,
-                  lastBlockId: prevBlock.header.last_block_id,
-                  lastCommitHash: fromBase64(prevBlock.header.last_commit_hash),
-                  dataHash: fromBase64(prevBlock.header.data_hash),
-                  validatorsHash: fromBase64(prevBlock.header.validators_hash),
-                  nextValidatorsHash: fromBase64(
-                    prevBlock.header.next_validators_hash
-                  ),
-                  consensusHash: fromBase64(prevBlock.header.consensus_hash),
-                  appHash: fromBase64(prevBlock.header.app_hash),
-                  lastResultsHash: fromBase64(
-                    prevBlock.header.last_results_hash
-                  ),
-                  evidenceHash: fromBase64(prevBlock.header.evidence_hash),
-                },
-                txs: prevBlock.data?.txs || [],
-                lastCommit: prevBlock.last_commit,
-                evidence: prevBlock.evidence,
+          const height = parseInt(latestBlock.header.height) - i
+          prevBlockPromises.push(
+            axios.get(`/api/block-by-height/${height}`)
+              .then(response => {
+                if (response?.data?.block) {
+                  const prevBlock = response.data.block
+                  return {
+                    header: {
+                      version: { block: 0, app: 0 },
+                      height: prevBlock.header.height,
+                      time: new Date(prevBlock.header.time),
+                      proposerAddress: fromBase64(prevBlock.header.proposer_address),
+                      chainId: prevBlock.header.chain_id,
+                      lastBlockId: prevBlock.header.last_block_id,
+                      lastCommitHash: fromBase64(prevBlock.header.last_commit_hash),
+                      dataHash: fromBase64(prevBlock.header.data_hash),
+                      validatorsHash: fromBase64(prevBlock.header.validators_hash),
+                      nextValidatorsHash: fromBase64(prevBlock.header.next_validators_hash),
+                      consensusHash: fromBase64(prevBlock.header.consensus_hash),
+                      appHash: fromBase64(prevBlock.header.app_hash),
+                      lastResultsHash: fromBase64(prevBlock.header.last_results_hash),
+                      evidenceHash: fromBase64(prevBlock.header.evidence_hash),
+                    },
+                    txs: prevBlock.data?.txs || [],
+                    lastCommit: prevBlock.last_commit,
+                    evidence: prevBlock.evidence,
+                  }
+                }
+                return null
               })
-            }
-          } catch (error) {
-            if (axios.isAxiosError(error) && error.response?.status === 404) {
-              break
-            } else {
-              console.warn(
-                `Error fetching block at height ${
-                  parseInt(latestBlock.header.height) - i
-                }:`,
-                error
-              )
-            }
-            continue
-          }
+              .catch(error => {
+                console.warn(`Error fetching block at height ${height}:`, error)
+                return null
+              })
+          )
         }
+
+        // Wait for all block fetches to complete
+        const prevBlocks = await Promise.all(prevBlockPromises)
+        
+        // Filter out null results and add valid blocks to blocksData
+        prevBlocks.forEach(block => {
+          if (block) {
+            blocksData.push(block)
+          }
+        })
+
+        // Sort blocks by height in descending order
+        blocksData.sort((a, b) => b.header.height - a.header.height)
 
         setBlocks(blocksData as NewBlockEvent[])
         setIsLoading(false)
       } catch (error) {
         if (axios.isAxiosError(error)) {
-          setError(
-            'Failed to fetch data. Please check your network connection.'
-          )
+          setError('Failed to fetch data. Please check your network connection.')
         } else {
           setError('An unexpected error occurred.')
         }

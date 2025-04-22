@@ -317,7 +317,7 @@ export default function Home() {
         </HStack>
         <Box mt={8}>
           <SimpleGrid minChildWidth="200px" spacing="40px">
-            <Skeleton isLoaded={isLoaded}>
+            {/*<Skeleton isLoaded={isLoaded}>
               <BoxInfo
                 bgColor={BOX_ICON_BG}
                 color={BOX_ICON_COLOR}
@@ -329,7 +329,7 @@ export default function Home() {
                     : status?.nodeInfo.network
                 }
               />
-            </Skeleton>
+            </Skeleton>*/}
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
                 bgColor={BOX_ICON_BG}
