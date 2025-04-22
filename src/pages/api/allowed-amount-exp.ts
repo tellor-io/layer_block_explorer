@@ -1,12 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
+import { RPCManager } from '@/utils/rpcManager'
 
 export default async function handler(
   _req: NextApiRequest,
   res: NextApiResponse
 ) {
   try {
+    const rpcManager = RPCManager.getInstance()
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
+
     const response = await fetch(
-      'https://node-palmito.tellorlayer.com/tellor-io/layer/reporter/allowed-amount-expiration'
+      `${baseEndpoint}/tellor-io/layer/reporter/allowed-amount-expiration`
     )
 
     if (!response.ok) {

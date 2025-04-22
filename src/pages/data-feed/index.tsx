@@ -32,7 +32,6 @@ import { ExternalLinkIcon } from '@chakra-ui/icons'
 import axios from 'axios'
 import { getReporterCount, decodeQueryData } from '@/rpc/query'
 import { rpcManager } from '@/utils/rpcManager'
-import { debounce } from 'lodash'
 
 interface ReportAttribute {
   key: string
@@ -109,12 +108,15 @@ export default function DataFeed() {
   }, []) // Empty dependency array means this runs once when component mounts
 
   const processBlock = useCallback(
-    debounce(async (block) => {
+    async (block: NewBlockEvent): Promise<void> => {
       const blockHeight = block.header.height
-      if (processedBlocksRef.current.has(blockHeight)) {
-        return
+      
+      // More robust duplicate check
+      if (processedBlocksRef.current.has(blockHeight) || 
+          aggregateReports.some(report => report.blockHeight === blockHeight)) {
+        console.log(`Block ${blockHeight} already processed, skipping...`);
+        return;
       }
-      processedBlocksRef.current.add(blockHeight)
 
       let endpoint;
       try {
@@ -130,6 +132,7 @@ export default function DataFeed() {
         
         const blockResults = response.data.result
         const finalizeEvents = blockResults.finalize_block_events || []
+        let hasNewReports = false;
 
         for (const aggregateEvent of finalizeEvents) {
           if (aggregateEvent.type === 'aggregate_report') {
@@ -189,7 +192,7 @@ export default function DataFeed() {
                   attributes.find((attr) => attr.key === 'micro_report_height')
                     ?.value || '0',
                 blockHeight: Number(blockHeight),
-                timestamp: new Date(block.header.time),
+                timestamp: new Date(block.header.time.toISOString()),
                 attributes,
                 queryType: reporterData.queryType || 'N/A',
                 aggregateMethod: reporterData.aggregateMethod || 'N/A',
@@ -197,19 +200,35 @@ export default function DataFeed() {
                 totalPower: reporterData.totalPower,
               }
 
-              console.log('Created new report:', newReport)
-              setAggregateReports((prev) => [newReport, ...prev].slice(0, 100))
+              setAggregateReports(prev => {
+                // Check if we already have this report
+                const exists = prev.some(r => 
+                  r.blockHeight === newReport.blockHeight && 
+                  r.queryId === newReport.queryId
+                );
+                
+                if (exists) {
+                  return prev;
+                }
+                
+                hasNewReports = true;
+                return [newReport, ...prev].slice(0, 100);
+              });
             } catch (error) {
               console.error('Error processing aggregate event:', error)
             }
           }
         }
+        
+        // Only mark the block as processed if we actually processed it
+        if (hasNewReports) {
+          processedBlocksRef.current.add(blockHeight);
+          console.log(`Successfully processed block ${blockHeight}`);
+        }
       } catch (error) {
         console.error('Error in processBlock:', error)
         if (axios.isAxiosError(error) && endpoint) {
           await rpcManager.reportFailure(endpoint)
-          
-          processedBlocksRef.current.delete(blockHeight)
           
           if (error.message === 'Network Error') {
             toast({
@@ -222,16 +241,28 @@ export default function DataFeed() {
           }
         }
       }
-    }, 500),
-    [toast]
+    },
+    [aggregateReports, toast]
   )
+
+  // Clean up old processed blocks periodically
+  useEffect(() => {
+    const cleanup = setInterval(() => {
+      const oldestAllowedBlock = Math.max(...Array.from(processedBlocksRef.current)) - 100;
+      processedBlocksRef.current = new Set(
+        Array.from(processedBlocksRef.current).filter(height => height > oldestAllowedBlock)
+      );
+    }, 60000); // Run every minute
+
+    return () => clearInterval(cleanup);
+  }, []);
 
   useEffect(() => {
     if (newBlock) {
-      console.log('Received new block:', newBlock.header.height)
-      processBlock(newBlock)
+      console.log('Processing new block:', newBlock.header.height);
+      processBlock(newBlock);
     }
-  }, [newBlock, processBlock])
+  }, [newBlock, processBlock]);
 
   // Remove or comment out this useEffect
   /*

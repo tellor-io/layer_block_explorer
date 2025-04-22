@@ -7,6 +7,7 @@ import {
 } from '@cosmjs/stargate'
 import { Tendermint37Client, TxSearchResponse } from '@cosmjs/tendermint-rpc'
 import axios from 'axios'
+import { RPCManager } from '../../utils/rpcManager'
 
 export async function getChainId(
   tmClient: Tendermint37Client
@@ -204,8 +205,10 @@ export const getAllReportersWithSelectors = async (): Promise<
 }
 
 export const getBlockResults = async (height: number): Promise<any> => {
-  const url = `https://node-palmito.tellorlayer.com/rpc/block_results?height=${height}`
   try {
+    const rpcManager = RPCManager.getInstance()
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const url = `${endpoint}/block_results?height=${height}`
     const response = await axios.get(url)
     return response.data.result
   } catch (error) {
@@ -214,8 +217,10 @@ export const getBlockResults = async (height: number): Promise<any> => {
 }
 
 export const getValidatorMoniker = async (address: string): Promise<string> => {
-  const url = `https://node-palmito.tellorlayer.com/rpc/validators/${address}`
   try {
+    const rpcManager = RPCManager.getInstance()
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const url = `${endpoint}/validators/${address}`
     const response = await axios.get(url)
     return response.data.validator.description.moniker
   } catch (error) {

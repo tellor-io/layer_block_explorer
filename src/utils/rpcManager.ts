@@ -6,6 +6,7 @@ interface RPCState {
   failures: { [key: string]: number }
   lastAttempt: { [key: string]: number }
   isCircuitOpen: { [key: string]: boolean }
+  isConnected: boolean
 }
 
 export class RPCManager {
@@ -15,9 +16,11 @@ export class RPCManager {
     failures: {},
     lastAttempt: {},
     isCircuitOpen: {},
+    isConnected: false
   }
 
   private customEndpoint: string | null = null
+  private healthCheckInterval: NodeJS.Timeout | null = null
 
   private readonly MAX_FAILURES = 5
   private readonly CIRCUIT_RESET_TIME = 60000
@@ -66,16 +69,21 @@ export class RPCManager {
   }
 
   private startHealthChecks() {
-    setInterval(async () => {
-      for (const endpoint of RPC_ENDPOINTS) {
-        if (this.state.isCircuitOpen[endpoint]) {
-          const timeSinceLastAttempt =
-            Date.now() - this.state.lastAttempt[endpoint]
+    // Clear any existing interval
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval)
+    }
+
+    this.healthCheckInterval = setInterval(async () => {
+      // Only check health if we're not connected or if the current endpoint is in circuit open state
+      if (!this.state.isConnected) {
+        const currentEndpoint = await this.getCurrentEndpoint()
+        if (this.state.isCircuitOpen[currentEndpoint]) {
+          const timeSinceLastAttempt = Date.now() - this.state.lastAttempt[currentEndpoint]
           if (timeSinceLastAttempt >= this.CIRCUIT_RESET_TIME) {
-            // Try to reset circuit breaker
-            const isHealthy = await this.checkEndpointHealth(endpoint)
+            const isHealthy = await this.checkEndpointHealth(currentEndpoint)
             if (isHealthy) {
-              this.resetEndpointState(endpoint)
+              this.resetEndpointState(currentEndpoint)
             }
           }
         }
@@ -124,7 +132,18 @@ export class RPCManager {
     return endpoint
   }
 
+  public async reportSuccess(endpoint: string) {
+    this.state.isConnected = true
+    if (endpoint === RPC_ENDPOINTS[0]) {
+      RPC_ENDPOINTS.forEach((ep) => this.resetEndpointState(ep))
+      this.state.currentIndex = 0
+    } else {
+      this.resetEndpointState(endpoint)
+    }
+  }
+
   public async reportFailure(endpoint: string) {
+    this.state.isConnected = false
     console.debug(`Reporting failure for endpoint: ${endpoint}`)
     this.state.failures[endpoint] = (this.state.failures[endpoint] || 0) + 1
     this.state.lastAttempt[endpoint] = Date.now()
@@ -145,15 +164,6 @@ export class RPCManager {
       }
     }
     return endpoint
-  }
-
-  public async reportSuccess(endpoint: string) {
-    if (endpoint === RPC_ENDPOINTS[0]) {
-      RPC_ENDPOINTS.forEach((ep) => this.resetEndpointState(ep))
-      this.state.currentIndex = 0
-    } else {
-      this.resetEndpointState(endpoint)
-    }
   }
 
   public getEndpoints(): string[] {

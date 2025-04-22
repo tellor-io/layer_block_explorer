@@ -7,7 +7,7 @@ import { toHex } from '@cosmjs/encoding'
 
 let blockPollingInterval: NodeJS.Timeout | null = null
 let txPollingInterval: NodeJS.Timeout | null = null
-const POLLING_INTERVAL = 6000 // 6 seconds
+const POLLING_INTERVAL = 1000 // 1 second
 const MAX_TXS_PER_BLOCK = 50 // Limit number of transactions to process per block
 
 export function subscribeNewBlock(
