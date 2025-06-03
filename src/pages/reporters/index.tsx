@@ -219,6 +219,7 @@ export default function Reporters() {
               .substring(0, 33)
             validatorMap.set(addressKey, validator.description?.moniker)
           })
+        }
 
         // Then fetch reporters
         return fetch(url)
