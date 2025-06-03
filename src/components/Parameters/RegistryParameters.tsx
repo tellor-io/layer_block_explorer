@@ -24,10 +24,8 @@ export default function RegistryParameters() {
 
   useEffect(() => {
     if (tmClient && !params && !isLoaded) {
-      console.log('Attempting to query registry params...')
       queryRegistryParams(tmClient)
         .then((response) => {
-          console.log('Registry params raw response:', response)
           dispatch(setRegistryParams(response))
           setIsLoaded(true)
         })

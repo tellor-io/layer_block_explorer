@@ -83,11 +83,6 @@ export function subscribeTx(
               try {
                 const txResponse = await tmClient.tx({ hash: tx })
                 if (txResponse) {
-                  console.log('Successfully fetched transaction:', {
-                    hash: toHex(tx),
-                    height: currentHeight,
-                    code: txResponse.result.code,
-                  })
                   // Create a TxEvent object with all required properties
                   const event: TxEvent = {
                     hash: tx,

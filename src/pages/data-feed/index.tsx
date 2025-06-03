@@ -114,7 +114,6 @@ export default function DataFeed() {
       // More robust duplicate check
       if (processedBlocksRef.current.has(blockHeight) || 
           aggregateReports.some(report => report.blockHeight === blockHeight)) {
-        console.log(`Block ${blockHeight} already processed, skipping...`);
         return;
       }
 
@@ -223,7 +222,6 @@ export default function DataFeed() {
         // Only mark the block as processed if we actually processed it
         if (hasNewReports) {
           processedBlocksRef.current.add(blockHeight);
-          console.log(`Successfully processed block ${blockHeight}`);
         }
       } catch (error) {
         console.error('Error in processBlock:', error)
@@ -259,7 +257,6 @@ export default function DataFeed() {
 
   useEffect(() => {
     if (newBlock) {
-      console.log('Processing new block:', newBlock.header.height);
       processBlock(newBlock);
     }
   }, [newBlock, processBlock]);

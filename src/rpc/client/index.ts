@@ -31,12 +31,6 @@ export async function connectWebsocketClient(
       throw new Error('Could not get client status')
     }
 
-    console.log('Successfully connected via HTTP RPC:', {
-      moniker: status.nodeInfo.moniker,
-      version: status.nodeInfo.version,
-      network: status.nodeInfo.network,
-    })
-
     return tmClient
   } catch (error) {
     console.error('Connection error:', error)

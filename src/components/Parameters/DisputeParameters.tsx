@@ -24,10 +24,8 @@ export default function DisputeParameters() {
 
   useEffect(() => {
     if (tmClient && !params && !isLoaded) {
-      console.log('Fetching dispute params...')
       queryDisputeParams(tmClient)
         .then((response) => {
-          console.log('Dispute params response:', response)
           dispatch(setDisputeParams(response))
           setIsLoaded(true)
         })
@@ -38,7 +36,6 @@ export default function DisputeParameters() {
     }
 
     if (params) {
-      console.log('Current dispute params:', params)
       setIsLoaded(true)
     }
   }, [tmClient, params, isLoaded])

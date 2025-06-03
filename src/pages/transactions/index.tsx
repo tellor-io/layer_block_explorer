@@ -70,13 +70,11 @@ export default function Transactions() {
         return null
       }
 
-      console.log('Processing transaction data:', data)
 
       // Decode the transaction data
       let decodedTx
       try {
         decodedTx = TxBody.decode(data)
-        console.log('Successfully decoded transaction:', decodedTx)
         return decodedTx.messages.map((msg: any, index: number) => (
           <Text key={index}>{msg.typeUrl}</Text>
         ))
@@ -92,7 +90,6 @@ export default function Transactions() {
 
   useEffect(() => {
     if (newBlock?.txs?.length) {
-      console.log('New block transactions:', newBlock.txs)
       for (const tx of newBlock.txs) {
       }
     }

@@ -12,6 +12,8 @@ import {
   Box,
   VStack,
   Skeleton,
+  Grid,
+  GridItem,
 } from '@chakra-ui/react'
 import {
   FiHome,
@@ -51,6 +53,7 @@ import { getReporters } from '@/rpc/query'
 import axios from 'axios'
 import { setNewBlock } from '@/store/streamSlice'
 import { getSupplyByDenom } from '@/rpc/query'
+import ValidatorPowerPieChart from '@/components/ValidatorPowerPieChart'
 
 export default function Home() {
   const BOX_ICON_BG = useColorModeValue('#003734', '#eefffb') // Light mode, Dark mode
@@ -137,15 +140,11 @@ export default function Home() {
 
   useEffect(() => {
     if (endpoint) {
-      console.log('Fetching reporters for endpoint:', endpoint)
       getReporters(endpoint)
         .then((data) => {
-          console.log('Received reporters data:', data)
           if (data?.reporters) {
-            console.log('Setting reporter count to:', data.reporters.length)
             setReporterCount(data.reporters.length)
           } else {
-            console.log('No reporters data, setting count to 0')
             setReporterCount(0)
           }
         })
@@ -183,11 +182,9 @@ export default function Home() {
           if (!isNaN(timestamp)) {
             setAllowedAmountExp(timestamp)
           } else {
-            console.log('Failed to convert date string to timestamp')
             setAllowedAmountExp(undefined)
           }
         } else {
-          console.log('Failed to fetch allowed amount exp or invalid value')
           setAllowedAmountExp(undefined)
         }
       })
@@ -208,10 +205,8 @@ export default function Home() {
       const fetchCycleList = async () => {
         try {
           const cycleList = await getCurrentCycleList(endpoint)
-          console.log('Received cycleList:', cycleList)
           if (cycleList && Array.isArray(cycleList)) {
             const params = cycleList.map((item) => item.queryParams)
-            console.log('Formatted params:', params)
             setCurrentCycleList((prev) => {
               const combined = Array.from(new Set([...prev, ...params]))
               return combined
@@ -289,47 +284,15 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Home | Tellor Explorer</title>
-        <meta name="description" content="Home | Tellor Explorer" />
+        <title>Layer Block Explorer</title>
+        <meta name="description" content="Layer Block Explorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <main>
-        <HStack h="24px">
-          <Heading size={'md'}>Home</Heading>
-          <Divider borderColor={'gray'} size="10px" orientation="vertical" />
-          <Link
-            as={NextLink}
-            href={'/'}
-            style={{ textDecoration: 'none' }}
-            _focus={{ boxShadow: 'none' }}
-            display="flex"
-            justifyContent="center"
-          >
-            <Icon
-              fontSize="16"
-              color={useColorModeValue('light-theme', 'dark-theme')}
-              as={FiHome}
-            />
-          </Link>
-          <Icon fontSize="16" as={FiChevronRight} />
-          <Text>Home</Text>
-        </HStack>
-        <Box mt={8}>
-          <SimpleGrid minChildWidth="200px" spacing="40px">
-            {/*<Skeleton isLoaded={isLoaded}>
-              <BoxInfo
-                bgColor={BOX_ICON_BG}
-                color={BOX_ICON_COLOR}
-                icon={FiCpu}
-                name="Network"
-                value={
-                  newBlock?.header.chainId
-                    ? newBlock?.header.chainId
-                    : status?.nodeInfo.network
-                }
-              />
-            </Skeleton>*/}
+      <Box as="main" p={4}>
+        <VStack spacing={6} align="stretch">
+          <Heading size="lg">Network Overview</Heading>
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
                 bgColor={BOX_ICON_BG}
@@ -366,9 +329,9 @@ export default function Home() {
               <BoxInfo
                 bgColor={BOX_ICON_BG}
                 color={BOX_ICON_COLOR}
-                icon={FaUserCheck}
-                name="Validators"
-                value={validators}
+                icon={BsPersonFillAdd}
+                name="Reporters"
+                value={reporterCount}
               />
             </Skeleton>
 
@@ -376,10 +339,28 @@ export default function Home() {
               <BoxInfo
                 bgColor={BOX_ICON_BG}
                 color={BOX_ICON_COLOR}
-                icon={BsPersonFillAdd}
-                name="Reporters"
-                value={reporterCount}
+                icon={FaUserCheck}
+                name="Validators"
+                value={validators}
               />
+            </Skeleton>
+
+            <Skeleton isLoaded={isLoaded}>
+              <VStack
+                bg={useColorModeValue('light-container', 'dark-container')}
+                borderWidth="1px"
+                borderStyle="solid"
+                borderColor={useColorModeValue('#003734', '#eefffb')}
+                borderRadius={20}
+                p={4}
+                height="150px"
+                width="100%"
+                position="relative"
+              >
+                <Box position="absolute" top={0} left={0} right={0} bottom={0}>
+                  <ValidatorPowerPieChart />
+                </Box>
+              </VStack>
             </Skeleton>
 
             <Skeleton isLoaded={isLoaded}>
@@ -427,16 +408,6 @@ export default function Home() {
               />
             </Skeleton>
 
-            {/*<Skeleton isLoaded={isLoaded}>
-              <BoxInfo
-                bgColor="#066E6B"
-                color="#ecfaff"
-                icon={FiDollarSign} // You may need to import this icon
-                name="Average Gas Cost"
-                value={averageGasCost}
-              />
-            </Skeleton>*/}
-
             <Skeleton isLoaded={isLoaded}>
               <BoxInfo
                 bgColor={BOX_ICON_BG}
@@ -473,8 +444,8 @@ export default function Home() {
               />
             </Skeleton>
           </SimpleGrid>
-        </Box>
-      </main>
+        </VStack>
+      </Box>
     </>
   )
 }

@@ -131,7 +131,6 @@ export default function DetailBlock() {
       // Fetch block results
       getBlockResults(parseInt(Array.isArray(height) ? height[0] : height))
         .then((results) => {
-          console.log('Block Results:', results)
           setBlockResults(results)
           // If vote extensions are in the block results, decode them here
           if (results?.vote_extensions) {

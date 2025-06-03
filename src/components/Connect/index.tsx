@@ -67,11 +67,9 @@ export default function Connect() {
       let lastError = null
       for (const endpoint of endpoints) {
         try {
-          console.debug('Attempting connection to:', endpoint)
           const tmClient = await connectWebsocketClient(endpoint)
 
           if (tmClient) {
-            console.log('Successfully connected to:', endpoint)
             await rpcManager.reportSuccess(endpoint)
             dispatch(setConnectState(true))
             dispatch(setTmClient(tmClient))

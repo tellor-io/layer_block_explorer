@@ -85,7 +85,6 @@ export const deriveSignatures = async (
           })
           signatures.push(signature)
 
-          console.log('Valid signature found for validator:', recoveredAddress)
         } catch (error) {
           console.error('Error recovering address:', error)
           continue
@@ -93,10 +92,6 @@ export const deriveSignatures = async (
       }
     }
 
-    console.log('Final results:', {
-      signatures: signatures.length,
-      validators: validators.length,
-    })
 
     return {
       signatures,

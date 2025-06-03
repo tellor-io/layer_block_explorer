@@ -210,28 +210,15 @@ export default function Reporters() {
         const validatorMap = new Map()
         if (validatorData.validators) {
           validatorData.validators.forEach((validator: any) => {
-            console.log(
-              'Original validator address:',
-              validator.operator_address
-            )
             const strippedValAddress = stripAddressPrefix(
               validator.operator_address
             )
-            console.log('Stripped validator address:', strippedValAddress)
             // Store using first 33 characters of the stripped address
             const addressKey = strippedValAddress
               .replace(/^valoper/, '')
               .substring(0, 33)
-            console.log('Address key for mapping:', addressKey)
             validatorMap.set(addressKey, validator.description?.moniker)
           })
-
-          // Log the complete map
-          console.log(
-            'Complete validator map:',
-            Object.fromEntries(validatorMap)
-          )
-        }
 
         // Then fetch reporters
         return fetch(url)
@@ -267,9 +254,7 @@ export default function Reporters() {
                     )
                     // Use first 33 characters for lookup
                     const lookupKey = strippedReporterAddress.substring(0, 33)
-                    console.log('Reporter lookup key:', lookupKey)
                     const validatorMoniker = validatorMap.get(lookupKey)
-                    console.log('Found validator moniker:', validatorMoniker)
 
                     return {
                       address: reporter.address,
