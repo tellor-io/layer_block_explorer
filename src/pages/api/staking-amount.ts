@@ -26,7 +26,6 @@ export default async function handler(
     }
 
     const data = await response.json()
-    console.log('Received staking amount data:', data)
 
     if (data?.staking_amount !== undefined) {
       res.status(200).json({ amount: data.staking_amount })

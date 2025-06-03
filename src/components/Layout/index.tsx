@@ -46,11 +46,6 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   const updateTxEvent = (event: TxEvent): void => {
-    console.log('Received transaction event:', {
-      hash: toHex(event.hash),
-      height: event.height,
-      result: event.result,
-    })
     dispatch(setTxEvent(event))
   }
 
@@ -61,17 +56,14 @@ export default function Layout({ children }: LayoutProps) {
       // Get all available endpoints and remove duplicates
       const allEndpoints = [address, ...rpcManager.getEndpoints()]
       const uniqueEndpoints = Array.from(new Set(allEndpoints))
-      console.log('Available endpoints:', uniqueEndpoints)
 
       let lastError = null
       // Try each endpoint
       for (const endpoint of uniqueEndpoints) {
         try {
-          console.log('Attempting connection to:', endpoint)
           const tmClient = await connectWebsocketClient(endpoint)
 
           if (tmClient) {
-            console.log('Successfully connected to:', endpoint)
             await rpcManager.reportSuccess(endpoint)
             dispatch(setConnectState(true))
             dispatch(setTmClient(tmClient))
@@ -81,7 +73,6 @@ export default function Layout({ children }: LayoutProps) {
           }
         } catch (endpointError) {
           lastError = endpointError
-          console.log('Connection failed for:', endpoint, endpointError)
           await rpcManager.reportFailure(endpoint)
 
           // Force move to next endpoint by updating RPC manager state

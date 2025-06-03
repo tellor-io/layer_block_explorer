@@ -98,7 +98,6 @@ export const getAllowedAmounts = async (): Promise<{
 
 export const getAllowedStakingAmount = async (endpoint: string) => {
   try {
-    console.log('Fetching staking amount with endpoint:', endpoint)
     const response = await axios.get('/api/staking-amount', {
       params: { endpoint },
     })
@@ -111,7 +110,6 @@ export const getAllowedStakingAmount = async (endpoint: string) => {
 
 export const getAllowedUnstakingAmount = async (endpoint: string) => {
   try {
-    console.log('Fetching unstaking amount with endpoint:', endpoint)
     const response = await axios.get('/api/unstaking-amount', {
       params: { endpoint },
     })
@@ -258,7 +256,6 @@ export const getValidatorMoniker = async (address: string): Promise<string> => {
 
 export const getCurrentCycleList = async (endpoint: string) => {
   try {
-    console.log('Fetching current cycle list with endpoint:', endpoint)
     const response = await axios.get('/api/current-cycle', {
       params: { endpoint },
     })
@@ -381,11 +378,9 @@ export const getEvmValidators = async (endpoint: string) => {
 
 export const getReporters = async (endpoint: string) => {
   try {
-    console.log('Fetching reporters with endpoint:', endpoint)
     const response = await axios.get('/api/reporters', {
       params: { endpoint },
     })
-    console.log('Reporters response:', response.data)
     return response.data
   } catch (error) {
     console.error('Error in getReporters:', error)

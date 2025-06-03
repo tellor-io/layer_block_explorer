@@ -100,7 +100,6 @@ export default function OracleBridge() {
         `/api/oracle-data-before/${oracleQueryId}/${bridgeTimestamp}`
       )
       const data = await response.json()
-      console.log('Oracle Data Before Response:', data)
 
       if (response.status === 404) {
         toast({
@@ -165,7 +164,6 @@ export default function OracleBridge() {
 
       // Fetch bridge data if we don't have a snapshot
       if (!snapshot) {
-        console.log('Fetching bridge data first to get snapshot...')
         const bridgeResponse = await fetch(
           `/api/bridge-data/${bridgeQueryId}/${bridgeTimestamp}`
         )
@@ -180,14 +178,9 @@ export default function OracleBridge() {
         snapshot = bridgeDataResult.snapshot
         setCurrentSnapshot(snapshot)
         setBridgeData(bridgeDataResult)
-        console.log('Got snapshot:', snapshot)
       }
 
-      // Now fetch the attestation data using the snapshot
-      console.log(
-        'Fetching attestation data...',
-        `/api/bridge-attestations/${snapshot}`
-      )
+
 
       const response = await fetch(`/api/bridge-attestations/${snapshot}`)
       const data = await response.json()
@@ -214,7 +207,6 @@ export default function OracleBridge() {
     try {
       const response = await fetch('/api/evm-validators')
       const data = await response.json()
-      console.log('EVM Validators Response:', data)
       if (response.ok) {
         setEvmValidators(data)
       } else {
@@ -238,34 +230,20 @@ export default function OracleBridge() {
 
   const generateWithdrawalData = async () => {
     try {
-      console.log('Starting generateWithdrawalData...')
-
-      // Fetch bridge data
-      console.log(
-        'Fetching bridge data...',
-        `/api/bridge-data/${bridgeQueryId}/${bridgeTimestamp}`
-      )
       const bridgeResponse = await fetch(
         `/api/bridge-data/${bridgeQueryId}/${bridgeTimestamp}`
       )
       const bridgeDataResult = await bridgeResponse.json()
-      console.log('Bridge data response:', bridgeDataResult)
 
       if (!bridgeResponse.ok) {
         throw new Error(bridgeDataResult.error || 'Failed to fetch bridge data')
       }
       setBridgeData(bridgeDataResult)
 
-      // Fetch attestation data
-      console.log(
-        'Fetching attestation data...',
-        `/api/bridge-attestations/${bridgeDataResult.snapshot}`
-      )
       const attestResponse = await fetch(
         `/api/bridge-attestations/${bridgeDataResult.snapshot}`
       )
       const attestDataResult = await attestResponse.json()
-      console.log('Attestation data response:', attestDataResult)
 
       if (!attestResponse.ok) {
         throw new Error(
@@ -277,10 +255,8 @@ export default function OracleBridge() {
       // Fetch EVM validators
       let validatorData = evmValidators
       if (!validatorData) {
-        console.log('Fetching EVM validators...')
         const validatorResponse = await fetch('/api/evm-validators')
         const validatorResult = await validatorResponse.json()
-        console.log('Validator data response:', validatorResult)
 
         if (!validatorResponse.ok) {
           throw new Error(
@@ -290,13 +266,6 @@ export default function OracleBridge() {
         validatorData = validatorResult
         setEvmValidators(validatorData)
       }
-
-      // Log all collected data
-      console.log('All collected data:', {
-        bridgeData: bridgeDataResult,
-        attestationData: attestDataResult,
-        validatorData,
-      })
 
       // Verify we have all needed data
       if (!bridgeDataResult || !attestDataResult || !validatorData) {
@@ -322,7 +291,6 @@ export default function OracleBridge() {
         nextTimestamp: attestDataResult.next_report_timestamp || '0',
       }
 
-      console.log('Mapped Report Data:', reportData)
 
       const attestData = {
         queryId: attestDataResult.query_id,
@@ -330,7 +298,6 @@ export default function OracleBridge() {
         attestationTimestamp: attestDataResult.attestation_timestamp,
       }
 
-      console.log('Generated Attest Data:', attestData)
 
       const formattedWithdrawalData: WithdrawalData = {
         attestData: JSON.stringify(attestData, null, 2),
@@ -406,9 +373,7 @@ export default function OracleBridge() {
   useEffect(() => {
     if (oracleData && bridgeData) {
       try {
-        // Detailed debug logging
-        console.log('Oracle Data Structure:', oracleData)
-
+        
         // Extract data from the correct structure
         const timestamp = oracleData.timestamp
         const aggregate = oracleData.aggregate
@@ -425,7 +390,6 @@ export default function OracleBridge() {
         // Format the data for the digest calculation
         const abiCoder = new AbiCoder()
 
-        console.log('Aggregate data:', aggregate)
 
         const encodedData = abiCoder.encode(
           [

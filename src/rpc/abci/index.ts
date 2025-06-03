@@ -198,10 +198,8 @@ export async function getOracleParams(endpoint?: string): Promise<any> {
     const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
-    console.log('Fetching oracle params from endpoint:', baseEndpoint)
 
     const response = await axios.get(`${baseEndpoint}/layer/oracle/params`)
-    console.log('Oracle params raw response:', response.data)
     return response.data.params
   } catch (error) {
     console.error('Error in getOracleParams:', error)
@@ -216,10 +214,8 @@ export async function queryRegistryParams(
     const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
-    console.log('Fetching registry params from endpoint:', baseEndpoint)
 
     const response = await axios.get(`${baseEndpoint}/layer/registry/params`)
-    console.log('Registry params raw response:', response.data)
     return response.data.params
   } catch (error) {
     console.error('Registry params query error:', error)
@@ -234,12 +230,10 @@ export async function queryDisputeParams(
     const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
-    console.log('Fetching dispute params from endpoint:', baseEndpoint)
 
     const response = await axios.get(
       `${baseEndpoint}/tellor-io/layer/dispute/params`
     )
-    console.log('Dispute params raw response:', response.data)
     return response.data.params
   } catch (error) {
     console.error('Dispute params query error:', error)
@@ -254,12 +248,10 @@ export async function queryReporterParams(
     const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
-    console.log('Fetching reporter params from endpoint:', baseEndpoint)
 
     const response = await axios.get(
       `${baseEndpoint}/tellor-io/layer/reporter/params`
     )
-    console.log('Reporter params raw response:', response.data)
     return response.data.params
   } catch (error) {
     console.error('Reporter params query error:', error)

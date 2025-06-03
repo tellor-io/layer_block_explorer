@@ -24,10 +24,8 @@ export default function OracleParameters() {
 
   useEffect(() => {
     if (tmClient && !params && !isLoaded) {
-      console.log('Attempting to query oracle params...')
       getOracleParams()
         .then((response) => {
-          console.log('Oracle params raw response:', response)
           dispatch(setOracleParams(response))
           setIsLoaded(true)
         })
@@ -38,13 +36,11 @@ export default function OracleParameters() {
     }
 
     if (params) {
-      console.log('Current oracle params:', params)
       setIsLoaded(true)
     }
   }, [tmClient, params, isLoaded])
 
   if (isHidden) {
-    console.log('Oracle Parameters component is hidden')
   }
 
   const renderParams = (params: any) => {

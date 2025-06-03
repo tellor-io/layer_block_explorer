@@ -44,6 +44,7 @@
     "react-dom": "18.2.0",
     "react-icons": "^4.8.0",
     "react-redux": "^8.0.5",
+    "recharts": "^2.15.3",
     "redux-persist": "^6.0.0",
     "xstream": "^11.14.0"
   },
