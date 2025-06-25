@@ -11,11 +11,18 @@ import {
   useToast,
   IconButton,
   Tooltip,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverBody,
+  VStack,
+  Button,
+  useClipboard,
 } from '@chakra-ui/react'
 import { useEffect, useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
 import NextLink from 'next/link'
-import { FiChevronRight, FiHome, FiCopy } from 'react-icons/fi'
+import { FiChevronRight, FiHome, FiCopy, FiExternalLink, FiMail } from 'react-icons/fi'
 import { selectTmClient } from '@/store/connectSlice'
 import { queryAllValidators } from '@/rpc/abci'
 import DataTable from '@/components/Datatable'
@@ -32,6 +39,10 @@ type ValidatorData = {
   votingPower: number
   votingPowerPercentage: string
   commission: string
+  identity?: string
+  website?: string
+  details?: string
+  securityContact?: string
 }
 
 const columnHelper = createColumnHelper<ValidatorData>()
@@ -42,7 +53,47 @@ const columns: ColumnDef<ValidatorData, any>[] = [
     cell: (props) => {
       const address = props.row.original.operatorAddress
       const displayName = props.getValue()
+      const identity = props.row.original.identity
+      const website = props.row.original.website
+      const details = props.row.original.details
+      const securityContact = props.row.original.securityContact
       const toast = useToast()
+      const { onCopy: onCopyAddress } = useClipboard(address)
+      const { onCopy: onCopyContact } = useClipboard(securityContact || '')
+      const { onCopy: onCopyIdentity } = useClipboard(identity || '')
+
+      const hasMetadata = identity || website || details || securityContact
+
+      const handleCopyAddress = () => {
+        onCopyAddress()
+        toast({
+          title: 'Address copied',
+          status: 'success',
+          duration: 2000,
+          isClosable: true,
+        })
+      }
+
+      const handleCopyContact = () => {
+        onCopyContact()
+        toast({
+          title: 'Contact copied',
+          status: 'success',
+          duration: 2000,
+          isClosable: true,
+        })
+      }
+
+      const handleCopyIdentity = () => {
+        onCopyIdentity()
+        toast({
+          title: 'Identity copied',
+          status: 'success',
+          duration: 2000,
+          isClosable: true,
+        })
+      }
+
       return (
         <div
           data-validator-address={address}
@@ -54,24 +105,143 @@ const columns: ColumnDef<ValidatorData, any>[] = [
             textAlign: 'left'
           }}
         >
-          <Text isTruncated title={address}>
-            {displayName}
-          </Text>
+          {hasMetadata ? (
+            <Popover placement="top" trigger="hover" openDelay={300} closeDelay={300}>
+              <PopoverTrigger>
+                <Text 
+                  isTruncated 
+                  cursor="help"
+                  _hover={{ textDecoration: 'underline' }}
+                >
+                  {displayName}
+                </Text>
+              </PopoverTrigger>
+              <PopoverContent p={3} maxW="450px">
+                <PopoverBody>
+                  <VStack align="start" spacing={2}>
+                    <Text fontWeight="bold" fontSize="sm">
+                      {displayName}
+                    </Text>
+                    
+                    {identity && (
+                      <HStack spacing={2} w="full">
+                        <Text fontSize="xs" color="gray.500" minW="60px">
+                          Identity:
+                        </Text>
+                        <Text fontSize="xs" flex={1}>
+                          {identity}
+                        </Text>
+                        <IconButton
+                          size="xs"
+                          icon={<FiCopy />}
+                          aria-label="Copy identity"
+                          onClick={handleCopyIdentity}
+                          variant="ghost"
+                        />
+                      </HStack>
+                    )}
+                    
+                    {website && (
+                      <HStack spacing={2} w="full">
+                        <Text fontSize="xs" color="gray.500" minW="60px">
+                          Website:
+                        </Text>
+                        <Link 
+                          href={website} 
+                          isExternal 
+                          fontSize="xs" 
+                          color="blue.500"
+                          flex={1}
+                          _hover={{ textDecoration: 'underline' }}
+                        >
+                          {website}
+                        </Link>
+                        <IconButton
+                          size="xs"
+                          icon={<FiExternalLink />}
+                          aria-label="Open website"
+                          as="a"
+                          href={website}
+                          target="_blank"
+                          variant="ghost"
+                        />
+                      </HStack>
+                    )}
+                    
+                    {details && (
+                      <HStack spacing={2} w="full" align="start">
+                        <Text fontSize="xs" color="gray.500" minW="60px">
+                          Details:
+                        </Text>
+                        <Text fontSize="xs" flex={1}>
+                          {details}
+                        </Text>
+                      </HStack>
+                    )}
+                    
+                    {securityContact && (
+                      <HStack spacing={2} w="full">
+                        <Text fontSize="xs" color="gray.500" minW="60px">
+                          Contact:
+                        </Text>
+                        <Text fontSize="xs" flex={1}>
+                          {securityContact}
+                        </Text>
+                        <IconButton
+                          size="xs"
+                          icon={<FiMail />}
+                          aria-label="Copy contact"
+                          onClick={handleCopyContact}
+                          variant="ghost"
+                        />
+                      </HStack>
+                    )}
+                    
+                    <Divider />
+                    
+                    <VStack spacing={2} w="full" align="start">
+                      <Text fontSize="xs" color="gray.500">
+                        Address:
+                      </Text>
+                      <HStack spacing={2} w="full" align="start">
+                        <Text 
+                          fontSize="xs" 
+                          fontFamily="mono" 
+                          flex={1}
+                          wordBreak="break-all"
+                          maxW="320px"
+                        >
+                          {address}
+                        </Text>
+                        <IconButton
+                          size="xs"
+                          icon={<FiCopy />}
+                          aria-label="Copy validator address"
+                          onClick={handleCopyAddress}
+                          variant="ghost"
+                          flexShrink={0}
+                        />
+                      </HStack>
+                    </VStack>
+                  </VStack>
+                </PopoverBody>
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <Tooltip label={`Copy validator address: ${address}`} hasArrow>
+              <Text isTruncated>
+                {displayName}
+              </Text>
+            </Tooltip>
+          )}
+          
           <Tooltip label="Copy validator address" hasArrow>
             <IconButton
               aria-label="Copy validator address"
               icon={<Icon as={FiCopy} />}
               size="xs"
               variant="ghost"
-              onClick={() => {
-                navigator.clipboard.writeText(address)
-                toast({
-                  title: 'Address copied',
-                  status: 'success',
-                  duration: 2000,
-                  isClosable: true,
-                })
-              }}
+              onClick={handleCopyAddress}
             />
           </Tooltip>
         </div>
@@ -123,6 +293,10 @@ interface ValidatorResponse {
     operatorAddress?: string
     description?: {
       moniker?: string
+      identity?: string
+      website?: string
+      details?: string
+      security_contact?: string
     }
     status: number
     tokens: string
@@ -171,7 +345,8 @@ export default function Validators() {
     queryAllValidators(tmClient)
       .then((response: ValidatorResponse) => {
         const validators = response.validators
-        const totalPower = validators.reduce(
+        const activeValidators = validators.filter(val => val.status === 3)
+        const totalPower = activeValidators.reduce(
           (sum, val) => sum + convertVotingPower(val.tokens),
           0
         )
@@ -187,6 +362,10 @@ export default function Validators() {
           commission: convertRateToPercent(
             val.commission?.commissionRates?.rate
           ),
+          identity: val.description?.identity,
+          website: val.description?.website,
+          details: val.description?.details,
+          securityContact: val.description?.security_contact,
         }))
         setAllValidators(validatorData)
         setIsLoading(false)

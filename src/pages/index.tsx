@@ -93,8 +93,8 @@ export default function Home() {
           )
           setValidators(activeValidators.length)
 
-          // Calculate total voting power while we're here
-          const totalPower = response.validators.reduce(
+          // Calculate total voting power from ACTIVE validators only
+          const totalPower = activeValidators.reduce(
             (acc: bigint, validator: any) =>
               acc + BigInt(validator.tokens || 0),
             BigInt(0)
