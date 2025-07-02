@@ -101,7 +101,7 @@ export class RPCManager {
     return Math.min(Math.pow(2, failures) * 1000, this.MAX_BACKOFF)
   }
 
-  public setCustomEndpoint(endpoint: string | null) {
+  public async setCustomEndpoint(endpoint: string | null) {
     this.customEndpoint = endpoint
     if (endpoint) {
       // Save to localStorage
@@ -112,8 +112,39 @@ export class RPCManager {
       this.state.failures[endpoint] = 0
       this.state.lastAttempt[endpoint] = 0
       this.state.isCircuitOpen[endpoint] = false
+      // Reset current index to ensure we start with the custom endpoint
+      this.state.currentIndex = 0
+      // Clear any caches when switching endpoints
+      await this.clearCaches()
     } else if (typeof window !== 'undefined') {
       window.localStorage.removeItem(LS_RPC_ADDRESS)
+    }
+  }
+
+  // Method to clear any caches when switching endpoints
+  private async clearCaches() {
+    // Clear any in-memory caches that might be holding stale data
+    try {
+      // Clear the reporter count cache
+      await fetch('/api/reporter-count?clearCache=true')
+      console.log('Cleared reporter count cache due to endpoint switch')
+      
+      // Clear the validators cache
+      await fetch('/api/validators?clearCache=true')
+      console.log('Cleared validators cache due to endpoint switch')
+      
+      // Clear other potential caches by making fresh requests
+      // This ensures all API endpoints get fresh data from the new RPC
+      const cacheClearingPromises = [
+        fetch('/api/evm-validators').catch(() => {}),
+        fetch('/api/reporters').catch(() => {}),
+        fetch('/api/latest-block').catch(() => {}),
+      ]
+      
+      await Promise.all(cacheClearingPromises)
+      console.log('Cleared all API caches due to endpoint switch')
+    } catch (error) {
+      console.warn('Failed to clear some caches:', error)
     }
   }
 
@@ -127,6 +158,12 @@ export class RPCManager {
       return RPC_ENDPOINTS[0]
     }
 
+    // If we have a custom endpoint, always return it first
+    if (this.customEndpoint && availableEndpoints.includes(this.customEndpoint)) {
+      return this.customEndpoint
+    }
+
+    // Otherwise, use the round-robin logic for default endpoints
     const endpoint =
       availableEndpoints[this.state.currentIndex % availableEndpoints.length]
     return endpoint

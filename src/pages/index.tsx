@@ -54,6 +54,7 @@ import axios from 'axios'
 import { setNewBlock } from '@/store/streamSlice'
 import { getSupplyByDenom } from '@/rpc/query'
 import ValidatorPowerPieChart from '@/components/ValidatorPowerPieChart'
+import { isActiveValidator } from '@/utils/helper'
 
 export default function Home() {
   const BOX_ICON_BG = useColorModeValue('#003734', '#eefffb') // Light mode, Dark mode
@@ -87,10 +88,18 @@ export default function Home() {
       try {
         const response = await getValidators(endpoint)
         if (response?.validators) {
-          // Only count active validators
+          // Debug: Log all validator statuses to understand the format
+          console.log('All validators statuses:', response.validators.map((v: any) => ({
+            moniker: v.description?.moniker,
+            status: v.status,
+            statusType: typeof v.status
+          })))
+          
+          // Only count active validators using the utility function
           const activeValidators = response.validators.filter(
-            (validator: any) => validator.status === 'BOND_STATUS_BONDED'
+            (validator: any) => isActiveValidator(validator.status)
           )
+          console.log('Active validators count:', activeValidators.length)
           setValidators(activeValidators.length)
 
           // Calculate total voting power from ACTIVE validators only
@@ -113,7 +122,12 @@ export default function Home() {
     }
 
     if (endpoint) {
-      fetchValidators()
+      // Add a small delay to ensure RPC manager has updated
+      const timer = setTimeout(() => {
+        fetchValidators()
+      }, 100) // 100ms delay
+
+      return () => clearTimeout(timer)
     }
   }, [endpoint])
 
@@ -140,18 +154,23 @@ export default function Home() {
 
   useEffect(() => {
     if (endpoint) {
-      getReporters(endpoint)
-        .then((data) => {
-          if (data?.reporters) {
-            setReporterCount(data.reporters.length)
-          } else {
+      // Add a small delay to ensure RPC manager has updated
+      const timer = setTimeout(() => {
+        getReporters(endpoint)
+          .then((data) => {
+            if (data?.reporters) {
+              setReporterCount(data.reporters.length)
+            } else {
+              setReporterCount(0)
+            }
+          })
+          .catch((error) => {
+            console.error('Error fetching reporters:', error)
             setReporterCount(0)
-          }
-        })
-        .catch((error) => {
-          console.error('Error fetching reporters:', error)
-          setReporterCount(0)
-        })
+          })
+      }, 100) // 100ms delay
+
+      return () => clearTimeout(timer)
     }
   }, [endpoint])
 

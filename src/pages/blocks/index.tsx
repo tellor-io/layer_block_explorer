@@ -44,7 +44,7 @@ import { sha256 } from '@cosmjs/crypto'
 import { getValidators } from '@/rpc/query'
 import { CopyableHash } from '@/components/CopyableHash'
 import { rpcManager } from '@/utils/rpcManager'
-import { selectTmClient } from '@/store/connectSlice'
+import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
 import Head from 'next/head'
 
 const MAX_ROWS = 20
@@ -73,6 +73,7 @@ export default function Blocks() {
   const newBlock = useSelector(selectNewBlock)
   const txEvent = useSelector(selectTxEvent)
   const tmClient = useSelector(selectTmClient)
+  const rpcAddress = useSelector(selectRPCAddress)
   const [blocks, setBlocks] = useState<NewBlockEvent[]>([])
   const [txs, setTxs] = useState<Tx[]>([])
   const [validatorMap, setValidatorMap] = useState<ValidatorMap>({})
@@ -131,6 +132,9 @@ export default function Blocks() {
   useEffect(() => {
     async function fetchData() {
       try {
+        // Add a small delay to ensure RPC manager has updated when switching endpoints
+        await new Promise(resolve => setTimeout(resolve, 100))
+
         // Fetch validators using new endpoint
         await fetchValidators()
 
@@ -231,7 +235,7 @@ export default function Blocks() {
       }
     }
     fetchData()
-  }, [])
+  }, [tmClient, rpcAddress])
 
   useEffect(() => {
     if (newBlock) {
@@ -309,9 +313,8 @@ export default function Blocks() {
 
   const getProposerMoniker = (proposerAddress: Uint8Array) => {
     try {
-      const hexAddress = Buffer.from(proposerAddress)
-        .toString('hex')
-        .toLowerCase()
+      // Convert proposer address to the same format as validator consensus pubkey addresses
+      const hexAddress = toHex(proposerAddress).toLowerCase()
       const moniker = validatorMap[hexAddress] || 'Unknown'
       return moniker
     } catch (error) {
@@ -461,12 +464,7 @@ export default function Blocks() {
                             <CopyableHash hash={block.header.appHash} />
                           </Td>
                           <Td>
-                            {validatorMap[
-                              toHex(block.header.proposerAddress)
-                            ] || 'Unknown'}
-                            {(() => {
-                              return null
-                            })()}
+                            {getProposerMoniker(block.header.proposerAddress)}
                           </Td>
                           <Td>{block.txs?.length || 0}</Td>
                           <Td>

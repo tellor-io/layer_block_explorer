@@ -98,3 +98,14 @@ export const stripAddressPrefix = (address: string): string => {
     .replace(/^tellor/, '')
     .replace(/^valoper/, '')
 }
+
+// Utility function to check if a validator is active (bonded)
+export const isActiveValidator = (status: string | number): boolean => {
+  // Handle both string and numeric status formats
+  if (typeof status === 'string') {
+    return status === 'BOND_STATUS_BONDED'
+  } else if (typeof status === 'number') {
+    return status === 3 // BOND_STATUS_BONDED = 3
+  }
+  return false
+}

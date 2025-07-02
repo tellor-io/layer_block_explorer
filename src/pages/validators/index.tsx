@@ -27,7 +27,7 @@ import { selectTmClient } from '@/store/connectSlice'
 import { queryAllValidators } from '@/rpc/abci'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
-import { convertRateToPercent, convertVotingPower } from '@/utils/helper'
+import { convertRateToPercent, convertVotingPower, isActiveValidator } from '@/utils/helper'
 import { ColumnDef } from '@tanstack/react-table'
 import DelegationPieChart from '@/components/DelegationPieChart'
 import { useRouter } from 'next/router'
@@ -345,7 +345,7 @@ export default function Validators() {
     queryAllValidators(tmClient)
       .then((response: ValidatorResponse) => {
         const validators = response.validators
-        const activeValidators = validators.filter(val => val.status === 3)
+        const activeValidators = validators.filter(val => isActiveValidator(val.status))
         const totalPower = activeValidators.reduce(
           (sum, val) => sum + convertVotingPower(val.tokens),
           0
@@ -356,7 +356,7 @@ export default function Validators() {
         const validatorData: ValidatorData[] = validators.map((val) => ({
           operatorAddress: val.operatorAddress ?? '',
           validator: val.description?.moniker ?? '',
-          status: val.status === 3 ? 'Active' : 'Inactive',
+          status: isActiveValidator(val.status) ? 'Active' : 'Inactive',
           votingPower: convertVotingPower(val.tokens),
           votingPowerPercentage: '',
           commission: convertRateToPercent(

@@ -6,7 +6,6 @@ export const formatRPCEndpoint = (
   return includeRPC ? `${baseEndpoint}/rpc` : baseEndpoint
 }
 
-export const HARDCODED_RPC_ADDRESS = 'node-palmito.tellorlayer.com/rpc'
 export const LS_RPC_ADDRESS = 'RPC_ADDRESS'
 export const GOV_PARAMS_TYPE = {
   VOTING: 'voting',
