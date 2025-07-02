@@ -188,8 +188,17 @@ export default function Reporters() {
   const [isLoading, setIsLoading] = useState(true)
   const toast = useToast()
   const rpcAddress = useSelector(selectRPCAddress)
+  
+  // Force re-render when RPC address changes
+  const [refreshKey, setRefreshKey] = useState(0)
+  
+  // Update refresh key when RPC address changes
+  useEffect(() => {
+    setRefreshKey(prev => prev + 1)
+  }, [rpcAddress])
 
   useEffect(() => {
+    console.log('Reporters page: RPC address changed to:', rpcAddress)
     setIsLoading(true)
     const url = '/api/reporters'
 
@@ -200,8 +209,14 @@ export default function Reporters() {
         setTimeout(() => reject(new Error('Request timeout')), 10000)
       })
 
-      // First fetch validators
-      Promise.race([fetch('/api/validators'), timeoutPromise])
+      // First fetch validators with cache busting and RPC address
+      Promise.race([fetch(`/api/validators?t=${Date.now()}&rpc=${encodeURIComponent(rpcAddress)}`, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      }), timeoutPromise])
         .then((response: unknown) => {
           if (!(response instanceof Response)) {
             throw new Error('Expected Response object')
@@ -226,8 +241,14 @@ export default function Reporters() {
             })
           }
 
-          // Then fetch reporters
-          return fetch(url)
+          // Then fetch reporters with cache busting and RPC address
+          return fetch(`${url}?t=${Date.now()}&rpc=${encodeURIComponent(rpcAddress)}`, {
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+            }
+          })
             .then((response) => {
               if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`)
@@ -250,7 +271,7 @@ export default function Reporters() {
                 // Fetch selectors for all reporters
                 return Promise.all(
                   reporterAddresses.map((address: string) =>
-                    getReporterSelectors(address)
+                    getReporterSelectors(address, rpcAddress)
                   )
                 ).then((selectorsData) => {
                   const formattedData = responseData.reporters.map(
@@ -299,14 +320,14 @@ export default function Reporters() {
           setData([]) // Clear data on error
           setIsLoading(false) // Make sure to clear loading state on error
         })
-    }, 100) // 100ms delay
+    }, 500) // 500ms delay to ensure RPC manager cache clearing is complete
 
     // Cleanup function
     return () => {
       clearTimeout(timer)
       setIsLoading(false)
     }
-  }, [page, perPage, toast, rpcAddress])
+  }, [page, perPage, toast, rpcAddress, refreshKey])
 
   const onChangePagination = (value: {
     pageIndex: number

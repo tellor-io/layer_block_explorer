@@ -175,10 +175,24 @@ export const getReporterList = async (): Promise<string[] | undefined> => {
 }
 
 export const getReporterSelectors = async (
-  reporter: string
+  reporter: string,
+  rpcAddress?: string
 ): Promise<number | undefined> => {
   try {
-    const response = await axios.get(`/api/reporter-selectors/${reporter}`)
+    const params = new URLSearchParams({
+      t: Date.now().toString()
+    })
+    if (rpcAddress) {
+      params.append('rpc', rpcAddress)
+    }
+    
+    const response = await axios.get(`/api/reporter-selectors/${reporter}?${params.toString()}`, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    })
     if (response.data && typeof response.data.num_of_selectors === 'number') {
       return response.data.num_of_selectors
     } else {

@@ -7,9 +7,22 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    const endpoint =
-      (req.query.endpoint as string) || (await rpcManager.getCurrentEndpoint())
+    const { endpoint: customEndpoint, rpc } = req.query
+    
+    // Use custom endpoint if provided, otherwise use RPC address from query, otherwise use rpcManager
+    let endpoint: string
+    if (customEndpoint) {
+      endpoint = customEndpoint as string
+    } else if (rpc) {
+      endpoint = rpc as string
+    } else {
+      endpoint = await rpcManager.getCurrentEndpoint()
+    }
+    
     const baseEndpoint = endpoint.replace('/rpc', '')
+    
+    console.log('Reporters API: Using endpoint:', endpoint)
+    console.log('Reporters API: Base endpoint:', baseEndpoint)
 
     const response = await fetch(
       `${baseEndpoint}/tellor-io/layer/reporter/reporters`
