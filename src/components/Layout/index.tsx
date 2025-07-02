@@ -21,7 +21,6 @@ import {
   setSubsTxEvent,
 } from '@/store/streamSlice'
 import { NewBlockEvent, TxEvent } from '@cosmjs/tendermint-rpc'
-import { HARDCODED_RPC_ADDRESS } from '@/utils/constant'
 import { connectWebsocketClient } from '@/rpc/client'
 import { rpcManager } from '@/utils/rpcManager'
 import { toHex } from '@cosmjs/encoding'

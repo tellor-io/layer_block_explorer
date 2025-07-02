@@ -114,6 +114,7 @@ export default function Blocks() {
     if (tmClient) {
       try {
         const endpoint = await rpcManager.getCurrentEndpoint()
+        console.log('Blocks page: Fetching validators from endpoint:', endpoint)
         const validatorsResponse = await getValidators(endpoint)
         if (validatorsResponse?.validators) {
           const map: { [key: string]: string } = {}
@@ -122,6 +123,7 @@ export default function Blocks() {
             map[hexAddress] = validator.description.moniker
           })
           setValidatorMap(map)
+          console.log('Blocks page: Successfully fetched validators, map size:', Object.keys(map).length)
         }
       } catch (error) {
         console.error('Error fetching validators:', error)
@@ -132,6 +134,14 @@ export default function Blocks() {
   useEffect(() => {
     async function fetchData() {
       try {
+        console.log('Blocks page: RPC address changed, refetching data. New address:', rpcAddress)
+        
+        // Clear old data when switching endpoints
+        setBlocks([])
+        setTxs([])
+        setError(null)
+        setIsLoading(true)
+        
         // Add a small delay to ensure RPC manager has updated when switching endpoints
         await new Promise(resolve => setTimeout(resolve, 100))
 
@@ -139,6 +149,7 @@ export default function Blocks() {
         await fetchValidators()
 
         // Fetch blocks
+        console.log('Blocks page: Fetching latest block...')
         const blocksResponse = await axios.get('/api/latest-block')
 
         if (!blocksResponse?.data?.block) {
@@ -226,12 +237,16 @@ export default function Blocks() {
         setBlocks(blocksData as NewBlockEvent[])
         setIsLoading(false)
       } catch (error) {
+        console.error('Error fetching blocks data:', error)
         if (axios.isAxiosError(error)) {
           setError('Failed to fetch data. Please check your network connection.')
         } else {
           setError('An unexpected error occurred.')
         }
         setIsLoading(false)
+        // Clear blocks on error to prevent showing stale data
+        setBlocks([])
+        setTxs([])
       }
     }
     fetchData()
