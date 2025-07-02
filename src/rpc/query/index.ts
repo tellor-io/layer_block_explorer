@@ -7,7 +7,7 @@ import {
 } from '@cosmjs/stargate'
 import { Tendermint37Client, TxSearchResponse } from '@cosmjs/tendermint-rpc'
 import axios from 'axios'
-import { RPCManager } from '../../utils/rpcManager'
+import { rpcManager } from '../../utils/rpcManager'
 
 export async function getChainId(
   tmClient: Tendermint37Client
@@ -147,8 +147,11 @@ export const getReporterCount = async (
   totalPower: number
 } | null> => {
   try {
+    // Get the current endpoint from the RPC manager
+    const currentEndpoint = await rpcManager.getCurrentEndpoint()
+    
     const response = await axios.get('/api/reporter-count', {
-      params: { queryId, timestamp },
+      params: { queryId, timestamp, endpoint: currentEndpoint },
     })
     return response.data
   } catch (error) {
@@ -204,7 +207,6 @@ export const getAllReportersWithSelectors = async (): Promise<
 
 export const getBlockResults = async (height: number): Promise<any> => {
   try {
-    const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const url = `${endpoint}/block_results?height=${height}`
     const response = await axios.get(url)
@@ -216,7 +218,6 @@ export const getBlockResults = async (height: number): Promise<any> => {
 
 export const getValidatorMoniker = async (address: string): Promise<string> => {
   try {
-    const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const url = `${endpoint}/validators/${address}`
     const response = await axios.get(url)
@@ -322,12 +323,16 @@ export function decodeQueryData(queryId: string, queryData?: string): any {
 
 export const getValidators = async (endpoint: string): Promise<any> => {
   try {
-    const response = await fetch('/api/validators', {
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    console.log('Fetching validators from endpoint:', endpoint)
+    const response = await axios.get('/api/validators', {
+      params: { endpoint },
     })
-    return response.json()
+    console.log('Validators response status:', response.status)
+    
+    const data = response.data
+    console.log('Validators response data:', data)
+    
+    return data
   } catch (error) {
     console.error('Failed to fetch validators:', error)
     throw error

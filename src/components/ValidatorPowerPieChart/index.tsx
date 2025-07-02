@@ -8,6 +8,10 @@ import {
 } from 'recharts'
 import { Box, Text, useColorModeValue, VStack } from '@chakra-ui/react'
 import { useRouter } from 'next/router'
+import { useSelector } from 'react-redux'
+import { selectRPCAddress } from '@/store/connectSlice'
+import { rpcManager } from '@/utils/rpcManager'
+import { isActiveValidator } from '@/utils/helper'
 
 interface ValidatorData {
   operator_address: string
@@ -55,6 +59,7 @@ export default function ValidatorPowerPieChart() {
   const [error, setError] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const router = useRouter()
+  const rpcAddress = useSelector(selectRPCAddress)
 
   useEffect(() => {
     let isMounted = true
@@ -62,8 +67,10 @@ export default function ValidatorPowerPieChart() {
     const fetchValidators = async () => {
       try {
         setIsLoading(true)
+        // Remove /rpc from the endpoint for API calls
+        const baseEndpoint = rpcAddress.replace('/rpc', '')
         const response = await fetch(
-          'https://node-palmito.tellorlayer.com/cosmos/staking/v1beta1/validators'
+          `${baseEndpoint}/cosmos/staking/v1beta1/validators`
         )
         if (!response.ok) {
           throw new Error('Failed to fetch validators')
@@ -72,9 +79,9 @@ export default function ValidatorPowerPieChart() {
         
         if (!isMounted) return
 
-        // Only include active validators
+        // Only include active validators using the utility function
         const activeValidators = data.validators.filter(
-          (v: ValidatorData) => v.status === 'BOND_STATUS_BONDED'
+          (v: ValidatorData) => isActiveValidator(v.status)
         )
 
         // Verify we have unique addresses
@@ -92,12 +99,18 @@ export default function ValidatorPowerPieChart() {
       }
     }
 
-    fetchValidators()
+    // Add a small delay to ensure RPC manager has updated when switching endpoints
+    const timer = setTimeout(() => {
+      if (rpcAddress) {
+        fetchValidators()
+      }
+    }, 100) // 100ms delay
 
     return () => {
+      clearTimeout(timer)
       isMounted = false
     }
-  }, [])
+  }, [rpcAddress])
 
   // Move chartData calculation to useMemo at the top level
   const chartData = useMemo(() => {

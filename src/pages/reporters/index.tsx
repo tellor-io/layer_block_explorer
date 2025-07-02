@@ -19,6 +19,8 @@ import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
 import { getReporterSelectors } from '@/rpc/query'
 import { stripAddressPrefix } from '@/utils/helper'
+import { useSelector } from 'react-redux'
+import { selectRPCAddress } from '@/store/connectSlice'
 
 // Update the type to match the new data structure
 type ReporterData = {
@@ -185,121 +187,126 @@ export default function Reporters() {
   const [data, setData] = useState<ReporterData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const toast = useToast()
+  const rpcAddress = useSelector(selectRPCAddress)
 
   useEffect(() => {
     setIsLoading(true)
     const url = '/api/reporters'
 
-    // Add timeout promise
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Request timeout')), 10000)
-    })
-
-    // First fetch validators
-    Promise.race([fetch('/api/validators'), timeoutPromise])
-      .then((response: unknown) => {
-        if (!(response instanceof Response)) {
-          throw new Error('Expected Response object')
-        }
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-        return response.json()
+    // Add a small delay to ensure RPC manager has updated when switching endpoints
+    const timer = setTimeout(() => {
+      // Add timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
       })
-      .then((validatorData) => {
-        const validatorMap = new Map()
-        if (validatorData.validators) {
-          validatorData.validators.forEach((validator: any) => {
-            const strippedValAddress = stripAddressPrefix(
-              validator.operator_address
-            )
-            // Store using first 33 characters of the stripped address
-            const addressKey = strippedValAddress
-              .replace(/^valoper/, '')
-              .substring(0, 33)
-            validatorMap.set(addressKey, validator.description?.moniker)
-          })
-        }
 
-        // Then fetch reporters
-        return fetch(url)
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`)
-            }
-            return response.json()
-          })
-          .then((responseData) => {
-            if (
-              responseData.reporters &&
-              Array.isArray(responseData.reporters)
-            ) {
-              setTotal(
-                parseInt(responseData.pagination?.total) ||
-                  responseData.reporters.length
-              )
-              const reporterAddresses = responseData.reporters.map(
-                (reporter: APIReporter) => reporter.address
-              )
-
-              // Fetch selectors for all reporters
-              return Promise.all(
-                reporterAddresses.map((address: string) =>
-                  getReporterSelectors(address)
-                )
-              ).then((selectorsData) => {
-                const formattedData = responseData.reporters.map(
-                  (reporter: APIReporter, index: number) => {
-                    const strippedReporterAddress = stripAddressPrefix(
-                      reporter.address
-                    )
-                    // Use first 33 characters for lookup
-                    const lookupKey = strippedReporterAddress.substring(0, 33)
-                    const validatorMoniker = validatorMap.get(lookupKey)
-
-                    return {
-                      address: reporter.address,
-                      displayName:
-                        validatorMoniker || truncateAddress(reporter.address),
-                      min_tokens_required:
-                        reporter.metadata.min_tokens_required,
-                      commission_rate: reporter.metadata.commission_rate,
-                      jailed: reporter.metadata.jailed ? 'Yes' : 'No',
-                      jailed_until: reporter.metadata.jailed_until,
-                      selectors: selectorsData[index] ?? 0,
-                      power: reporter.power || '0',
-                    }
-                  }
-                )
-                const start = page * perPage
-                const end = start + perPage
-                const paginatedData = formattedData.slice(start, end)
-                setData(paginatedData)
-                setIsLoading(false) // Success case
-              })
-            } else {
-              throw new Error('Unexpected data structure')
-            }
-          })
-      })
-      .catch((error) => {
-        console.error('Error fetching data:', error)
-        toast({
-          title: 'Failed to fetch data',
-          description: error.message,
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
+      // First fetch validators
+      Promise.race([fetch('/api/validators'), timeoutPromise])
+        .then((response: unknown) => {
+          if (!(response instanceof Response)) {
+            throw new Error('Expected Response object')
+          }
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`)
+          }
+          return response.json()
         })
-        setData([]) // Clear data on error
-        setIsLoading(false) // Make sure to clear loading state on error
-      })
+        .then((validatorData) => {
+          const validatorMap = new Map()
+          if (validatorData.validators) {
+            validatorData.validators.forEach((validator: any) => {
+              const strippedValAddress = stripAddressPrefix(
+                validator.operator_address
+              )
+              // Store using first 33 characters of the stripped address
+              const addressKey = strippedValAddress
+                .replace(/^valoper/, '')
+                .substring(0, 33)
+              validatorMap.set(addressKey, validator.description?.moniker)
+            })
+          }
+
+          // Then fetch reporters
+          return fetch(url)
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+              }
+              return response.json()
+            })
+            .then((responseData) => {
+              if (
+                responseData.reporters &&
+                Array.isArray(responseData.reporters)
+              ) {
+                setTotal(
+                  parseInt(responseData.pagination?.total) ||
+                    responseData.reporters.length
+                )
+                const reporterAddresses = responseData.reporters.map(
+                  (reporter: APIReporter) => reporter.address
+                )
+
+                // Fetch selectors for all reporters
+                return Promise.all(
+                  reporterAddresses.map((address: string) =>
+                    getReporterSelectors(address)
+                  )
+                ).then((selectorsData) => {
+                  const formattedData = responseData.reporters.map(
+                    (reporter: APIReporter, index: number) => {
+                      const strippedReporterAddress = stripAddressPrefix(
+                        reporter.address
+                      )
+                      // Use first 33 characters for lookup
+                      const lookupKey = strippedReporterAddress.substring(0, 33)
+                      const validatorMoniker = validatorMap.get(lookupKey)
+
+                      return {
+                        address: reporter.address,
+                        displayName:
+                          validatorMoniker || truncateAddress(reporter.address),
+                        min_tokens_required:
+                          reporter.metadata.min_tokens_required,
+                        commission_rate: reporter.metadata.commission_rate,
+                        jailed: reporter.metadata.jailed ? 'Yes' : 'No',
+                        jailed_until: reporter.metadata.jailed_until,
+                        selectors: selectorsData[index] ?? 0,
+                        power: reporter.power || '0',
+                      }
+                    }
+                  )
+                  const start = page * perPage
+                  const end = start + perPage
+                  const paginatedData = formattedData.slice(start, end)
+                  setData(paginatedData)
+                  setIsLoading(false) // Success case
+                })
+              } else {
+                throw new Error('Unexpected data structure')
+              }
+            })
+        })
+        .catch((error) => {
+          console.error('Error fetching data:', error)
+          toast({
+            title: 'Failed to fetch data',
+            description: error.message,
+            status: 'error',
+            duration: 5000,
+            isClosable: true,
+          })
+          setData([]) // Clear data on error
+          setIsLoading(false) // Make sure to clear loading state on error
+        })
+    }, 100) // 100ms delay
 
     // Cleanup function
     return () => {
+      clearTimeout(timer)
       setIsLoading(false)
     }
-  }, [page, perPage, toast])
+  }, [page, perPage, toast, rpcAddress])
 
   const onChangePagination = (value: {
     pageIndex: number

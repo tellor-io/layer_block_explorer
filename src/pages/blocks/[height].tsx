@@ -46,6 +46,7 @@ import ErrorBoundary from '../../components/ErrorBoundary'
 import axios from 'axios'
 import { FaExpand, FaCompress, FaCopy } from 'react-icons/fa'
 import { rpcManager } from '@/utils/rpcManager'
+import { getValidators } from '@/rpc/query'
 
 // Extend the Block type to include rawData
 interface ExtendedBlock extends Block {
@@ -70,6 +71,21 @@ const serializeBigInt = (data: any): any => {
   return data
 }
 
+interface Validator {
+  operator_address: string
+  consensus_pubkey: {
+    '@type': string
+    key: string
+  }
+  description: {
+    moniker: string
+  }
+}
+
+interface ValidatorMap {
+  [key: string]: string
+}
+
 export default function DetailBlock() {
   const router = useRouter()
   const toast = useToast()
@@ -77,6 +93,7 @@ export default function DetailBlock() {
   const tmClient = useSelector(selectTmClient)
   const [block, setBlock] = useState<ExtendedBlock | null>(null)
   const [blockResults, setBlockResults] = useState<any>(null)
+  const [validatorMap, setValidatorMap] = useState<ValidatorMap>({})
 
   interface Tx {
     data: TxData
@@ -102,6 +119,37 @@ export default function DetailBlock() {
     blockResults ? JSON.stringify(serializeBigInt(blockResults), null, 2) : ''
   )
 
+  const fetchValidators = async () => {
+    if (tmClient) {
+      try {
+        const endpoint = await rpcManager.getCurrentEndpoint()
+        const validatorsResponse = await getValidators(endpoint)
+        if (validatorsResponse?.validators) {
+          const map: { [key: string]: string } = {}
+          validatorsResponse.validators.forEach((validator: Validator) => {
+            const hexAddress = pubkeyToAddress(validator.consensus_pubkey.key)
+            map[hexAddress] = validator.description.moniker
+          })
+          setValidatorMap(map)
+        }
+      } catch (error) {
+        console.error('Error fetching validators:', error)
+      }
+    }
+  }
+
+  const getProposerMoniker = (proposerAddress: Uint8Array) => {
+    try {
+      // Convert proposer address to the same format as validator consensus pubkey addresses
+      const hexAddress = toHex(proposerAddress).toLowerCase()
+      const moniker = validatorMap[hexAddress] || 'Unknown'
+      return moniker
+    } catch (error) {
+      console.error('Error converting proposer address:', error)
+      return 'Unknown'
+    }
+  }
+
   const handleCopy = (copyFunction: () => void, content: string) => {
     copyFunction()
     toast({
@@ -116,6 +164,9 @@ export default function DetailBlock() {
 
   useEffect(() => {
     if (tmClient && height) {
+      // Fetch validators first
+      fetchValidators()
+      
       getBlock(tmClient, parseInt(height as string, 10))
         .then(async (blockData: Block) => {
           const extendedBlockData = blockData as ExtendedBlock
@@ -323,6 +374,16 @@ export default function DetailBlock() {
                 </Tr>
                 <Tr>
                   <Td pl={0} width={150}>
+                    <b>Proposer</b>
+                  </Td>
+                  <Td>
+                    {block?.header.proposerAddress 
+                      ? getProposerMoniker(block.header.proposerAddress)
+                      : 'Unknown'}
+                  </Td>
+                </Tr>
+                <Tr>
+                  <Td pl={0} width={150}>
                     <b>Number of Tx</b>
                   </Td>
                   <Td>{block?.txs.length}</Td>
@@ -518,4 +579,9 @@ export default function DetailBlock() {
       </Modal>
     </ErrorBoundary>
   )
+}
+
+export function pubkeyToAddress(pubkey: string): string {
+  const hash = sha256(Buffer.from(pubkey, 'base64'))
+  return toHex(hash.slice(0, 20)).toLowerCase()
 }

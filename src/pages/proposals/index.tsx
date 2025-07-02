@@ -21,7 +21,7 @@ import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
 import { queryProposals, queryProposalVotes, queryGovParams, queryAllValidators } from '@/rpc/abci'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
-import { getTypeMsg, displayDate, convertRateToPercent, convertVotingPower } from '@/utils/helper'
+import { getTypeMsg, displayDate, convertRateToPercent, convertVotingPower, isActiveValidator } from '@/utils/helper'
 import { proposalStatus, proposalStatusList, GOV_PARAMS_TYPE } from '@/utils/constant'
 import { decodeContentProposal } from '@/encoding'
 import { useClipboard, Tooltip } from '@chakra-ui/react'
@@ -199,7 +199,7 @@ export default function Proposals() {
       if (validatorsResponse?.validators) {
         // Calculate total staked tokens from active validators
         const activeValidators = validatorsResponse.validators.filter(
-          (validator: any) => validator.status === 3 // BOND_STATUS_BONDED
+          (validator: any) => isActiveValidator(validator.status)
         )
         const totalStaked = activeValidators.reduce(
           (sum: number, validator: any) => sum + convertVotingPower(validator.tokens),

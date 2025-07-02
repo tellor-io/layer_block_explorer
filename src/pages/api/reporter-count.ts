@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import axios from 'axios'
 import { RPC_ENDPOINTS } from '@/utils/constant'
+import { rpcManager } from '@/utils/rpcManager'
 
 // Add a simple in-memory cache
 const cache = new Map<
@@ -11,15 +12,27 @@ const cache = new Map<
   }
 >()
 
-const CACHE_DURATION = 10000 // 5 seconds cache
+const CACHE_DURATION = 5000 // Reduce from 10 seconds to 5 seconds cache
 const INITIAL_DELAY = 1000 // 1 second wait before first attempt
 const AXIOS_TIMEOUT = 5000 // Increase from 3000 to 5000ms
+
+// Function to clear cache
+export const clearReporterCountCache = () => {
+  cache.clear()
+  console.log('Reporter count cache cleared')
+}
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { queryId, timestamp } = req.query
+  const { queryId, timestamp, clearCache, endpoint: customEndpoint } = req.query
+
+  // Allow cache clearing via query parameter
+  if (clearCache === 'true') {
+    clearReporterCountCache()
+    return res.status(200).json({ message: 'Cache cleared' })
+  }
 
   if (
     !queryId ||
@@ -50,13 +63,19 @@ export default async function handler(
 
   await new Promise((resolve) => setTimeout(resolve, INITIAL_DELAY))
 
-  for (const endpoint of RPC_ENDPOINTS) {
+  // Use custom endpoint if provided, otherwise fall back to RPC_ENDPOINTS
+  const endpointsToTry = customEndpoint && typeof customEndpoint === 'string' 
+    ? [customEndpoint, ...RPC_ENDPOINTS.filter(ep => ep !== customEndpoint)]
+    : RPC_ENDPOINTS
+
+  for (const endpoint of endpointsToTry) {
     try {
       const baseEndpoint = endpoint.endsWith('/rpc')
         ? endpoint.slice(0, -4) // Remove '/rpc'
         : endpoint
 
       const url = `${baseEndpoint}/tellor-io/layer/oracle/get_reports_by_aggregate/${queryId}/${timestampNum}?pagination.limit=600`
+      
       const response = await axios.get(url, {
         timeout: AXIOS_TIMEOUT,
         headers: { Accept: 'application/json' },

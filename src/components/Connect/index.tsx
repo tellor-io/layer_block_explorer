@@ -18,6 +18,7 @@ import {
   setConnectState,
   setTmClient,
   setRPCAddress,
+  resetState,
 } from '@/store/connectSlice'
 import Head from 'next/head'
 import { LS_RPC_ADDRESS } from '@/utils/constant'
@@ -71,9 +72,11 @@ export default function Connect() {
 
           if (tmClient) {
             await rpcManager.reportSuccess(endpoint)
+            dispatch(resetState())
             dispatch(setConnectState(true))
             dispatch(setTmClient(tmClient))
             dispatch(setRPCAddress(endpoint))
+            await rpcManager.setCustomEndpoint(endpoint)
             setState('success')
             window.localStorage.setItem(LS_RPC_ADDRESS, endpoint)
             return

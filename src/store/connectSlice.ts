@@ -39,6 +39,12 @@ export const connectSlice = createSlice({
     setTmClient(state, action) {
       state.tmClient = action.payload
     },
+    // Action to reset state when switching RPC endpoints
+    resetState(state) {
+      state.tmClient = null
+      state.connectState = false
+      // Keep the rpcAddress as it will be set by setRPCAddress
+    },
   },
 
   // Special reducer for hydrating the state. Special case for next-redux-wrapper
@@ -52,7 +58,7 @@ export const connectSlice = createSlice({
   },
 })
 
-export const { setRPCAddress, setConnectState, setTmClient } =
+export const { setRPCAddress, setConnectState, setTmClient, resetState } =
   connectSlice.actions
 
 export const selectRPCAddress = (state: AppState) => state.connect.rpcAddress

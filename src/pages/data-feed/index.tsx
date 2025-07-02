@@ -100,13 +100,6 @@ export default function DataFeed() {
   const processedBlocksRef = useRef(new Set<number>())
   const toast = useToast()
 
-  useEffect(() => {
-    // Clear any stored custom RPC endpoint
-    localStorage.removeItem('LS_RPC_ADDRESS')
-    // Reset the RPC manager
-    rpcManager.setCustomEndpoint(null)
-  }, []) // Empty dependency array means this runs once when component mounts
-
   const processBlock = useCallback(
     async (block: NewBlockEvent): Promise<void> => {
       const blockHeight = block.header.height
@@ -120,7 +113,7 @@ export default function DataFeed() {
       let endpoint;
       try {
         endpoint = await rpcManager.getCurrentEndpoint()
-        const baseEndpoint = endpoint.replace('/rpc', '')
+        const baseEndpoint = endpoint
         
         const response = await axios.get(
           `${baseEndpoint}/block_results?height=${blockHeight}`,
