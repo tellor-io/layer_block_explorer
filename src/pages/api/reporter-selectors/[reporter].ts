@@ -12,9 +12,19 @@ export default async function handler(
   }
 
   try {
-    const rpcManager = RPCManager.getInstance()
-    const endpoint = await rpcManager.getCurrentEndpoint()
+    const { rpc } = req.query
+    
+    // Use RPC address from query if provided, otherwise use rpcManager
+    let endpoint: string
+    if (rpc) {
+      endpoint = rpc as string
+    } else {
+      const rpcManager = RPCManager.getInstance()
+      endpoint = await rpcManager.getCurrentEndpoint()
+    }
+    
     const baseEndpoint = endpoint.replace('/rpc', '')
+    
 
     const response = await fetch(
       `${baseEndpoint}/tellor-io/layer/reporter/num-of-selectors-by-reporter/${reporter}`
