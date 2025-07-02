@@ -39,7 +39,7 @@ import { selectTmClient } from '@/store/connectSlice'
 import { Block, Coin } from '@cosmjs/stargate'
 import { Tx as TxData } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
 import { sha256 } from '@cosmjs/crypto'
-import { toHex } from '@cosmjs/encoding'
+import { toHex, fromBase64 } from '@cosmjs/encoding'
 import { timeFromNow, trimHash, displayDate, getTypeMsg } from '@/utils/helper'
 import { decodeData } from '@/utils/decodeHelper' // Import the decoding function
 import ErrorBoundary from '../../components/ErrorBoundary'
@@ -48,9 +48,12 @@ import { FaExpand, FaCompress, FaCopy } from 'react-icons/fa'
 import { rpcManager } from '@/utils/rpcManager'
 import { getValidators } from '@/rpc/query'
 
-// Extend the Block type to include rawData
+// Extend the Block type to include rawData and proposerAddress
 interface ExtendedBlock extends Block {
   rawData?: Uint8Array
+  header: Block['header'] & {
+    proposerAddress?: Uint8Array
+  }
 }
 
 function decodeBase64ToUtf8(base64String: string) {
@@ -163,20 +166,43 @@ export default function DetailBlock() {
   }
 
   useEffect(() => {
-    if (tmClient && height) {
+    if (height) {
       // Fetch validators first
       fetchValidators()
       
-      getBlock(tmClient, parseInt(height as string, 10))
-        .then(async (blockData: Block) => {
-          const extendedBlockData = blockData as ExtendedBlock
-          setBlock(extendedBlockData)
-
-          // Remove the axios call that's failing and instead look for vote extensions
-          // in block results if that's where they are stored
+      // Use the API endpoint to get block data with proposer_address
+      axios.get(`/api/block-by-height/${height}`)
+        .then(async (response) => {
+          if (response?.data?.block) {
+            const blockData = response.data.block
+            // Construct the block object similar to blocks/index.tsx
+            const constructedBlock = {
+              header: {
+                version: { block: '0', app: '0' },
+                height: blockData.header.height,
+                time: new Date(blockData.header.time),
+                proposerAddress: fromBase64(blockData.header.proposer_address),
+                chainId: blockData.header.chain_id,
+                lastBlockId: blockData.header.last_block_id,
+                lastCommitHash: fromBase64(blockData.header.last_commit_hash),
+                dataHash: fromBase64(blockData.header.data_hash),
+                validatorsHash: fromBase64(blockData.header.validators_hash),
+                nextValidatorsHash: fromBase64(blockData.header.next_validators_hash),
+                consensusHash: fromBase64(blockData.header.consensus_hash),
+                appHash: fromBase64(blockData.header.app_hash),
+                lastResultsHash: fromBase64(blockData.header.last_results_hash),
+                evidenceHash: fromBase64(blockData.header.evidence_hash),
+              },
+              txs: blockData.data?.txs || [],
+              lastCommit: blockData.last_commit,
+              evidence: blockData.evidence,
+              id: blockData.block_id?.hash || '',
+            } as any
+            setBlock(constructedBlock)
+          }
         })
         .catch((error) => {
-          console.error('Error fetching or decoding block data:', error)
+          console.error('Error fetching block data:', error)
         })
 
       // Fetch block results
@@ -197,7 +223,7 @@ export default function DetailBlock() {
           console.error('Error fetching block results:', error)
         })
     }
-  }, [tmClient, height])
+  }, [height])
 
   useEffect(() => {
     if (block?.txs.length && !txs.length) {
