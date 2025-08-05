@@ -425,7 +425,7 @@ export default function DetailBlock() {
                   <Td pl={0} width={150}>
                     <b>Block Hash</b>
                   </Td>
-                  <Td>{(block as ExtendedBlock)?.header.appHash ? toHex((block as ExtendedBlock).header.appHash) : ''}</Td>
+                  <Td>{(block as ExtendedBlock)?.header.appHash ? toHex((block as ExtendedBlock).header.appHash!) : ''}</Td>
                 </Tr>
                 <Tr>
                   <Td pl={0} width={150}>
