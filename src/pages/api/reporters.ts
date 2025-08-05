@@ -20,9 +20,6 @@ export default async function handler(
     }
     
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
-    console.log('Reporters API: Using endpoint:', endpoint)
-    console.log('Reporters API: Base endpoint:', baseEndpoint)
 
     const response = await fetch(
       `${baseEndpoint}/tellor-io/layer/reporter/reporters`

@@ -10,9 +10,7 @@ export default async function handler(
   try {
     const endpoint =
       (req.query.endpoint as string) || (await rpcManager.getCurrentEndpoint())
-    
-    console.log('Latest block API: Using Tendermint RPC endpoint:', endpoint)
-    
+        
     // Use Tendermint RPC client instead of REST API
     const tmClient = await Tendermint37Client.connect(endpoint)
     const client = await StargateClient.create(tmClient)
