@@ -19,7 +19,6 @@ const AXIOS_TIMEOUT = 5000 // Increase from 3000 to 5000ms
 // Function to clear cache
 export const clearReporterCountCache = () => {
   cache.clear()
-  console.log('Reporter count cache cleared')
 }
 
 export default async function handler(

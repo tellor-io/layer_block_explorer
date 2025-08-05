@@ -8,7 +8,6 @@ const CACHE_DURATION = 5000 // 5 seconds cache
 // Function to clear cache
 export const clearValidatorsCache = () => {
   cache.clear()
-  console.log('Validators cache cleared')
 }
 
 export default async function handler(
@@ -45,15 +44,6 @@ export default async function handler(
     }
 
     const data = await response.json()
-    
-    // Debug: Log the first few validators to see status format
-    if (data.validators && data.validators.length > 0) {
-      console.log('Validators API Debug - First 3 validators:', data.validators.slice(0, 3).map((v: any) => ({
-        moniker: v.description?.moniker,
-        status: v.status,
-        statusType: typeof v.status
-      })))
-    }
     
     // Cache the data
     cache.set(cacheKey, {

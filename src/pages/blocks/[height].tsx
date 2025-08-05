@@ -53,6 +53,7 @@ interface ExtendedBlock extends Block {
   rawData?: Uint8Array
   header: Block['header'] & {
     proposerAddress?: Uint8Array
+    appHash?: Uint8Array
   }
 }
 
@@ -97,6 +98,7 @@ export default function DetailBlock() {
   const [block, setBlock] = useState<ExtendedBlock | null>(null)
   const [blockResults, setBlockResults] = useState<any>(null)
   const [validatorMap, setValidatorMap] = useState<ValidatorMap>({})
+  const [rawProposerAddress, setRawProposerAddress] = useState<string>('')
 
   interface Tx {
     data: TxData
@@ -141,11 +143,19 @@ export default function DetailBlock() {
     }
   }
 
-  const getProposerMoniker = (proposerAddress: Uint8Array) => {
+  const getProposerMoniker = (rawProposerAddress: string | undefined) => {
     try {
-      // Convert proposer address to the same format as validator consensus pubkey addresses
-      const hexAddress = toHex(proposerAddress).toLowerCase()
+      if (!rawProposerAddress) {
+        return 'Unknown'
+      }
+      
+      // The raw proposer address is already a hex string, not base64
+      // Just convert it to lowercase to match the validator addresses
+      const hexAddress = rawProposerAddress.toLowerCase()
+      
+      // Check if the address exists in the map
       const moniker = validatorMap[hexAddress] || 'Unknown'
+      
       return moniker
     } catch (error) {
       console.error('Error converting proposer address:', error)
@@ -198,11 +208,16 @@ export default function DetailBlock() {
               evidence: blockData.evidence,
               id: blockData.block_id?.hash || '',
             } as any
+            // Store the raw proposer address for the moniker lookup
+            setRawProposerAddress(blockData.header.proposer_address)
             setBlock(constructedBlock)
+          } else {
           }
         })
         .catch((error) => {
-          console.error('Error fetching block data:', error)
+          console.error('Block details: Error fetching block data:', error)
+          console.error('Block details: Error response:', error.response?.data)
+          console.error('Block details: Error status:', error.response?.status)
         })
 
       // Fetch block results
@@ -229,9 +244,23 @@ export default function DetailBlock() {
     if (block?.txs.length && !txs.length) {
       for (const rawTx of block.txs) {
         try {
+          // rawTx should be a base64 string from the API
+          let txBytes: Uint8Array;
+          
+          if (typeof rawTx === 'string') {
+            // It's a base64 string, convert to Uint8Array using Buffer
+            txBytes = Buffer.from(rawTx, 'base64');
+          } else if (rawTx instanceof Uint8Array) {
+            // It's already a Uint8Array
+            txBytes = rawTx;
+          } else {
+            console.error('Unknown transaction format:', typeof rawTx);
+            continue;
+          }
+          
           // Try to decode as JSON first
           const textDecoder = new TextDecoder();
-          const jsonString = textDecoder.decode(rawTx);
+          const jsonString = textDecoder.decode(txBytes);
           
           // Check if this looks like a vote extension (has block_height field)
           if (jsonString.includes('"block_height"')) {
@@ -239,8 +268,8 @@ export default function DetailBlock() {
             setDecodedTxData(jsonData);
           } else {
             // Only try transaction decoding if it's not a vote extension
-            const data = TxData.decode(rawTx);
-            const hash = sha256(rawTx);
+            const data = TxData.decode(txBytes);
+            const hash = sha256(txBytes);
             setTxs((prevTxs) => [
               ...prevTxs,
               {
@@ -396,17 +425,15 @@ export default function DetailBlock() {
                   <Td pl={0} width={150}>
                     <b>Block Hash</b>
                   </Td>
-                  <Td>{block?.id}</Td>
+                  <Td>{(block as ExtendedBlock)?.header.appHash ? toHex((block as ExtendedBlock).header.appHash) : ''}</Td>
                 </Tr>
                 <Tr>
                   <Td pl={0} width={150}>
                     <b>Proposer</b>
                   </Td>
-                  <Td>
-                    {block?.header.proposerAddress 
-                      ? getProposerMoniker(block.header.proposerAddress)
-                      : 'Unknown'}
-                  </Td>
+                                          <Td>
+                          {getProposerMoniker(rawProposerAddress)}
+                        </Td>
                 </Tr>
                 <Tr>
                   <Td pl={0} width={150}>

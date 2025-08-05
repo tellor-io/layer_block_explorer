@@ -127,11 +127,9 @@ export class RPCManager {
     try {
       // Clear the reporter count cache
       await fetch('/api/reporter-count?clearCache=true')
-      console.log('Cleared reporter count cache due to endpoint switch')
       
       // Clear the validators cache
       await fetch('/api/validators?clearCache=true')
-      console.log('Cleared validators cache due to endpoint switch')
       
       // Clear other potential caches by making fresh requests
       // This ensures all API endpoints get fresh data from the new RPC
@@ -142,7 +140,6 @@ export class RPCManager {
       ]
       
       await Promise.all(cacheClearingPromises)
-      console.log('Cleared all API caches due to endpoint switch')
     } catch (error) {
       console.warn('Failed to clear some caches:', error)
     }

@@ -337,14 +337,11 @@ export function decodeQueryData(queryId: string, queryData?: string): any {
 
 export const getValidators = async (endpoint: string): Promise<any> => {
   try {
-    console.log('Fetching validators from endpoint:', endpoint)
     const response = await axios.get('/api/validators', {
       params: { endpoint },
     })
-    console.log('Validators response status:', response.status)
     
     const data = response.data
-    console.log('Validators response data:', data)
     
     return data
   } catch (error) {
