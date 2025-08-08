@@ -91,7 +91,9 @@ export default function BridgeDeposits() {
   const fetchReportStatus = async (depositId: number) => {
     try {
       const queryId = generateDepositQueryId(depositId)
-      const response = await fetch(`/api/oracle-data/${queryId}`)
+      const rpcManager = RPCManager.getInstance()
+      const currentEndpoint = await rpcManager.getCurrentEndpoint()
+      const response = await fetch(`/api/oracle-data/${queryId}?endpoint=${encodeURIComponent(currentEndpoint)}`)
 
       if (!response.ok) {
         return { isReported: false }
@@ -113,37 +115,68 @@ export default function BridgeDeposits() {
     }
   }
 
-  // Function to fetch claim status for a deposit
+  // Function to fetch claim status for a deposit with retry logic
   const fetchClaimStatus = async (depositId: number) => {
-    try {
-      const rpcManager = RPCManager.getInstance()
-      const endpoint = await rpcManager.getCurrentEndpoint()
-      const baseEndpoint = endpoint.replace('/rpc', '')
+    const maxRetries = 3
+    const retryDelay = 1000 // 1 second
 
-      const response = await fetch(
-        `${baseEndpoint}/layer/bridge/get_deposit_claimed/${depositId}`
-      )
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const rpcManager = RPCManager.getInstance()
+        const endpoint = await rpcManager.getCurrentEndpoint()
+        const baseEndpoint = endpoint.replace('/rpc', '')
 
-      if (!response.ok) {
-        throw new Error(`External API responded with status: ${response.status}`)
-      }
 
-      const data = await response.json()
-      return { claimed: data.claimed }
-    } catch (error) {
-      console.error(
-        `Error fetching claim status for deposit ${depositId}:`,
-        error
-      )
-      return { claimed: false }
+
+        const response = await fetch(
+          `${baseEndpoint}/layer/bridge/get_deposit_claimed/${depositId}`,
+          {
+            // Add timeout to prevent hanging requests
+            signal: AbortSignal.timeout(10000) // 10 second timeout
+          }
+        )
+
+        if (!response.ok) {
+          if (attempt === maxRetries) {
+            throw new Error(`External API responded with status: ${response.status}`)
+          }
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, retryDelay))
+          continue
+        }
+
+        const data = await response.json()
+        
+        // Check if the response has the expected structure
+        if (typeof data.claimed === 'boolean') {
+          return { claimed: data.claimed }
+        } else if (typeof data === 'boolean') {
+          return { claimed: data }
+        } else {
+          console.warn(`Unexpected claim status format for deposit ${depositId}:`, data)
+          return { claimed: false }
+        }
+              } catch (error) {
+          if (attempt === maxRetries) {
+            // On final attempt, return false instead of throwing
+            return { claimed: false }
+          }
+          
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, retryDelay))
+        }
     }
+    
+    return { claimed: false }
   }
 
   // Function to fetch withdrawal claim status
   const fetchWithdrawalClaimStatus = async (withdrawalId: number) => {
     try {
+      const rpcManager = RPCManager.getInstance()
+      const currentEndpoint = await rpcManager.getCurrentEndpoint()
       const response = await fetch(
-        `/api/ethereum/bridge?method=withdrawClaimed&id=${withdrawalId}`
+        `/api/ethereum/bridge?method=withdrawClaimed&id=${withdrawalId}&endpoint=${encodeURIComponent(currentEndpoint)}`
       )
       if (!response.ok) {
         throw new Error(`External API responded with status: ${response.status}`)
@@ -259,8 +292,10 @@ export default function BridgeDeposits() {
       try {
         setError(null)
 
-        // Fetch deposits using new API endpoint
-        const response = await fetch('/api/ethereum/bridge?method=deposits')
+        // Fetch deposits using new API endpoint with current endpoint
+        const rpcManager = RPCManager.getInstance()
+        const currentEndpoint = await rpcManager.getCurrentEndpoint()
+        const response = await fetch(`/api/ethereum/bridge?method=deposits&endpoint=${encodeURIComponent(currentEndpoint)}`)
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
         }

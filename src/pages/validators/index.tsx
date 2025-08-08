@@ -22,15 +22,47 @@ import {
 import { useEffect, useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
 import NextLink from 'next/link'
-import { FiChevronRight, FiHome, FiCopy, FiExternalLink, FiMail } from 'react-icons/fi'
+import {
+  FiChevronRight,
+  FiHome,
+  FiCopy,
+  FiExternalLink,
+  FiMail,
+} from 'react-icons/fi'
 import { selectTmClient } from '@/store/connectSlice'
 import { queryAllValidators } from '@/rpc/abci'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
-import { convertRateToPercent, convertVotingPower, isActiveValidator } from '@/utils/helper'
+import {
+  convertRateToPercent,
+  convertVotingPower,
+  isActiveValidator,
+} from '@/utils/helper'
 import { ColumnDef } from '@tanstack/react-table'
 import DelegationPieChart from '@/components/DelegationPieChart'
 import { useRouter } from 'next/router'
+import { rpcManager } from '@/utils/rpcManager'
+
+// Function to fetch delegator count for a validator
+const fetchDelegatorCount = async (
+  validatorAddress: string
+): Promise<number> => {
+  try {
+    const currentEndpoint = await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = currentEndpoint.replace('/rpc', '')
+    const response = await fetch(
+      `${baseEndpoint}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations`
+    )
+    if (!response.ok) {
+      return 0
+    }
+    const data = await response.json()
+    return data.delegation_responses?.length || 0
+  } catch (error) {
+    console.error('Error fetching delegator count:', error)
+    return 0
+  }
+}
 
 type ValidatorData = {
   operatorAddress: string
@@ -39,6 +71,7 @@ type ValidatorData = {
   votingPower: number
   votingPowerPercentage: string
   commission: string
+  delegatorCount: number
   identity?: string
   website?: string
   details?: string
@@ -49,7 +82,9 @@ const columnHelper = createColumnHelper<ValidatorData>()
 
 const columns: ColumnDef<ValidatorData, any>[] = [
   columnHelper.accessor('validator', {
-    header: () => <div style={{ width: '130px', textAlign: 'left' }}>Validator</div>,
+    header: () => (
+      <div style={{ width: '130px', textAlign: 'left' }}>Validator</div>
+    ),
     cell: (props) => {
       const address = props.row.original.operatorAddress
       const displayName = props.getValue()
@@ -102,14 +137,19 @@ const columns: ColumnDef<ValidatorData, any>[] = [
             display: 'flex',
             alignItems: 'center',
             gap: '4px',
-            textAlign: 'left'
+            textAlign: 'left',
           }}
         >
           {hasMetadata ? (
-            <Popover placement="top" trigger="hover" openDelay={300} closeDelay={300}>
+            <Popover
+              placement="top"
+              trigger="hover"
+              openDelay={300}
+              closeDelay={300}
+            >
               <PopoverTrigger>
-                <Text 
-                  isTruncated 
+                <Text
+                  isTruncated
                   cursor="help"
                   _hover={{ textDecoration: 'underline' }}
                 >
@@ -122,7 +162,7 @@ const columns: ColumnDef<ValidatorData, any>[] = [
                     <Text fontWeight="bold" fontSize="sm">
                       {displayName}
                     </Text>
-                    
+
                     {identity && (
                       <HStack spacing={2} w="full">
                         <Text fontSize="xs" color="gray.500" minW="60px">
@@ -140,16 +180,16 @@ const columns: ColumnDef<ValidatorData, any>[] = [
                         />
                       </HStack>
                     )}
-                    
+
                     {website && (
                       <HStack spacing={2} w="full">
                         <Text fontSize="xs" color="gray.500" minW="60px">
                           Website:
                         </Text>
-                        <Link 
-                          href={website} 
-                          isExternal 
-                          fontSize="xs" 
+                        <Link
+                          href={website}
+                          isExternal
+                          fontSize="xs"
                           color="blue.500"
                           flex={1}
                           _hover={{ textDecoration: 'underline' }}
@@ -167,7 +207,7 @@ const columns: ColumnDef<ValidatorData, any>[] = [
                         />
                       </HStack>
                     )}
-                    
+
                     {details && (
                       <HStack spacing={2} w="full" align="start">
                         <Text fontSize="xs" color="gray.500" minW="60px">
@@ -178,7 +218,7 @@ const columns: ColumnDef<ValidatorData, any>[] = [
                         </Text>
                       </HStack>
                     )}
-                    
+
                     {securityContact && (
                       <HStack spacing={2} w="full">
                         <Text fontSize="xs" color="gray.500" minW="60px">
@@ -196,17 +236,17 @@ const columns: ColumnDef<ValidatorData, any>[] = [
                         />
                       </HStack>
                     )}
-                    
+
                     <Divider />
-                    
+
                     <VStack spacing={2} w="full" align="start">
                       <Text fontSize="xs" color="gray.500">
                         Address:
                       </Text>
                       <HStack spacing={2} w="full" align="start">
-                        <Text 
-                          fontSize="xs" 
-                          fontFamily="mono" 
+                        <Text
+                          fontSize="xs"
+                          fontFamily="mono"
                           flex={1}
                           wordBreak="break-all"
                           maxW="320px"
@@ -229,12 +269,10 @@ const columns: ColumnDef<ValidatorData, any>[] = [
             </Popover>
           ) : (
             <Tooltip label={`Copy validator address: ${address}`} hasArrow>
-              <Text isTruncated>
-                {displayName}
-              </Text>
+              <Text isTruncated>{displayName}</Text>
             </Tooltip>
           )}
-          
+
           <Tooltip label="Copy validator address" hasArrow>
             <IconButton
               aria-label="Copy validator address"
@@ -249,13 +287,19 @@ const columns: ColumnDef<ValidatorData, any>[] = [
     },
   }),
   columnHelper.accessor('status', {
-    header: () => <div style={{ width: '100px', textAlign: 'left' }}>Status</div>,
-    cell: (info) => <div style={{ width: '100px', textAlign: 'left' }}>{info.getValue()}</div>,
+    header: () => (
+      <div style={{ width: '60px', textAlign: 'left' }}>Status</div>
+    ),
+    cell: (info) => (
+      <div style={{ width: '60px', textAlign: 'left' }}>{info.getValue()}</div>
+    ),
   }),
   columnHelper.accessor('votingPower', {
-    header: () => <div style={{ width: '150px', textAlign: 'left' }}>Voting Power</div>,
+    header: () => (
+      <div style={{ width: '100px', textAlign: 'left' }}>Voting Power</div>
+    ),
     cell: (info) => (
-      <div style={{ width: '150px', textAlign: 'left' }}>
+      <div style={{ width: '100px', textAlign: 'left' }}>
         <Text>
           {info.getValue().toLocaleString()}{' '}
           <Text as="span" color="gray.500" fontSize="sm">
@@ -269,19 +313,44 @@ const columns: ColumnDef<ValidatorData, any>[] = [
     },
   }),
   columnHelper.accessor('commission', {
-    header: () => <div style={{ width: '100px', textAlign: 'left' }}>Commission</div>,
-    cell: (info) => <div style={{ width: '100px', textAlign: 'left' }}>{info.getValue()}</div>,
+    header: () => (
+      <div style={{ width: '87px', textAlign: 'left' }}>Commission</div>
+    ),
+    cell: (info) => (
+      <div style={{ width: '87px', textAlign: 'left' }}>{info.getValue()}</div>
+    ),
     meta: {
       isNumeric: false,
     },
   }),
+  columnHelper.accessor('delegatorCount', {
+    header: () => (
+      <div style={{ width: '120px', textAlign: 'center' }}># of Delegators</div>
+    ),
+    cell: (info) => (
+      <div style={{ width: '120px', textAlign: 'center' }}>
+        <Text>{info.getValue().toLocaleString()}</Text>
+      </div>
+    ),
+    meta: {
+      isNumeric: true,
+    },
+  }),
   columnHelper.accessor('operatorAddress', {
-    header: () => <div style={{ width: '500px', textAlign: 'left' }}>Delegation Distribution</div>,
+    header: () => (
+      <div style={{ width: '500px', textAlign: 'left' }}>
+        Delegation Distribution
+      </div>
+    ),
     cell: (props) => {
       const address = props.getValue()
       return (
         <div style={{ width: '500px', height: '200px', textAlign: 'left' }}>
-          <DelegationPieChart validatorAddress={address} width={400} height={180} />
+          <DelegationPieChart
+            validatorAddress={address}
+            width={400}
+            height={180}
+          />
         </div>
       )
     },
@@ -343,9 +412,11 @@ export default function Validators() {
 
     setIsLoading(true)
     queryAllValidators(tmClient)
-      .then((response: ValidatorResponse) => {
+      .then(async (response: ValidatorResponse) => {
         const validators = response.validators
-        const activeValidators = validators.filter(val => isActiveValidator(val.status))
+        const activeValidators = validators.filter((val) =>
+          isActiveValidator(val.status)
+        )
         const totalPower = activeValidators.reduce(
           (sum, val) => sum + convertVotingPower(val.tokens),
           0
@@ -362,12 +433,27 @@ export default function Validators() {
           commission: convertRateToPercent(
             val.commission?.commissionRates?.rate
           ),
+          delegatorCount: 0, // Will be fetched below
           identity: val.description?.identity,
           website: val.description?.website,
           details: val.description?.details,
           securityContact: val.description?.security_contact,
         }))
-        setAllValidators(validatorData)
+
+        // Fetch delegator counts for all validators
+        const validatorsWithDelegatorCounts = await Promise.all(
+          validatorData.map(async (validator) => {
+            const delegatorCount = await fetchDelegatorCount(
+              validator.operatorAddress
+            )
+            return {
+              ...validator,
+              delegatorCount,
+            }
+          })
+        )
+
+        setAllValidators(validatorsWithDelegatorCounts)
         setIsLoading(false)
       })
       .catch((error: Error) => {
@@ -384,28 +470,36 @@ export default function Validators() {
   }, [tmClient, toast])
 
   useEffect(() => {
-    if (!highlight || typeof highlight !== 'string' || allValidators.length === 0) return
-    
+    if (
+      !highlight ||
+      typeof highlight !== 'string' ||
+      allValidators.length === 0
+    )
+      return
+
     const tryHighlight = () => {
-      const validatorCell = document.querySelector(`[data-validator-address="${highlight}"]`)
-      
+      const validatorCell = document.querySelector(
+        `[data-validator-address="${highlight}"]`
+      )
+
       if (validatorCell) {
-        const tableContainer = document.querySelector('[role="table"]')?.parentElement
+        const tableContainer =
+          document.querySelector('[role="table"]')?.parentElement
         if (tableContainer) {
           tableContainer.scrollLeft = 0
         }
-        
+
         const row = validatorCell.closest('tr')
         if (row) {
-          validatorCell.scrollIntoView({ 
-            behavior: 'smooth', 
+          validatorCell.scrollIntoView({
+            behavior: 'smooth',
             block: 'center',
-            inline: 'nearest'
+            inline: 'nearest',
           })
-          
+
           row.style.backgroundColor = highlightBgColor
           row.style.transition = 'background-color 0.3s ease-in-out'
-          
+
           setTimeout(() => {
             row.style.backgroundColor = ''
           }, 5000)
@@ -467,30 +561,35 @@ export default function Validators() {
             '& table': {
               minWidth: '100%',
               width: 'max-content',
-            }
+            },
           }}
         >
           <DataTable<ValidatorData>
-            columns={columns.map(col => {
-              if (typeof col === 'object' && 'accessorKey' in col && col.accessorKey === 'operatorAddress') {
+            columns={columns.map((col) => {
+              if (
+                typeof col === 'object' &&
+                'accessorKey' in col &&
+                col.accessorKey === 'operatorAddress'
+              ) {
                 return {
                   ...col,
                   cell: (props: any) => {
                     const address = props.getValue()
-                    const cell = typeof col.cell === 'function' ? col.cell(props) : address
+                    const cell =
+                      typeof col.cell === 'function' ? col.cell(props) : address
                     return (
-                      <div 
+                      <div
                         id={`validator-${address}`}
-                        style={{ 
+                        style={{
                           position: 'relative',
                           padding: '8px',
-                          transition: 'background-color 0.3s ease-in-out'
+                          transition: 'background-color 0.3s ease-in-out',
                         }}
                       >
                         {cell}
                       </div>
                     )
-                  }
+                  },
                 }
               }
               return col
