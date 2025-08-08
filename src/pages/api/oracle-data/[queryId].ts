@@ -5,15 +5,20 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { queryId } = req.query
+  const { queryId, endpoint: forcedEndpoint } = req.query
 
   if (!queryId || typeof queryId !== 'string') {
     return res.status(400).json({ error: 'Invalid query ID' })
   }
 
   try {
-    const rpcManager = RPCManager.getInstance()
-    const endpoint = await rpcManager.getCurrentEndpoint()
+    let endpoint: string
+    if (forcedEndpoint && typeof forcedEndpoint === 'string') {
+      endpoint = forcedEndpoint
+    } else {
+      const rpcManager = RPCManager.getInstance()
+      endpoint = await rpcManager.getCurrentEndpoint()
+    }
     const baseEndpoint = endpoint.replace('/rpc', '')
 
     const response = await fetch(

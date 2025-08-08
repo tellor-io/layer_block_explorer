@@ -59,6 +59,7 @@ import { StatusResponse } from '@cosmjs/tendermint-rpc'
 import { connectWebsocketClient, validateConnection } from '@/rpc/client'
 import { LinkItems, RefLinkItems, NavItem } from '@/components/Sidebar'
 import { rpcManager } from '../../utils/rpcManager'
+import { RPC_ENDPOINTS } from '../../utils/constant'
 
 const heightRegex = /^\d+$/
 const txhashRegex = /^[A-Z\d]{64}$/
@@ -202,6 +203,65 @@ export default function Navbar() {
     }
   }
 
+  const handleSwitchRPC = async () => {
+    try {
+      // Get the current endpoint and find the other one
+      const currentEndpoint = rpcAddress
+      const otherEndpoint = RPC_ENDPOINTS.find(endpoint => endpoint !== currentEndpoint)
+      
+      if (!otherEndpoint) {
+        toast({
+          title: 'Error',
+          description: 'Unable to determine alternative endpoint.',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        })
+        return
+      }
+      
+      // Validate the other endpoint
+      const isValid = await validateConnection(otherEndpoint)
+      if (!isValid) {
+        toast({
+          title: 'Connection Error',
+          description: `Unable to connect to ${otherEndpoint}`,
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        })
+        return
+      }
+
+      // Set the other endpoint in the manager
+      rpcManager.setCustomEndpoint(otherEndpoint)
+
+      const tmClient = await connectWebsocketClient(otherEndpoint)
+      if (tmClient) {
+        dispatch(setConnectState(true))
+        dispatch(setTmClient(tmClient))
+        dispatch(setRPCAddress(otherEndpoint))
+        onClose() // Close the modal
+        toast({
+          title: 'RPC Connection Established',
+          description: `Switched to: ${otherEndpoint}`,
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        })
+      }
+    } catch (error) {
+      console.error('Error switching RPC:', error)
+      toast({
+        title: 'Connection Error',
+        description: 'Failed to connect to the alternative RPC endpoint.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+    }
+  }
+
   return (
     <Box
       bg={useColorModeValue('light-container', 'dark-container')}
@@ -259,7 +319,9 @@ export default function Navbar() {
             </HStack>
             <Skeleton isLoaded={!!status}>
               <Button leftIcon={<Icon as={FiRadio} />} onClick={onOpen}>
-                {status?.nodeInfo.network}
+                {status?.nodeInfo.network === 'tellor-1' ? 'Mainnet' : 
+                 status?.nodeInfo.network === 'layertest-4' ? 'Palmito Testnet' : 
+                 status?.nodeInfo.network || 'Network'}
               </Button>
             </Skeleton>
             <IconButton
@@ -306,7 +368,9 @@ export default function Navbar() {
                   onMenuClose()
                 }}
               >
-                {status?.nodeInfo.network || 'Network'}
+                {status?.nodeInfo.network === 'tellor-1' ? 'Mainnet' : 
+                 status?.nodeInfo.network === 'layertest-4' ? 'Palmito Testnet' : 
+                 status?.nodeInfo.network || 'Network'}
               </Button>
               <Button
                 leftIcon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
@@ -356,11 +420,14 @@ export default function Navbar() {
           <ModalCloseButton />
           <ModalBody>
             <Text>
-              <strong>Network:</strong> {status?.nodeInfo.network}
+              <strong>Network:</strong> {status?.nodeInfo.network === 'tellor-1' ? 'Mainnet' : 
+                                       status?.nodeInfo.network === 'layertest-4' ? 'Palmito Testnet' : 
+                                       status?.nodeInfo.network || 'Unknown Network'}
             </Text>
             <Text>
-              <strong>Moniker:</strong> {status?.nodeInfo.moniker}
+              <strong>Chain ID:</strong> {status?.nodeInfo.network}
             </Text>
+
             <Text>
               <strong>Latest Block Height:</strong>{' '}
               {newBlock?.header.height ?? status?.syncInfo.latestBlockHeight}
@@ -379,6 +446,17 @@ export default function Navbar() {
                 onClick={() => setIsEditModalOpen(true)}
               />
             </HStack>
+            <Button
+              size="sm"
+              variant="outline"
+              colorScheme="blue"
+              onClick={handleSwitchRPC}
+              mt={2}
+            >
+              {rpcAddress === RPC_ENDPOINTS[0] 
+                ? 'Switch to Palmito Testnet' 
+                : 'Switch to Mainnet'}
+            </Button>
           </ModalBody>
           <ModalFooter>
             <Button colorScheme="blue" mr={3} onClick={onClose}>

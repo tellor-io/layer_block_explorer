@@ -7,6 +7,7 @@ import {
   HStack,
   Heading,
   Icon,
+  IconButton,
   Input,
   Link,
   Modal,
@@ -20,15 +21,18 @@ import {
   useToast,
   VStack,
   Tooltip,
-  IconButton,
   Code,
   Alert,
   AlertIcon,
   AlertTitle,
   AlertDescription,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
 } from '@chakra-ui/react'
 import NextLink from 'next/link'
-import { FiChevronRight, FiHome, FiCopy } from 'react-icons/fi'
+import { FiChevronRight, FiHome, FiCopy, FiChevronDown } from 'react-icons/fi'
 import { CopyIcon } from '@chakra-ui/icons'
 import { deriveSignatures } from '@/utils/signatures'
 import { AbiCoder, keccak256, toBeArray, getBytes } from 'ethers'
@@ -50,6 +54,28 @@ interface SignatureResult {
     power: number
   }[]
 }
+
+// Price pairs data structure
+const PRICE_PAIRS = [
+  { name: 'BTC/USD', queryId: 'a6f013ee236804827b77696d350e9f0ac3e879328f2a3021d473a0b778ad78ac' },
+  { name: 'ETH/USD', queryId: '83a7f3d48786ac2667503a61e8c415438ed2922eb86a2906e4ee66d9a2ce4992' },
+  { name: 'TRB/USD', queryId: '5c13cd9c97dbb98f2429c101a2a8150e6c7a0ddaff6124ee176a3a411067ded0' },
+  { name: 'USDC/USD', queryId: 'fc960C233B8E98e0Cf282e29BDE8d3f105fc24d5' },
+  { name: 'USDT/USD', queryId: 'C8fe3C1de344854f4429bB333AFFAeF97eF88CEa' },
+  { name: 'rETH/USD', queryId: 'ae78736Cd615f374D3085123A210448E74Fc6393' },
+  { name: 'tBTC/USD', queryId: '8dAEBADE922dF735c38C80C7eBD708Af50815fAa' },
+  { name: 'FBTC/USD', queryId: 'C96dE26018A54D51c097160568752c4E3BD6C364' },
+  { name: 'KING/USD', queryId: '8f08b70456eb22f6109f57b8fafe862ed28e6040' },
+  { name: 'sUSDS/USD', queryId: 'a3931d71877C0E7a3148CB7Eb4463524FEc27fbD' },
+  { name: 'sDAI/USD', queryId: '83F20F44975D03b1b09e64809B757c47f942BEeA' },
+  { name: 'wUSDM/USD', queryId: '57F5E098CaD7A3D1Eed53991D4d66C45C9AF7812' },
+  { name: 'USDe/USD', queryId: '4c9EDD5852cd905f086C759E8383e09bff1E68B3' },
+  { name: 'USDY/USD', queryId: '96F6eF951840721AdBF46Ac996b59E0235CB985C' },
+  { name: 'sFRAX/USD', queryId: 'A663B02CF0a4b149d2aD41910CB81e23e1c41c32' },
+  { name: 'USYC/USD', queryId: '136471a34f6ef19fE571EFFC1CA711fdb8E49f2b' },
+  { name: 'yUSD/USD', queryId: '19Ebd191f7A24ECE672ba13A302212b5eF7F35cb' },
+  { name: 'deUSD/USD', queryId: '15700B564Ca08D9439C58cA5053166E8317aa138' },
+]
 
 export default function OracleBridge() {
   const [oracleQueryId, setOracleQueryId] = useState('')
@@ -481,15 +507,43 @@ export default function OracleBridge() {
               <VStack spacing={4} align="stretch">
                 <HStack spacing={2}>
                   <Text>Query ID:</Text>
-                  <Input
-                    value={oracleQueryId}
-                    onChange={(e) => {
-                      setOracleQueryId(e.target.value)
-                      setBridgeQueryId(e.target.value)
-                    }}
-                    placeholder="Enter Layer Query ID"
-                    width="610px"
-                  />
+                  <Box position="relative" width="610px">
+                    <Input
+                      value={oracleQueryId}
+                      onChange={(e) => {
+                        setOracleQueryId(e.target.value)
+                        setBridgeQueryId(e.target.value)
+                      }}
+                      placeholder="Enter Layer Query ID or select from dropdown"
+                      pr="40px"
+                    />
+                    <Menu>
+                      <MenuButton
+                        as={IconButton}
+                        icon={<FiChevronDown />}
+                        position="absolute"
+                        right="1px"
+                        top="1px"
+                        size="sm"
+                        variant="ghost"
+                        colorScheme="purple"
+                        aria-label="Select price pair"
+                      />
+                      <MenuList maxH="300px" overflowY="auto">
+                        {PRICE_PAIRS.map((pair) => (
+                          <MenuItem
+                            key={pair.queryId}
+                            onClick={() => {
+                              setOracleQueryId(pair.queryId)
+                              setBridgeQueryId(pair.queryId)
+                            }}
+                          >
+                            {pair.name}
+                          </MenuItem>
+                        ))}
+                      </MenuList>
+                    </Menu>
+                  </Box>
                 </HStack>
                 <Button
                   onClick={fetchOracleData}
