@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useState } from 'react'
+import React, { ReactNode, useEffect, useState, useRef } from 'react'
 import {
   IconButton,
   Box,
@@ -33,6 +33,7 @@ import {
   FiUsers,
   FiActivity,
   FiDollarSign,
+  FiChevronDown,
 } from 'react-icons/fi'
 import { IconType } from 'react-icons'
 import { RiBearSmileFill, RiBankLine } from 'react-icons/ri'
@@ -48,6 +49,7 @@ import { GiFactory, GiGavel, GiArchBridge } from 'react-icons/gi'
 import { TbChartBubbleFilled } from 'react-icons/tb'
 import { MdPersonSearch } from 'react-icons/md'
 import { BsPersonFillAdd, BsPersonCheck } from 'react-icons/bs'
+import { SiRelay } from "react-icons/si";
 
 interface LinkItemProps {
   name: string
@@ -67,6 +69,12 @@ export const LinkItems: Array<LinkItemProps> = [
   { name: 'Bridge Deposits', icon: FaBridge, route: '/bridge-deposits' },
 ]
 export const RefLinkItems: Array<LinkItemProps> = [
+  {
+    name: 'Relayer',
+    icon: SiRelay,
+    route: 'https://relayer.tellor.io/',
+    isBlank: true,
+  },
   {
     name: 'Github',
     icon: FiGithub,
@@ -124,9 +132,38 @@ interface SidebarProps extends BoxProps {
 const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
   const subsNewBlock = useSelector(selectSubsNewBlock)
   const subsTxEvent = useSelector(selectSubsTxEvent)
+  const [showScrollIndicator, setShowScrollIndicator] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const checkScrollable = () => {
+      if (scrollRef.current) {
+        const { scrollHeight, clientHeight } = scrollRef.current
+        setShowScrollIndicator(scrollHeight > clientHeight)
+      }
+    }
+
+    // Check after a short delay to ensure DOM is fully rendered
+    const timeoutId = setTimeout(checkScrollable, 100)
+    window.addEventListener('resize', checkScrollable)
+    
+    return () => {
+      clearTimeout(timeoutId)
+      window.removeEventListener('resize', checkScrollable)
+    }
+  }, [])
+
+  const handleScroll = () => {
+    if (scrollRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 5
+      setShowScrollIndicator(!isAtBottom && scrollHeight > clientHeight)
+    }
+  }
 
   return (
     <Box
+      ref={scrollRef}
       transition="3s ease"
       bg={useColorModeValue('light-container', 'dark-container')}
       borderRight="1px"
@@ -135,8 +172,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
       pos="fixed"
       h="100vh"
       overflowY="auto"
-      display="flex"
-      flexDirection="column"
+      onScroll={handleScroll}
       css={{
         '&::-webkit-scrollbar': {
           width: '4px',
@@ -154,7 +190,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
       <Box
         flex="1"
         pt="20px"
-        pb="80px" // Increased bottom padding significantly
+        pb="80px"
         minH="min-content"
       >
         <VStack spacing={4} align="stretch" w="100%">
@@ -188,6 +224,40 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
           </Box>
         </VStack>
       </Box>
+      
+      {/* Scroll indicator arrow */}
+      {showScrollIndicator && (
+        <Box
+          position="fixed"
+          bottom="20px"
+          left={{ base: 'calc(240px - 40px)', md: 'calc(240px - 40px)' }}
+          bg={useColorModeValue('light-theme', 'dark-theme')}
+          borderRadius="full"
+          p="2"
+          opacity="0.8"
+          zIndex="1000"
+          animation="bounce 2s infinite"
+          css={{
+            '@keyframes bounce': {
+              '0%, 20%, 50%, 80%, 100%': {
+                transform: 'translateY(0)',
+              },
+              '40%': {
+                transform: 'translateY(-6px)',
+              },
+              '60%': {
+                transform: 'translateY(-3px)',
+              },
+            },
+          }}
+        >
+          <Icon
+            as={FiChevronDown}
+            color={useColorModeValue('white', 'black')}
+            fontSize="16px"
+          />
+        </Box>
+      )}
     </Box>
   )
 }
