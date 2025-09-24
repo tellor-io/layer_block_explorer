@@ -8,9 +8,6 @@ import {
 } from 'recharts'
 import { Box, Text, useColorModeValue, VStack } from '@chakra-ui/react'
 import { useRouter } from 'next/router'
-import { useSelector } from 'react-redux'
-import { selectRPCAddress } from '@/store/connectSlice'
-import { rpcManager } from '@/utils/rpcManager'
 import { isActiveValidator } from '@/utils/helper'
 
 interface ValidatorData {
@@ -59,7 +56,6 @@ export default function ValidatorPowerPieChart() {
   const [error, setError] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const router = useRouter()
-  const rpcAddress = useSelector(selectRPCAddress)
 
   useEffect(() => {
     let isMounted = true
@@ -67,11 +63,7 @@ export default function ValidatorPowerPieChart() {
     const fetchValidators = async () => {
       try {
         setIsLoading(true)
-        // Remove /rpc from the endpoint for API calls
-        const baseEndpoint = rpcAddress.replace('/rpc', '')
-        const response = await fetch(
-          `${baseEndpoint}/cosmos/staking/v1beta1/validators`
-        )
+        const response = await fetch('/api/validators')
         if (!response.ok) {
           throw new Error('Failed to fetch validators')
         }
@@ -90,7 +82,6 @@ export default function ValidatorPowerPieChart() {
         setValidators(activeValidators)
       } catch (err) {
         if (!isMounted) return
-        console.error('Error fetching validators:', err)
         setError(err instanceof Error ? err.message : 'Failed to fetch validators')
       } finally {
         if (isMounted) {
@@ -101,16 +92,14 @@ export default function ValidatorPowerPieChart() {
 
     // Add a small delay to ensure RPC manager has updated when switching endpoints
     const timer = setTimeout(() => {
-      if (rpcAddress) {
-        fetchValidators()
-      }
+      fetchValidators()
     }, 100) // 100ms delay
 
     return () => {
       clearTimeout(timer)
       isMounted = false
     }
-  }, [rpcAddress])
+  }, [])
 
   // Move chartData calculation to useMemo at the top level
   const chartData = useMemo(() => {
