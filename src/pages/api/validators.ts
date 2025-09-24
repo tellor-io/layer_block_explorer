@@ -24,7 +24,7 @@ export default async function handler(
 
   try {
     const endpoint =
-      (req.query.endpoint as string) || (await rpcManager.getCurrentEndpoint())
+      (req.query.endpoint as string) || (req.query.rpc as string) || (await rpcManager.getCurrentEndpoint())
     // Remove '/rpc' from the endpoint if it exists
     const baseEndpoint = endpoint.replace('/rpc', '')
 
