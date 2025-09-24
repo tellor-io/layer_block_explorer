@@ -41,17 +41,14 @@ import {
 import { ColumnDef } from '@tanstack/react-table'
 import DelegationPieChart from '@/components/DelegationPieChart'
 import { useRouter } from 'next/router'
-import { rpcManager } from '@/utils/rpcManager'
 
 // Function to fetch delegator count for a validator
 const fetchDelegatorCount = async (
   validatorAddress: string
 ): Promise<number> => {
   try {
-    const currentEndpoint = await rpcManager.getCurrentEndpoint()
-    const baseEndpoint = currentEndpoint.replace('/rpc', '')
     const response = await fetch(
-      `${baseEndpoint}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations`
+      `/api/validator-delegations/${validatorAddress}`
     )
     if (!response.ok) {
       return 0
@@ -59,7 +56,6 @@ const fetchDelegatorCount = async (
     const data = await response.json()
     return data.delegation_responses?.length || 0
   } catch (error) {
-    console.error('Error fetching delegator count:', error)
     return 0
   }
 }
@@ -457,7 +453,6 @@ export default function Validators() {
         setIsLoading(false)
       })
       .catch((error: Error) => {
-        console.error('Error fetching validators:', error)
         toast({
           title: 'Failed to fetch validators',
           description: '',
