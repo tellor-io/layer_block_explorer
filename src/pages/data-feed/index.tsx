@@ -66,9 +66,24 @@ interface AggregateReportEvent {
 }
 
 const getQueryPairName = (queryId: string): string => {
-  if (queryId.endsWith('ad78ac')) return 'BTC/USD'
-  if (queryId.endsWith('67ded0')) return 'TRB/USD'
-  if (queryId.endsWith('ce4992')) return 'ETH/USD'
+  // Remove 0x prefix if present for consistent matching
+  const cleanQueryId = queryId.startsWith('0x') ? queryId.slice(2) : queryId
+  
+  if (cleanQueryId.endsWith('ad78ac')) return 'BTC/USD'
+  if (cleanQueryId.endsWith('ce4992')) return 'ETH/USD'
+  if (cleanQueryId.endsWith('67ded0')) return 'TRB/USD'
+  if (cleanQueryId.endsWith('aa0f7')) return 'USDC/USD'
+  if (cleanQueryId.endsWith('ca264')) return 'USDT/USD'
+  if (cleanQueryId.endsWith('ca4ca7')) return 'rETH/USD'
+  if (cleanQueryId.endsWith('aa0be')) return 'tBTC/USD'
+  if (cleanQueryId.endsWith('5176')) return 'KING/USD'
+  if (cleanQueryId.endsWith('e45a')) return 'sUSDS/USD'
+  if (cleanQueryId.endsWith('5f3e')) return 'USDN/USD'
+  if (cleanQueryId.endsWith('431d')) return 'SAGA/USD'
+  if (cleanQueryId.endsWith('318cf')) return 'sUSDe/USD'
+  if (cleanQueryId.endsWith('382d')) return 'yUSD/USD'
+  if (cleanQueryId.endsWith('ebf2e')) return 'wstETH/USD'
+  if (cleanQueryId.endsWith('4f23')) return 'stATOM/USD'
   return queryId
 }
 

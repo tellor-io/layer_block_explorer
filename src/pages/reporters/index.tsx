@@ -234,9 +234,7 @@ export default function Reporters() {
                 validator.operator_address
               )
               // Store using first 33 characters of the stripped address
-              const addressKey = strippedValAddress
-                .replace(/^valoper/, '')
-                .substring(0, 33)
+              const addressKey = strippedValAddress.substring(0, 33)
               validatorMap.set(addressKey, validator.description?.moniker)
             })
           }
@@ -279,7 +277,7 @@ export default function Reporters() {
                       const strippedReporterAddress = stripAddressPrefix(
                         reporter.address
                       )
-                      // Use first 33 characters for lookup
+                      // Use first 33 characters for lookup, matching the validator map logic
                       const lookupKey = strippedReporterAddress.substring(0, 33)
                       const validatorMoniker = validatorMap.get(lookupKey)
 
