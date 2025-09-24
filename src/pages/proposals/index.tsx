@@ -27,15 +27,13 @@ import { decodeContentProposal } from '@/encoding'
 import { useClipboard, Tooltip } from '@chakra-ui/react'
 import { FiCopy } from 'react-icons/fi'
 import { fromUtf8 } from '@cosmjs/encoding'
+import ProposalTooltip from '@/components/ProposalTooltip'
 
-const CopyableTitle = ({ title }: { title: string }) => {
+const CopyableTitle = ({ title, proposalId }: { title: string; proposalId: number }) => {
   const { hasCopied, onCopy } = useClipboard(title)
 
   return (
-    <Tooltip
-      label={hasCopied ? 'Copied!' : 'Click to copy full title'}
-      closeOnClick={false}
-    >
+    <ProposalTooltip proposalId={proposalId}>
       <HStack spacing={1} cursor="pointer" onClick={onCopy}>
         <Text
           maxWidth="200px"
@@ -47,7 +45,7 @@ const CopyableTitle = ({ title }: { title: string }) => {
         </Text>
         <Icon as={FiCopy} boxSize={4} />
       </HStack>
-    </Tooltip>
+    </ProposalTooltip>
   )
 }
 
@@ -82,7 +80,7 @@ const columns = [
     header: '#ID',
   }),
   columnHelper.accessor('title', {
-    cell: (info) => <CopyableTitle title={info.getValue()} />,
+    cell: (info) => <CopyableTitle title={info.getValue()} proposalId={info.row.original.id} />,
     header: 'Title',
   }),
   columnHelper.accessor('types', {

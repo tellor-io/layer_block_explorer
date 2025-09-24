@@ -8,7 +8,6 @@ import {
   Legend,
 } from 'recharts'
 import { Box, Text, useColorModeValue } from '@chakra-ui/react'
-import { rpcManager } from '@/utils/rpcManager'
 
 interface DelegationData {
   delegation: {
@@ -55,12 +54,8 @@ export default function DelegationPieChart({
     const fetchDelegations = async () => {
       try {
         setIsLoading(true)
-        // Get the current endpoint from the RPC manager
-        const currentEndpoint = await rpcManager.getCurrentEndpoint()
-        // Remove /rpc from the endpoint for API calls
-        const baseEndpoint = currentEndpoint.replace('/rpc', '')
         const response = await fetch(
-          `${baseEndpoint}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations`
+          `/api/validator-delegations/${validatorAddress}`
         )
         if (!response.ok) {
           throw new Error('Failed to fetch delegations')
@@ -68,7 +63,6 @@ export default function DelegationPieChart({
         const data = await response.json()
         setDelegations(data.delegation_responses || [])
       } catch (err) {
-        console.error('Error fetching delegations:', err) // Debug log
         setError(err instanceof Error ? err.message : 'Failed to fetch delegations')
       } finally {
         setIsLoading(false)
