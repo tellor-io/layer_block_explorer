@@ -63,6 +63,7 @@ export default function DelegationPieChart({
         const data = await response.json()
         setDelegations(data.delegation_responses || [])
       } catch (err) {
+        console.error('Error fetching delegations:', err) // Debug log
         setError(err instanceof Error ? err.message : 'Failed to fetch delegations')
       } finally {
         setIsLoading(false)
