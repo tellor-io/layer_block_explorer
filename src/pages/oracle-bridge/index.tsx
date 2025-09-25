@@ -57,21 +57,76 @@ interface SignatureResult {
 
 // Price pairs data structure
 const PRICE_PAIRS = [
-  { name: 'BTC/USD', queryId: 'a6f013ee236804827b77696d350e9f0ac3e879328f2a3021d473a0b778ad78ac' },
-  { name: 'ETH/USD', queryId: '83a7f3d48786ac2667503a61e8c415438ed2922eb86a2906e4ee66d9a2ce4992' },
-  { name: 'TRB/USD', queryId: '5c13cd9c97dbb98f2429c101a2a8150e6c7a0ddaff6124ee176a3a411067ded0' },
-  { name: 'USDC/USD', queryId: '8ee44cd434ed5b0e007eee581fbe0855336f3f84484e8d9989a620a4a49aa0f7' },
-  { name: 'USDT/USD', queryId: '68a37787e65e85768d4aa6e385fb15760d46df0f67a18ec032d8fd5848aca264' },
-  { name: 'rETH/USD', queryId: '0x0bc2d41117ae8779da7623ee76a109c88b84b9bf4d9b404524df04f7d0ca4ca7' },
-  { name: 'tBTC/USD', queryId: '0x76b504e33305a63a3b80686c0b7bb99e7697466927ba78e224728e80bfaaa0be' },
-  { name: 'KING/USD', queryId: '0xd62f132d9d04dde6e223d4366c48b47cd9f90228acdc6fa755dab93266db5176' },
-  { name: 'sUSDS/USD', queryId: '0x59ae85cec665c779f18255dd4f3d97821e6a122691ee070b9a26888bc2a0e45a' },
-  { name: 'USDN/USD', queryId: '0xe010d752f28dcd2804004d0b57ab1bdc4eca092895d49160204120af11d15f3e' },
-  { name: 'SAGA/USD', queryId: '0x74c9cfdfd2e4a00a9437bf93bf6051e18e604a976f3fa37faafe0bb5a039431d' },
-  { name: 'sUSDe/USD', queryId: '0x03731257e35c49e44b267640126358e5decebdd8f18b5e8f229542ec86e318cf' },
-  { name: 'yUSD/USD', queryId: '0x35155b44678db9e9e021c2cf49dd20c31b49e03415325c2beffb5221cf63882d' },
-  { name: 'wstETH/USD', queryId: '0x1962cde2f19178fe2bb2229e78a6d386e6406979edc7b9a1966d89d83b3ebf2e' },
-  { name: 'stATOM/USD', queryId: '0x611fd0e88850bf0cc036d96d04d47605c90b993485c2971e022b5751bbb04f23' },
+  {
+    name: 'BTC/USD',
+    queryId: 'a6f013ee236804827b77696d350e9f0ac3e879328f2a3021d473a0b778ad78ac',
+  },
+  {
+    name: 'ETH/USD',
+    queryId: '83a7f3d48786ac2667503a61e8c415438ed2922eb86a2906e4ee66d9a2ce4992',
+  },
+  {
+    name: 'TRB/USD',
+    queryId: '5c13cd9c97dbb98f2429c101a2a8150e6c7a0ddaff6124ee176a3a411067ded0',
+  },
+  {
+    name: 'USDC/USD',
+    queryId: '8ee44cd434ed5b0e007eee581fbe0855336f3f84484e8d9989a620a4a49aa0f7',
+  },
+  {
+    name: 'USDT/USD',
+    queryId: '68a37787e65e85768d4aa6e385fb15760d46df0f67a18ec032d8fd5848aca264',
+  },
+  {
+    name: 'rETH/USD',
+    queryId:
+      '0x0bc2d41117ae8779da7623ee76a109c88b84b9bf4d9b404524df04f7d0ca4ca7',
+  },
+  {
+    name: 'tBTC/USD',
+    queryId:
+      '0x76b504e33305a63a3b80686c0b7bb99e7697466927ba78e224728e80bfaaa0be',
+  },
+  {
+    name: 'KING/USD',
+    queryId:
+      '0xd62f132d9d04dde6e223d4366c48b47cd9f90228acdc6fa755dab93266db5176',
+  },
+  {
+    name: 'sUSDS/USD',
+    queryId:
+      '0x59ae85cec665c779f18255dd4f3d97821e6a122691ee070b9a26888bc2a0e45a',
+  },
+  {
+    name: 'USDN/USD',
+    queryId:
+      '0xe010d752f28dcd2804004d0b57ab1bdc4eca092895d49160204120af11d15f3e',
+  },
+  {
+    name: 'SAGA/USD',
+    queryId:
+      '0x74c9cfdfd2e4a00a9437bf93bf6051e18e604a976f3fa37faafe0bb5a039431d',
+  },
+  {
+    name: 'sUSDe/USD',
+    queryId:
+      '0x03731257e35c49e44b267640126358e5decebdd8f18b5e8f229542ec86e318cf',
+  },
+  {
+    name: 'yUSD/USD',
+    queryId:
+      '0x35155b44678db9e9e021c2cf49dd20c31b49e03415325c2beffb5221cf63882d',
+  },
+  {
+    name: 'wstETH/USD',
+    queryId:
+      '0x1962cde2f19178fe2bb2229e78a6d386e6406979edc7b9a1966d89d83b3ebf2e',
+  },
+  {
+    name: 'stATOM/USD',
+    queryId:
+      '0x611fd0e88850bf0cc036d96d04d47605c90b993485c2971e022b5751bbb04f23',
+  },
 ]
 
 export default function OracleBridge() {
@@ -203,8 +258,6 @@ export default function OracleBridge() {
         setBridgeData(bridgeDataResult)
       }
 
-
-
       const response = await fetch(`/api/bridge-attestations/${snapshot}`)
       const data = await response.json()
 
@@ -314,13 +367,11 @@ export default function OracleBridge() {
         nextTimestamp: attestDataResult.next_report_timestamp || '0',
       }
 
-
       const attestData = {
         queryId: attestDataResult.query_id,
         report: reportData,
         attestationTimestamp: attestDataResult.attestation_timestamp,
       }
-
 
       const formattedWithdrawalData: WithdrawalData = {
         attestData: JSON.stringify(attestData, null, 2),
@@ -396,7 +447,6 @@ export default function OracleBridge() {
   useEffect(() => {
     if (oracleData && bridgeData) {
       try {
-        
         // Extract data from the correct structure
         const timestamp = oracleData.timestamp
         const aggregate = oracleData.aggregate
@@ -412,7 +462,6 @@ export default function OracleBridge() {
 
         // Format the data for the digest calculation
         const abiCoder = new AbiCoder()
-
 
         const encodedData = abiCoder.encode(
           [

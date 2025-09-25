@@ -148,14 +148,14 @@ export default function DetailBlock() {
       if (!rawProposerAddress) {
         return 'Unknown'
       }
-      
+
       // The raw proposer address is already a hex string, not base64
       // Just convert it to lowercase to match the validator addresses
       const hexAddress = rawProposerAddress.toLowerCase()
-      
+
       // Check if the address exists in the map
       const moniker = validatorMap[hexAddress] || 'Unknown'
-      
+
       return moniker
     } catch (error) {
       console.error('Error converting proposer address:', error)
@@ -179,9 +179,10 @@ export default function DetailBlock() {
     if (height) {
       // Fetch validators first
       fetchValidators()
-      
+
       // Use the API endpoint to get block data with proposer_address
-      axios.get(`/api/block-by-height/${height}`)
+      axios
+        .get(`/api/block-by-height/${height}`)
         .then(async (response) => {
           if (response?.data?.block) {
             const blockData = response.data.block
@@ -197,7 +198,9 @@ export default function DetailBlock() {
                 lastCommitHash: fromBase64(blockData.header.last_commit_hash),
                 dataHash: fromBase64(blockData.header.data_hash),
                 validatorsHash: fromBase64(blockData.header.validators_hash),
-                nextValidatorsHash: fromBase64(blockData.header.next_validators_hash),
+                nextValidatorsHash: fromBase64(
+                  blockData.header.next_validators_hash
+                ),
                 consensusHash: fromBase64(blockData.header.consensus_hash),
                 appHash: fromBase64(blockData.header.app_hash),
                 lastResultsHash: fromBase64(blockData.header.last_results_hash),
@@ -227,7 +230,9 @@ export default function DetailBlock() {
           // If vote extensions are in the block results, decode them here
           if (results?.vote_extensions) {
             try {
-              const decodedExtensions = JSON.parse(JSON.stringify(results.vote_extensions))
+              const decodedExtensions = JSON.parse(
+                JSON.stringify(results.vote_extensions)
+              )
               setDecodedTxData(decodedExtensions)
             } catch (error) {
               console.error('Error decoding vote extensions:', error)
@@ -245,41 +250,41 @@ export default function DetailBlock() {
       for (const rawTx of block.txs) {
         try {
           // rawTx should be a base64 string from the API
-          let txBytes: Uint8Array;
-          
+          let txBytes: Uint8Array
+
           if (typeof rawTx === 'string') {
             // It's a base64 string, convert to Uint8Array using Buffer
-            txBytes = Buffer.from(rawTx, 'base64');
+            txBytes = Buffer.from(rawTx, 'base64')
           } else if (rawTx instanceof Uint8Array) {
             // It's already a Uint8Array
-            txBytes = rawTx;
+            txBytes = rawTx
           } else {
-            console.error('Unknown transaction format:', typeof rawTx);
-            continue;
+            console.error('Unknown transaction format:', typeof rawTx)
+            continue
           }
-          
+
           // Try to decode as JSON first
-          const textDecoder = new TextDecoder();
-          const jsonString = textDecoder.decode(txBytes);
-          
+          const textDecoder = new TextDecoder()
+          const jsonString = textDecoder.decode(txBytes)
+
           // Check if this looks like a vote extension (has block_height field)
           if (jsonString.includes('"block_height"')) {
-            const jsonData = JSON.parse(jsonString);
-            setDecodedTxData(jsonData);
+            const jsonData = JSON.parse(jsonString)
+            setDecodedTxData(jsonData)
           } else {
             // Only try transaction decoding if it's not a vote extension
-            const data = TxData.decode(txBytes);
-            const hash = sha256(txBytes);
+            const data = TxData.decode(txBytes)
+            const hash = sha256(txBytes)
             setTxs((prevTxs) => [
               ...prevTxs,
               {
                 data,
                 hash,
               },
-            ]);
+            ])
           }
         } catch (error) {
-          console.error('Error decoding data:', error);
+          console.error('Error decoding data:', error)
         }
       }
     }
@@ -425,15 +430,17 @@ export default function DetailBlock() {
                   <Td pl={0} width={150}>
                     <b>Block Hash</b>
                   </Td>
-                  <Td>{(block as ExtendedBlock)?.header.appHash ? toHex((block as ExtendedBlock).header.appHash!) : ''}</Td>
+                  <Td>
+                    {(block as ExtendedBlock)?.header.appHash
+                      ? toHex((block as ExtendedBlock).header.appHash!)
+                      : ''}
+                  </Td>
                 </Tr>
                 <Tr>
                   <Td pl={0} width={150}>
                     <b>Proposer</b>
                   </Td>
-                                          <Td>
-                          {getProposerMoniker(rawProposerAddress)}
-                        </Td>
+                  <Td>{getProposerMoniker(rawProposerAddress)}</Td>
                 </Tr>
                 <Tr>
                   <Td pl={0} width={150}>

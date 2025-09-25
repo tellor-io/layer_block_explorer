@@ -1,11 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-} from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { Box, Text, useColorModeValue, VStack } from '@chakra-ui/react'
 import { useRouter } from 'next/router'
 import { isActiveValidator } from '@/utils/helper'
@@ -68,22 +62,26 @@ export default function ValidatorPowerPieChart() {
           throw new Error('Failed to fetch validators')
         }
         const data = await response.json()
-        
+
         if (!isMounted) return
 
         // Only include active validators using the utility function
-        const activeValidators = data.validators.filter(
-          (v: ValidatorData) => isActiveValidator(v.status)
+        const activeValidators = data.validators.filter((v: ValidatorData) =>
+          isActiveValidator(v.status)
         )
 
         // Verify we have unique addresses
-        const addresses = new Set(activeValidators.map((v: ValidatorData) => v.operator_address))
+        const addresses = new Set(
+          activeValidators.map((v: ValidatorData) => v.operator_address)
+        )
 
         setValidators(activeValidators)
       } catch (err) {
         if (!isMounted) return
         console.error('Error fetching validators:', err)
-        setError(err instanceof Error ? err.message : 'Failed to fetch validators')
+        setError(
+          err instanceof Error ? err.message : 'Failed to fetch validators'
+        )
       } finally {
         if (isMounted) {
           setIsLoading(false)
@@ -119,11 +117,13 @@ export default function ValidatorPowerPieChart() {
           ...validator,
           description: {
             ...validator.description,
-            moniker: `layer (${truncateAddress(validator.operator_address)})`
-          }
+            moniker: `layer (${truncateAddress(validator.operator_address)})`,
+          },
         })
       } else {
-        const existingValidator = acc.find(v => v.description.moniker === validator.description.moniker)
+        const existingValidator = acc.find(
+          (v) => v.description.moniker === validator.description.moniker
+        )
         if (existingValidator) {
           // Add tokens to existing validator
           existingValidator.tokens = (
@@ -131,7 +131,7 @@ export default function ValidatorPowerPieChart() {
           ).toString()
         } else {
           // Add new validator
-          acc.push({...validator})
+          acc.push({ ...validator })
         }
       }
       return acc
@@ -140,19 +140,19 @@ export default function ValidatorPowerPieChart() {
     const data = combinedValidators.map((validator) => {
       // Convert tokens to TRB (divide by 1e6)
       const tokens = parseFloat(validator.tokens) / 1e6
-      
+
       return {
         name: validator.description.moniker,
         value: tokens,
         address: validator.operator_address,
         percentage: 0, // Will be calculated below
-        raw: validator // Include the raw validator object
+        raw: validator, // Include the raw validator object
       } as ChartDataItem
     })
 
     // Calculate percentages
     const totalTokens = data.reduce((sum, item) => sum + item.value, 0)
-    data.forEach(item => {
+    data.forEach((item) => {
       item.percentage = (item.value / totalTokens) * 100
     })
 
@@ -164,22 +164,33 @@ export default function ValidatorPowerPieChart() {
     const MIN_PERCENTAGE_THRESHOLD = 1
     const MAX_INDIVIDUAL_VALIDATORS = 10
 
-    const significantValidators = data.filter((item, index) => 
-      item.percentage >= MIN_PERCENTAGE_THRESHOLD || index < MAX_INDIVIDUAL_VALIDATORS
+    const significantValidators = data.filter(
+      (item, index) =>
+        item.percentage >= MIN_PERCENTAGE_THRESHOLD ||
+        index < MAX_INDIVIDUAL_VALIDATORS
     )
 
-    const otherValidators = data.filter((item, index) => 
-      item.percentage < MIN_PERCENTAGE_THRESHOLD && index >= MAX_INDIVIDUAL_VALIDATORS
+    const otherValidators = data.filter(
+      (item, index) =>
+        item.percentage < MIN_PERCENTAGE_THRESHOLD &&
+        index >= MAX_INDIVIDUAL_VALIDATORS
     )
-    
+
     const finalData = [
       ...significantValidators,
-      ...(otherValidators.length > 0 ? [{
-        name: `Others (${otherValidators.length} validators)`,
-        value: otherValidators.reduce((sum, item) => sum + item.value, 0),
-        address: 'others',
-        percentage: otherValidators.reduce((sum, item) => sum + item.percentage, 0),
-      }] : [])
+      ...(otherValidators.length > 0
+        ? [
+            {
+              name: `Others (${otherValidators.length} validators)`,
+              value: otherValidators.reduce((sum, item) => sum + item.value, 0),
+              address: 'others',
+              percentage: otherValidators.reduce(
+                (sum, item) => sum + item.percentage,
+                0
+              ),
+            },
+          ]
+        : []),
     ]
 
     return finalData
@@ -187,7 +198,12 @@ export default function ValidatorPowerPieChart() {
 
   if (isLoading) {
     return (
-      <Box height="100%" display="flex" alignItems="center" justifyContent="center">
+      <Box
+        height="100%"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+      >
         <Text>Loading...</Text>
       </Box>
     )
@@ -195,7 +211,12 @@ export default function ValidatorPowerPieChart() {
 
   if (error) {
     return (
-      <Box height="100%" display="flex" alignItems="center" justifyContent="center">
+      <Box
+        height="100%"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+      >
         <Text color="red.500">{error}</Text>
       </Box>
     )
@@ -203,7 +224,12 @@ export default function ValidatorPowerPieChart() {
 
   if (!validators.length) {
     return (
-      <Box height="100%" display="flex" alignItems="center" justifyContent="center">
+      <Box
+        height="100%"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+      >
         <Text>No validators found</Text>
       </Box>
     )
@@ -228,8 +254,8 @@ export default function ValidatorPowerPieChart() {
 
     // Calculate tooltip position based on slice position
     // Move slightly outward from the slice's edge
-    const tooltipX = 50 + sliceX + (Math.cos(currentAngle) * 15)
-    const tooltipY = 50 + sliceY + (Math.sin(currentAngle) * 15)
+    const tooltipX = 50 + sliceX + Math.cos(currentAngle) * 15
+    const tooltipY = 50 + sliceY + Math.sin(currentAngle) * 15
 
     // Determine which quadrant the slice is in
     const isRightSide = Math.cos(currentAngle) > 0
@@ -291,7 +317,7 @@ export default function ValidatorPowerPieChart() {
 
   const onPieClick = (event: any) => {
     const data = event.payload
-    
+
     if (!data) return
 
     // Extract the address from the clicked slice
@@ -316,7 +342,7 @@ export default function ValidatorPowerPieChart() {
 
   return (
     <Box height="100%" position="relative">
-      <Box 
+      <Box
         position="absolute"
         top="0"
         left="0"
@@ -328,7 +354,7 @@ export default function ValidatorPowerPieChart() {
         width="100%"
         zIndex={1}
       >
-        <Box 
+        <Box
           width="100px"
           height="100px"
           position="relative"
@@ -337,7 +363,13 @@ export default function ValidatorPowerPieChart() {
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <defs>
-                <filter id="desaturate" x="-50%" y="-50%" width="200%" height="200%">
+                <filter
+                  id="desaturate"
+                  x="-50%"
+                  y="-50%"
+                  width="200%"
+                  height="200%"
+                >
                   <feColorMatrix
                     type="matrix"
                     values="0.5 0 0 0 0
@@ -368,15 +400,20 @@ export default function ValidatorPowerPieChart() {
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}
-                    filter={activeIndex !== null && activeIndex !== index ? 'url(#desaturate)' : undefined}
+                    filter={
+                      activeIndex !== null && activeIndex !== index
+                        ? 'url(#desaturate)'
+                        : undefined
+                    }
                     style={{
                       transition: 'filter 0.2s ease-in-out',
-                      cursor: entry.address !== 'others' ? 'pointer' : 'default',
+                      cursor:
+                        entry.address !== 'others' ? 'pointer' : 'default',
                     }}
                   />
                 ))}
               </Pie>
-              <Tooltip 
+              <Tooltip
                 content={<CustomTooltip />}
                 position={{ x: 0, y: 0 }}
                 wrapperStyle={{ zIndex: 1000 }}
@@ -400,4 +437,4 @@ export default function ValidatorPowerPieChart() {
       </Box>
     </Box>
   )
-} 
+}

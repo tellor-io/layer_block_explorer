@@ -188,13 +188,13 @@ export default function Reporters() {
   const [isLoading, setIsLoading] = useState(true)
   const toast = useToast()
   const rpcAddress = useSelector(selectRPCAddress)
-  
+
   // Force re-render when RPC address changes
   const [refreshKey, setRefreshKey] = useState(0)
-  
+
   // Update refresh key when RPC address changes
   useEffect(() => {
-    setRefreshKey(prev => prev + 1)
+    setRefreshKey((prev) => prev + 1)
   }, [rpcAddress])
 
   useEffect(() => {
@@ -210,13 +210,21 @@ export default function Reporters() {
       })
 
       // First fetch validators with cache busting and RPC address
-      Promise.race([fetch(`/api/validators?t=${Date.now()}&rpc=${encodeURIComponent(rpcAddress)}`, {
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      }), timeoutPromise])
+      Promise.race([
+        fetch(
+          `/api/validators?t=${Date.now()}&rpc=${encodeURIComponent(
+            rpcAddress
+          )}`,
+          {
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              Pragma: 'no-cache',
+              Expires: '0',
+            },
+          }
+        ),
+        timeoutPromise,
+      ])
         .then((response: unknown) => {
           if (!(response instanceof Response)) {
             throw new Error('Expected Response object')
@@ -240,13 +248,16 @@ export default function Reporters() {
           }
 
           // Then fetch reporters with cache busting and RPC address
-          return fetch(`${url}?t=${Date.now()}&rpc=${encodeURIComponent(rpcAddress)}`, {
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-              'Expires': '0'
+          return fetch(
+            `${url}?t=${Date.now()}&rpc=${encodeURIComponent(rpcAddress)}`,
+            {
+              headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                Pragma: 'no-cache',
+                Expires: '0',
+              },
             }
-          })
+          )
             .then((response) => {
               if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`)

@@ -20,44 +20,46 @@ export default async function handler(
     const currentEndpoint = await rpcManager.getCurrentEndpoint()
     // Remove /rpc from the endpoint for API calls
     const baseEndpoint = currentEndpoint.replace('/rpc', '')
-    
+
     // Make the request to the RPC endpoint with timeout
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
-    
+
     const response = await fetch(
       `${baseEndpoint}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations`,
       {
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
           'Content-Type': 'application/json',
-        }
+        },
       }
     )
 
     clearTimeout(timeoutId)
 
     if (!response.ok) {
-      console.warn(`RPC request failed with status ${response.status} for ${validatorAddress} from ${baseEndpoint}`)
+      console.warn(
+        `RPC request failed with status ${response.status} for ${validatorAddress} from ${baseEndpoint}`
+      )
       // Report failure to RPC manager
       await rpcManager.reportFailure(currentEndpoint)
-      
+
       // Return empty delegations instead of error for better UX
       return res.status(200).json({
-        delegation_responses: []
+        delegation_responses: [],
       })
     }
 
     const data = await response.json()
-    
+
     // Report success to RPC manager
     await rpcManager.reportSuccess(currentEndpoint)
-    
+
     return res.status(200).json(data)
   } catch (error) {
     console.error('Error fetching validator delegations:', error)
-    
+
     // Report failure to RPC manager
     try {
       const currentEndpoint = await rpcManager.getCurrentEndpoint()
@@ -65,10 +67,10 @@ export default async function handler(
     } catch (rpcError) {
       console.error('Error reporting RPC failure:', rpcError)
     }
-    
+
     // Return empty delegations instead of error for better UX
     return res.status(200).json({
-      delegation_responses: []
+      delegation_responses: [],
     })
   }
 }

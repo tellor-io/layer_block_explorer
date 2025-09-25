@@ -18,18 +18,39 @@ import { useSelector } from 'react-redux'
 import NextLink from 'next/link'
 import { FiChevronRight, FiHome } from 'react-icons/fi'
 import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
-import { queryProposals, queryProposalVotes, queryGovParams, queryAllValidators } from '@/rpc/abci'
+import {
+  queryProposals,
+  queryProposalVotes,
+  queryGovParams,
+  queryAllValidators,
+} from '@/rpc/abci'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
-import { getTypeMsg, displayDate, convertRateToPercent, convertVotingPower, isActiveValidator } from '@/utils/helper'
-import { proposalStatus, proposalStatusList, GOV_PARAMS_TYPE } from '@/utils/constant'
+import {
+  getTypeMsg,
+  displayDate,
+  convertRateToPercent,
+  convertVotingPower,
+  isActiveValidator,
+} from '@/utils/helper'
+import {
+  proposalStatus,
+  proposalStatusList,
+  GOV_PARAMS_TYPE,
+} from '@/utils/constant'
 import { decodeContentProposal } from '@/encoding'
 import { useClipboard, Tooltip } from '@chakra-ui/react'
 import { FiCopy } from 'react-icons/fi'
 import { fromUtf8 } from '@cosmjs/encoding'
 import ProposalTooltip from '@/components/ProposalTooltip'
 
-const CopyableTitle = ({ title, proposalId }: { title: string; proposalId: number }) => {
+const CopyableTitle = ({
+  title,
+  proposalId,
+}: {
+  title: string
+  proposalId: number
+}) => {
   const { hasCopied, onCopy } = useClipboard(title)
 
   return (
@@ -80,7 +101,12 @@ const columns = [
     header: '#ID',
   }),
   columnHelper.accessor('title', {
-    cell: (info) => <CopyableTitle title={info.getValue()} proposalId={info.row.original.id} />,
+    cell: (info) => (
+      <CopyableTitle
+        title={info.getValue()}
+        proposalId={info.row.original.id}
+      />
+    ),
     header: 'Title',
   }),
   columnHelper.accessor('types', {
@@ -105,11 +131,11 @@ const columns = [
     cell: (info) => {
       const voteResults = info.getValue()
       const proposal = info.row.original
-      
+
       if (!voteResults.hasVotes) {
         return <Text>No votes recorded</Text>
       }
-      
+
       const { yes, no, abstain, veto } = voteResults.voteDistribution!
       return (
         <VStack align="start" spacing={1}>
@@ -180,27 +206,28 @@ export default function Proposals() {
   // Fetch quorum requirement and total staked tokens
   const fetchQuorumRequirement = useCallback(async () => {
     if (!tmClient) return
-    
+
     try {
       const [govResponse, validatorsResponse] = await Promise.all([
         queryGovParams(tmClient, GOV_PARAMS_TYPE.TALLY),
-        queryAllValidators(tmClient)
+        queryAllValidators(tmClient),
       ])
-      
+
       if (govResponse.tallyParams?.quorum) {
         const quorumPercent = convertRateToPercent(
           fromUtf8(govResponse.tallyParams.quorum)
         )
         setQuorumRequired(quorumPercent)
       }
-      
+
       if (validatorsResponse?.validators) {
         // Calculate total staked tokens from active validators
         const activeValidators = validatorsResponse.validators.filter(
           (validator: any) => isActiveValidator(validator.status)
         )
         const totalStaked = activeValidators.reduce(
-          (sum: number, validator: any) => sum + convertVotingPower(validator.tokens),
+          (sum: number, validator: any) =>
+            sum + convertVotingPower(validator.tokens),
           0
         )
         setTotalStakedTokens(totalStaked)
@@ -256,13 +283,14 @@ export default function Proposals() {
           // Calculate quorum status
           let quorumMet = false
           let currentQuorumPercentage = '0%'
-          
+
           if (voteResults.hasVotes && quorumRequired && totalStakedTokens > 0) {
             // Extract the numeric value from quorumRequired (e.g., "40.00%" -> 40.00)
             const requiredQuorum = parseFloat(quorumRequired.replace('%', ''))
-            
+
             // Calculate current quorum percentage based on total voting power vs total staked tokens
-            const currentQuorum = (voteResults.totalPower / totalStakedTokens) * 100
+            const currentQuorum =
+              (voteResults.totalPower / totalStakedTokens) * 100
             currentQuorumPercentage = `${currentQuorum.toFixed(2)}%`
             quorumMet = currentQuorum >= requiredQuorum
           }

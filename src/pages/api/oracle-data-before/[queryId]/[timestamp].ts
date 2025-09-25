@@ -26,7 +26,6 @@ export default async function handler(
     const baseEndpoint = endpoint.replace('/rpc', '')
     const url = `${baseEndpoint}/tellor-io/layer/oracle/get_data_before/${formattedQueryId}/${timestamp}`
 
-
     const response = await fetch(url)
 
     if (!response.ok) {

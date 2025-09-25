@@ -24,7 +24,9 @@ export default async function handler(
 
   try {
     const endpoint =
-      (req.query.endpoint as string) || (req.query.rpc as string) || (await rpcManager.getCurrentEndpoint())
+      (req.query.endpoint as string) ||
+      (req.query.rpc as string) ||
+      (await rpcManager.getCurrentEndpoint())
     // Remove '/rpc' from the endpoint if it exists
     const baseEndpoint = endpoint.replace('/rpc', '')
 
@@ -44,13 +46,13 @@ export default async function handler(
     }
 
     const data = await response.json()
-    
+
     // Cache the data
     cache.set(cacheKey, {
       data,
       timestamp: Date.now(),
     })
-    
+
     res.status(200).json(data)
   } catch (error) {
     console.error('API Route Error:', error)

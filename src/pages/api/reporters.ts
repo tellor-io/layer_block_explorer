@@ -8,7 +8,7 @@ export default async function handler(
 ) {
   try {
     const { endpoint: customEndpoint, rpc } = req.query
-    
+
     // Use custom endpoint if provided, otherwise use RPC address from query, otherwise use rpcManager
     let endpoint: string
     if (customEndpoint) {
@@ -18,7 +18,7 @@ export default async function handler(
     } else {
       endpoint = await rpcManager.getCurrentEndpoint()
     }
-    
+
     const baseEndpoint = endpoint.replace('/rpc', '')
 
     const response = await fetch(

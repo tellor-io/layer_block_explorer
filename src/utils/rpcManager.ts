@@ -16,7 +16,7 @@ export class RPCManager {
     failures: {},
     lastAttempt: {},
     isCircuitOpen: {},
-    isConnected: false
+    isConnected: false,
   }
 
   private customEndpoint: string | null = null
@@ -79,7 +79,8 @@ export class RPCManager {
       if (!this.state.isConnected) {
         const currentEndpoint = await this.getCurrentEndpoint()
         if (this.state.isCircuitOpen[currentEndpoint]) {
-          const timeSinceLastAttempt = Date.now() - this.state.lastAttempt[currentEndpoint]
+          const timeSinceLastAttempt =
+            Date.now() - this.state.lastAttempt[currentEndpoint]
           if (timeSinceLastAttempt >= this.CIRCUIT_RESET_TIME) {
             const isHealthy = await this.checkEndpointHealth(currentEndpoint)
             if (isHealthy) {
@@ -127,10 +128,10 @@ export class RPCManager {
     try {
       // Clear the reporter count cache
       await fetch('/api/reporter-count?clearCache=true')
-      
+
       // Clear the validators cache
       await fetch('/api/validators?clearCache=true')
-      
+
       // Clear other potential caches by making fresh requests
       // This ensures all API endpoints get fresh data from the new RPC
       const cacheClearingPromises = [
@@ -138,7 +139,7 @@ export class RPCManager {
         fetch('/api/reporters').catch(() => {}),
         fetch('/api/latest-block').catch(() => {}),
       ]
-      
+
       await Promise.all(cacheClearingPromises)
     } catch (error) {
       console.warn('Failed to clear some caches:', error)
@@ -156,7 +157,10 @@ export class RPCManager {
     }
 
     // If we have a custom endpoint, always return it first
-    if (this.customEndpoint && availableEndpoints.includes(this.customEndpoint)) {
+    if (
+      this.customEndpoint &&
+      availableEndpoints.includes(this.customEndpoint)
+    ) {
       return this.customEndpoint
     }
 

@@ -16,21 +16,18 @@ export default async function handler(
 
   try {
     const endpoint = await rpcManager.getCurrentEndpoint()
-    
-    
-    
+
     // Use Stargate client for main block data
     const tmClient = await Tendermint37Client.connect(endpoint)
     const client = await StargateClient.create(tmClient)
     const block = await client.getBlock(parseInt(height, 10))
-    
-    
+
     // Get raw block data for additional header fields
-    const rawBlockResponse = await axios.get(`${endpoint}/block?height=${height}`)
+    const rawBlockResponse = await axios.get(
+      `${endpoint}/block?height=${height}`
+    )
     const rawBlock = rawBlockResponse.data.result.block
-    
-    
-    
+
     // Convert the block to the expected format with all required fields
     const blockData = {
       block: {
@@ -51,26 +48,26 @@ export default async function handler(
           evidence_hash: rawBlock.header.evidence_hash,
         },
         data: {
-          txs: block.txs.map(tx => Buffer.from(tx).toString('base64')),
+          txs: block.txs.map((tx) => Buffer.from(tx).toString('base64')),
         },
         last_commit: rawBlock.last_commit,
         evidence: rawBlock.evidence,
         block_id: rawBlock.block_id,
       },
     }
-    
+
     res.status(200).json(blockData)
   } catch (error) {
     console.error('API Route Error:', error)
     console.error('API Route Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      response: (error as any)?.response?.data
+      response: (error as any)?.response?.data,
     })
     res.status(500).json({
       error: 'Failed to fetch block',
       details: error instanceof Error ? error.message : 'Unknown error',
-      response: (error as any)?.response?.data
+      response: (error as any)?.response?.data,
     })
   }
-} 
+}
