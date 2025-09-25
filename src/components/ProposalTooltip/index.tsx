@@ -47,11 +47,12 @@ interface ProposalTooltipProps {
   children: React.ReactNode
 }
 
-const ProposalTooltip: React.FC<ProposalTooltipProps> = ({ 
-  proposalId, 
-  children
+const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
+  proposalId,
+  children,
 }) => {
-  const [proposalDetails, setProposalDetails] = useState<ProposalDetails | null>(null)
+  const [proposalDetails, setProposalDetails] =
+    useState<ProposalDetails | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isOpen, setIsOpen] = useState(false)
@@ -71,7 +72,7 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
       const rect = triggerRef.current.getBoundingClientRect()
       setPosition({
         x: rect.right + 10,
-        y: rect.top
+        y: rect.top,
       })
     }
   }, [])
@@ -126,7 +127,9 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
       setProposalDetails(data)
     } catch (err) {
       console.error('Error fetching proposal details:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch proposal details')
+      setError(
+        err instanceof Error ? err.message : 'Failed to fetch proposal details'
+      )
     } finally {
       setIsLoading(false)
     }
@@ -145,12 +148,12 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
   const getStatusColor = (status: string | number) => {
     const statusStr = typeof status === 'string' ? status : status.toString()
     const statusMap: { [key: string]: string } = {
-      'PROPOSAL_STATUS_UNSPECIFIED': 'gray',
-      'PROPOSAL_STATUS_DEPOSIT_PERIOD': 'blue',
-      'PROPOSAL_STATUS_VOTING_PERIOD': 'yellow',
-      'PROPOSAL_STATUS_PASSED': 'green',
-      'PROPOSAL_STATUS_REJECTED': 'red',
-      'PROPOSAL_STATUS_FAILED': 'red',
+      PROPOSAL_STATUS_UNSPECIFIED: 'gray',
+      PROPOSAL_STATUS_DEPOSIT_PERIOD: 'blue',
+      PROPOSAL_STATUS_VOTING_PERIOD: 'yellow',
+      PROPOSAL_STATUS_PASSED: 'green',
+      PROPOSAL_STATUS_REJECTED: 'red',
+      PROPOSAL_STATUS_FAILED: 'red',
       '0': 'gray',
       '1': 'blue',
       '2': 'yellow',
@@ -166,7 +169,8 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
       '/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade': 'Software Upgrade',
       '/cosmos.gov.v1beta1.TextProposal': 'Text Proposal',
       '/cosmos.params.v1beta1.ParameterChangeProposal': 'Parameter Change',
-      '/cosmos.distribution.v1beta1.CommunityPoolSpendProposal': 'Community Pool Spend',
+      '/cosmos.distribution.v1beta1.CommunityPoolSpendProposal':
+        'Community Pool Spend',
       '/cosmos.gov.v1.MsgUpdateParams': 'Governance Parameters Update',
       '/layer.oracle.MsgUpdateParams': 'Oracle Parameters Update',
       '/layer.registry.MsgUpdateParams': 'Registry Parameters Update',
@@ -179,12 +183,12 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
   const getStatusText = (status: string | number) => {
     const statusStr = typeof status === 'string' ? status : status.toString()
     const statusMap: { [key: string]: string } = {
-      'PROPOSAL_STATUS_UNSPECIFIED': 'Unspecified',
-      'PROPOSAL_STATUS_DEPOSIT_PERIOD': 'Deposit Period',
-      'PROPOSAL_STATUS_VOTING_PERIOD': 'Voting Period',
-      'PROPOSAL_STATUS_PASSED': 'Passed',
-      'PROPOSAL_STATUS_REJECTED': 'Rejected',
-      'PROPOSAL_STATUS_FAILED': 'Failed',
+      PROPOSAL_STATUS_UNSPECIFIED: 'Unspecified',
+      PROPOSAL_STATUS_DEPOSIT_PERIOD: 'Deposit Period',
+      PROPOSAL_STATUS_VOTING_PERIOD: 'Voting Period',
+      PROPOSAL_STATUS_PASSED: 'Passed',
+      PROPOSAL_STATUS_REJECTED: 'Rejected',
+      PROPOSAL_STATUS_FAILED: 'Failed',
       '0': 'Unspecified',
       '1': 'Deposit Period',
       '2': 'Voting Period',
@@ -252,16 +256,20 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
           {/* Summary */}
           {proposalDetails.summary && (
             <Box w="full">
-                    <HStack justify="space-between" mb={1}>
-                      <Text fontWeight="semibold" fontSize="xs" color={textColor}>
-                        Summary:
-                      </Text>
-                      <Box cursor="pointer" onClick={onCopy} title={hasCopied ? 'Copied!' : 'Copy summary'}>
-                        <FiCopy size={12} color={textColor} />
-                      </Box>
-                    </HStack>
-              <Text 
-                fontSize="xs" 
+              <HStack justify="space-between" mb={1}>
+                <Text fontWeight="semibold" fontSize="xs" color={textColor}>
+                  Summary:
+                </Text>
+                <Box
+                  cursor="pointer"
+                  onClick={onCopy}
+                  title={hasCopied ? 'Copied!' : 'Copy summary'}
+                >
+                  <FiCopy size={12} color={textColor} />
+                </Box>
+              </HStack>
+              <Text
+                fontSize="xs"
                 bg={useColorModeValue('gray.50', 'gray.700')}
                 p={2}
                 borderRadius="sm"
@@ -277,88 +285,129 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
           <HStack align="start" spacing={4} w="full">
             {/* Left Column - Messages (much larger) */}
             <Box flex="2" minW="0">
-              {proposalDetails.messages && proposalDetails.messages.length > 0 && (
-                <Box w="full">
-                  <Text fontWeight="semibold" fontSize="xs" mb={2} color={textColor}>
-                    Messages ({proposalDetails.messages.length}):
-                  </Text>
-                  <VStack 
-                    align="start" 
-                    spacing={2} 
-                    maxH="400px" 
-                    overflowY="auto"
-                    onMouseEnter={() => console.log('Mouse entered messages area')}
-                    onMouseLeave={() => console.log('Mouse left messages area')}
-                    css={{
-                      '&::-webkit-scrollbar': {
-                        width: '6px',
-                      },
-                      '&::-webkit-scrollbar-track': {
-                        background: useColorModeValue('#f1f1f1', '#2d3748'),
-                        borderRadius: '3px',
-                      },
-                      '&::-webkit-scrollbar-thumb': {
-                        background: useColorModeValue('#c1c1c1', '#4a5568'),
-                        borderRadius: '3px',
-                      },
-                      '&::-webkit-scrollbar-thumb:hover': {
-                        background: useColorModeValue('#a8a8a8', '#718096'),
-                      },
-                    }}
-                  >
-                    {proposalDetails.messages.map((message) => (
-                      <Box key={message.index} w="full" p={3} bg={useColorModeValue('gray.50', 'gray.700')} borderRadius="sm">
-                        <Text fontSize="xs" fontWeight="semibold" color={textColor} mb={2}>
-                          {message.index}. {getTypeDisplayName(message.type)}
-                        </Text>
-                        <Text 
-                          fontSize="xs" 
-                          color={secondaryTextColor} 
-                          wordBreak="break-word" 
-                          maxH="200px" 
-                          overflowY="auto" 
-                          whiteSpace="pre-wrap"
-                          css={{
-                            '&::-webkit-scrollbar': {
-                              width: '4px',
-                            },
-                            '&::-webkit-scrollbar-track': {
-                              background: useColorModeValue('#f1f1f1', '#2d3748'),
-                              borderRadius: '2px',
-                            },
-                            '&::-webkit-scrollbar-thumb': {
-                              background: useColorModeValue('#c1c1c1', '#4a5568'),
-                              borderRadius: '2px',
-                            },
-                            '&::-webkit-scrollbar-thumb:hover': {
-                              background: useColorModeValue('#a8a8a8', '#718096'),
-                            },
-                          }}
+              {proposalDetails.messages &&
+                proposalDetails.messages.length > 0 && (
+                  <Box w="full">
+                    <Text
+                      fontWeight="semibold"
+                      fontSize="xs"
+                      mb={2}
+                      color={textColor}
+                    >
+                      Messages ({proposalDetails.messages.length}):
+                    </Text>
+                    <VStack
+                      align="start"
+                      spacing={2}
+                      maxH="400px"
+                      overflowY="auto"
+                      onMouseEnter={() =>
+                        console.log('Mouse entered messages area')
+                      }
+                      onMouseLeave={() =>
+                        console.log('Mouse left messages area')
+                      }
+                      css={{
+                        '&::-webkit-scrollbar': {
+                          width: '6px',
+                        },
+                        '&::-webkit-scrollbar-track': {
+                          background: useColorModeValue('#f1f1f1', '#2d3748'),
+                          borderRadius: '3px',
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                          background: useColorModeValue('#c1c1c1', '#4a5568'),
+                          borderRadius: '3px',
+                        },
+                        '&::-webkit-scrollbar-thumb:hover': {
+                          background: useColorModeValue('#a8a8a8', '#718096'),
+                        },
+                      }}
+                    >
+                      {proposalDetails.messages.map((message) => (
+                        <Box
+                          key={message.index}
+                          w="full"
+                          p={3}
+                          bg={useColorModeValue('gray.50', 'gray.700')}
+                          borderRadius="sm"
                         >
-                          {JSON.stringify(message.content, null, 2)}
-                        </Text>
-                      </Box>
-                    ))}
-                  </VStack>
-                </Box>
-              )}
+                          <Text
+                            fontSize="xs"
+                            fontWeight="semibold"
+                            color={textColor}
+                            mb={2}
+                          >
+                            {message.index}. {getTypeDisplayName(message.type)}
+                          </Text>
+                          <Text
+                            fontSize="xs"
+                            color={secondaryTextColor}
+                            wordBreak="break-word"
+                            maxH="200px"
+                            overflowY="auto"
+                            whiteSpace="pre-wrap"
+                            css={{
+                              '&::-webkit-scrollbar': {
+                                width: '4px',
+                              },
+                              '&::-webkit-scrollbar-track': {
+                                background: useColorModeValue(
+                                  '#f1f1f1',
+                                  '#2d3748'
+                                ),
+                                borderRadius: '2px',
+                              },
+                              '&::-webkit-scrollbar-thumb': {
+                                background: useColorModeValue(
+                                  '#c1c1c1',
+                                  '#4a5568'
+                                ),
+                                borderRadius: '2px',
+                              },
+                              '&::-webkit-scrollbar-thumb:hover': {
+                                background: useColorModeValue(
+                                  '#a8a8a8',
+                                  '#718096'
+                                ),
+                              },
+                            }}
+                          >
+                            {JSON.stringify(message.content, null, 2)}
+                          </Text>
+                        </Box>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
             </Box>
 
             {/* Right Column - Timeline (smaller) */}
             <Box flex="1" minW="0">
-              <Text fontWeight="semibold" fontSize="xs" mb={2} color={textColor}>Timeline:</Text>
+              <Text
+                fontWeight="semibold"
+                fontSize="xs"
+                mb={2}
+                color={textColor}
+              >
+                Timeline:
+              </Text>
               <VStack align="start" spacing={1}>
                 <Text fontSize="xs" color={secondaryTextColor}>
-                  <strong>Submitted:</strong> {formatDate(proposalDetails.submitTime)}
+                  <strong>Submitted:</strong>{' '}
+                  {formatDate(proposalDetails.submitTime)}
                 </Text>
                 <Text fontSize="xs" color={secondaryTextColor}>
-                  <strong>Deposit End:</strong> {formatDate(proposalDetails.depositEndTime)}
+                  <strong>Deposit End:</strong>{' '}
+                  {formatDate(proposalDetails.depositEndTime)}
                 </Text>
                 <Text fontSize="xs" color={secondaryTextColor}>
-                  <strong>Voting Start:</strong> {formatDate(proposalDetails.votingStartTime)}
+                  <strong>Voting Start:</strong>{' '}
+                  {formatDate(proposalDetails.votingStartTime)}
                 </Text>
                 <Text fontSize="xs" color={secondaryTextColor}>
-                  <strong>Voting End:</strong> {formatDate(proposalDetails.votingEndTime)}
+                  <strong>Voting End:</strong>{' '}
+                  {formatDate(proposalDetails.votingEndTime)}
                 </Text>
               </VStack>
             </Box>
@@ -367,12 +416,21 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
           {/* Footer - Proposer and Metadata */}
           <Box w="full" pt={2} borderTop="1px solid" borderColor={borderColor}>
             {proposalDetails.proposer && (
-              <Text fontSize="xs" color={secondaryTextColor} mb={1} wordBreak="break-all">
+              <Text
+                fontSize="xs"
+                color={secondaryTextColor}
+                mb={1}
+                wordBreak="break-all"
+              >
                 <strong>Proposer:</strong> {proposalDetails.proposer}
               </Text>
             )}
             {proposalDetails.metadata && (
-              <Text fontSize="xs" color={secondaryTextColor} wordBreak="break-all">
+              <Text
+                fontSize="xs"
+                color={secondaryTextColor}
+                wordBreak="break-all"
+              >
                 <strong>Metadata:</strong> {proposalDetails.metadata}
               </Text>
             )}
@@ -398,7 +456,7 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
       >
         {children}
       </Box>
-      
+
       {isOpen && (
         <Portal>
           <Box

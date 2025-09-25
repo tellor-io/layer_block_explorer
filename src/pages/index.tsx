@@ -89,12 +89,15 @@ export default function Home() {
         const response = await getValidators(endpoint)
         if (response?.validators) {
           // Debug: Log all validator statuses to understand the format
-          console.log('All validators statuses:', response.validators.map((v: any) => ({
-            moniker: v.description?.moniker,
-            status: v.status,
-            statusType: typeof v.status
-          })))
-          
+          console.log(
+            'All validators statuses:',
+            response.validators.map((v: any) => ({
+              moniker: v.description?.moniker,
+              status: v.status,
+              statusType: typeof v.status,
+            }))
+          )
+
           // Only count active validators using the utility function
           const activeValidators = response.validators.filter(
             (validator: any) => isActiveValidator(validator.status)

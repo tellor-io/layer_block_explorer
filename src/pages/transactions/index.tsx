@@ -70,7 +70,6 @@ export default function Transactions() {
         return null
       }
 
-
       // Decode the transaction data
       let decodedTx
       try {

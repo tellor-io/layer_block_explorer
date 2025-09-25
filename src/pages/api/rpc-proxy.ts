@@ -18,7 +18,7 @@ export default async function handler(
   try {
     // Get the current endpoint from the RPC manager
     const currentEndpoint = await rpcManager.getCurrentEndpoint()
-    
+
     // Make the RPC request
     const response = await fetch(currentEndpoint, {
       method: 'POST',
@@ -34,10 +34,12 @@ export default async function handler(
     })
 
     if (!response.ok) {
-      console.warn(`RPC request failed with status ${response.status} for method ${method}`)
+      console.warn(
+        `RPC request failed with status ${response.status} for method ${method}`
+      )
       // Report failure to RPC manager
       await rpcManager.reportFailure(currentEndpoint)
-      
+
       return res.status(200).json({
         jsonrpc: '2.0',
         error: {
@@ -49,14 +51,14 @@ export default async function handler(
     }
 
     const data = await response.json()
-    
+
     // Report success to RPC manager
     await rpcManager.reportSuccess(currentEndpoint)
-    
+
     return res.status(200).json(data)
   } catch (error) {
     console.error('Error in RPC proxy:', error)
-    
+
     // Report failure to RPC manager
     try {
       const currentEndpoint = await rpcManager.getCurrentEndpoint()
@@ -64,7 +66,7 @@ export default async function handler(
     } catch (rpcError) {
       console.error('Error reporting RPC failure:', rpcError)
     }
-    
+
     return res.status(200).json({
       jsonrpc: '2.0',
       error: {

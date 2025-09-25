@@ -178,14 +178,17 @@ export default function Blocks() {
   useEffect(() => {
     async function fetchData() {
       try {
-        console.log('Blocks page: RPC address changed, refetching data. New address:', rpcAddress)
-        
+        console.log(
+          'Blocks page: RPC address changed, refetching data. New address:',
+          rpcAddress
+        )
+
         // Clear old data when switching endpoints
         setTxs([])
         setError(null)
         
         // Add a small delay to ensure RPC manager has updated when switching endpoints
-        await new Promise(resolve => setTimeout(resolve, 100))
+        await new Promise((resolve) => setTimeout(resolve, 100))
 
         // Fetch validators using new endpoint
         await fetchValidators()

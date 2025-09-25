@@ -63,9 +63,10 @@ export default async function handler(
   await new Promise((resolve) => setTimeout(resolve, INITIAL_DELAY))
 
   // Use custom endpoint if provided, otherwise fall back to RPC_ENDPOINTS
-  const endpointsToTry = customEndpoint && typeof customEndpoint === 'string' 
-    ? [customEndpoint, ...RPC_ENDPOINTS.filter(ep => ep !== customEndpoint)]
-    : RPC_ENDPOINTS
+  const endpointsToTry =
+    customEndpoint && typeof customEndpoint === 'string'
+      ? [customEndpoint, ...RPC_ENDPOINTS.filter((ep) => ep !== customEndpoint)]
+      : RPC_ENDPOINTS
 
   for (const endpoint of endpointsToTry) {
     try {
@@ -74,7 +75,7 @@ export default async function handler(
         : endpoint
 
       const url = `${baseEndpoint}/tellor-io/layer/oracle/get_reports_by_aggregate/${queryId}/${timestampNum}?pagination.limit=600`
-      
+
       const response = await axios.get(url, {
         timeout: AXIOS_TIMEOUT,
         headers: { Accept: 'application/json' },

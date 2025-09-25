@@ -207,8 +207,10 @@ export default function Navbar() {
     try {
       // Get the current endpoint and find the other one
       const currentEndpoint = rpcAddress
-      const otherEndpoint = RPC_ENDPOINTS.find(endpoint => endpoint !== currentEndpoint)
-      
+      const otherEndpoint = RPC_ENDPOINTS.find(
+        (endpoint) => endpoint !== currentEndpoint
+      )
+
       if (!otherEndpoint) {
         toast({
           title: 'Error',
@@ -219,7 +221,7 @@ export default function Navbar() {
         })
         return
       }
-      
+
       // Validate the other endpoint
       const isValid = await validateConnection(otherEndpoint)
       if (!isValid) {
@@ -319,9 +321,11 @@ export default function Navbar() {
             </HStack>
             <Skeleton isLoaded={!!status}>
               <Button leftIcon={<Icon as={FiRadio} />} onClick={onOpen}>
-                {status?.nodeInfo.network === 'tellor-1' ? 'Mainnet' : 
-                 status?.nodeInfo.network === 'layertest-4' ? 'Palmito Testnet' : 
-                 status?.nodeInfo.network || 'Network'}
+                {status?.nodeInfo.network === 'tellor-1'
+                  ? 'Mainnet'
+                  : status?.nodeInfo.network === 'layertest-4'
+                  ? 'Palmito Testnet'
+                  : status?.nodeInfo.network || 'Network'}
               </Button>
             </Skeleton>
             <IconButton
@@ -368,9 +372,11 @@ export default function Navbar() {
                   onMenuClose()
                 }}
               >
-                {status?.nodeInfo.network === 'tellor-1' ? 'Mainnet' : 
-                 status?.nodeInfo.network === 'layertest-4' ? 'Palmito Testnet' : 
-                 status?.nodeInfo.network || 'Network'}
+                {status?.nodeInfo.network === 'tellor-1'
+                  ? 'Mainnet'
+                  : status?.nodeInfo.network === 'layertest-4'
+                  ? 'Palmito Testnet'
+                  : status?.nodeInfo.network || 'Network'}
               </Button>
               <Button
                 leftIcon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
@@ -420,9 +426,12 @@ export default function Navbar() {
           <ModalCloseButton />
           <ModalBody>
             <Text>
-              <strong>Network:</strong> {status?.nodeInfo.network === 'tellor-1' ? 'Mainnet' : 
-                                       status?.nodeInfo.network === 'layertest-4' ? 'Palmito Testnet' : 
-                                       status?.nodeInfo.network || 'Unknown Network'}
+              <strong>Network:</strong>{' '}
+              {status?.nodeInfo.network === 'tellor-1'
+                ? 'Mainnet'
+                : status?.nodeInfo.network === 'layertest-4'
+                ? 'Palmito Testnet'
+                : status?.nodeInfo.network || 'Unknown Network'}
             </Text>
             <Text>
               <strong>Chain ID:</strong> {status?.nodeInfo.network}
@@ -453,8 +462,8 @@ export default function Navbar() {
               onClick={handleSwitchRPC}
               mt={2}
             >
-              {rpcAddress === RPC_ENDPOINTS[0] 
-                ? 'Switch to Palmito Testnet' 
+              {rpcAddress === RPC_ENDPOINTS[0]
+                ? 'Switch to Palmito Testnet'
                 : 'Switch to Mainnet'}
             </Button>
           </ModalBody>

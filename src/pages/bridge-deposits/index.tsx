@@ -65,13 +65,13 @@ interface Withdrawal {
 }
 
 interface APIDeposit {
-  id: number;
-  sender: string;
-  recipient: string;
-  amount: string;
-  tip: string;
-  blockHeight: string;
-  blockTimestamp?: string;
+  id: number
+  sender: string
+  recipient: string
+  amount: string
+  tip: string
+  blockHeight: string
+  blockTimestamp?: string
 }
 
 export default function BridgeDeposits() {
@@ -93,7 +93,11 @@ export default function BridgeDeposits() {
       const queryId = generateDepositQueryId(depositId)
       const rpcManager = RPCManager.getInstance()
       const currentEndpoint = await rpcManager.getCurrentEndpoint()
-      const response = await fetch(`/api/oracle-data/${queryId}?endpoint=${encodeURIComponent(currentEndpoint)}`)
+      const response = await fetch(
+        `/api/oracle-data/${queryId}?endpoint=${encodeURIComponent(
+          currentEndpoint
+        )}`
+      )
 
       if (!response.ok) {
         return { isReported: false }
@@ -126,47 +130,50 @@ export default function BridgeDeposits() {
         const endpoint = await rpcManager.getCurrentEndpoint()
         const baseEndpoint = endpoint.replace('/rpc', '')
 
-
-
         const response = await fetch(
           `${baseEndpoint}/layer/bridge/get_deposit_claimed/${depositId}`,
           {
             // Add timeout to prevent hanging requests
-            signal: AbortSignal.timeout(10000) // 10 second timeout
+            signal: AbortSignal.timeout(10000), // 10 second timeout
           }
         )
 
         if (!response.ok) {
           if (attempt === maxRetries) {
-            throw new Error(`External API responded with status: ${response.status}`)
+            throw new Error(
+              `External API responded with status: ${response.status}`
+            )
           }
           // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, retryDelay))
+          await new Promise((resolve) => setTimeout(resolve, retryDelay))
           continue
         }
 
         const data = await response.json()
-        
+
         // Check if the response has the expected structure
         if (typeof data.claimed === 'boolean') {
           return { claimed: data.claimed }
         } else if (typeof data === 'boolean') {
           return { claimed: data }
         } else {
-          console.warn(`Unexpected claim status format for deposit ${depositId}:`, data)
+          console.warn(
+            `Unexpected claim status format for deposit ${depositId}:`,
+            data
+          )
           return { claimed: false }
         }
-              } catch (error) {
-          if (attempt === maxRetries) {
-            // On final attempt, return false instead of throwing
-            return { claimed: false }
-          }
-          
-          // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, retryDelay))
+      } catch (error) {
+        if (attempt === maxRetries) {
+          // On final attempt, return false instead of throwing
+          return { claimed: false }
         }
+
+        // Wait before retrying
+        await new Promise((resolve) => setTimeout(resolve, retryDelay))
+      }
     }
-    
+
     return { claimed: false }
   }
 
@@ -176,10 +183,14 @@ export default function BridgeDeposits() {
       const rpcManager = RPCManager.getInstance()
       const currentEndpoint = await rpcManager.getCurrentEndpoint()
       const response = await fetch(
-        `/api/ethereum/bridge?method=withdrawClaimed&id=${withdrawalId}&endpoint=${encodeURIComponent(currentEndpoint)}`
+        `/api/ethereum/bridge?method=withdrawClaimed&id=${withdrawalId}&endpoint=${encodeURIComponent(
+          currentEndpoint
+        )}`
       )
       if (!response.ok) {
-        throw new Error(`External API responded with status: ${response.status}`)
+        throw new Error(
+          `External API responded with status: ${response.status}`
+        )
       }
       const data = await response.json()
       return { claimed: data.claimed }
@@ -203,7 +214,9 @@ export default function BridgeDeposits() {
         `${baseEndpoint}/layer/bridge/get_last_withdrawal_id`
       )
       if (!response.ok) {
-        throw new Error(`External API responded with status: ${response.status}`)
+        throw new Error(
+          `External API responded with status: ${response.status}`
+        )
       }
       const data = await response.json()
       const lastWithdrawalId = Number(data.withdrawal_id)
@@ -249,7 +262,9 @@ export default function BridgeDeposits() {
       )
 
       if (!response.ok) {
-        throw new Error(`External API responded with status: ${response.status}`)
+        throw new Error(
+          `External API responded with status: ${response.status}`
+        )
       }
 
       const data = await response.json()
@@ -295,7 +310,11 @@ export default function BridgeDeposits() {
         // Fetch deposits using new API endpoint with current endpoint
         const rpcManager = RPCManager.getInstance()
         const currentEndpoint = await rpcManager.getCurrentEndpoint()
-        const response = await fetch(`/api/ethereum/bridge?method=deposits&endpoint=${encodeURIComponent(currentEndpoint)}`)
+        const response = await fetch(
+          `/api/ethereum/bridge?method=deposits&endpoint=${encodeURIComponent(
+            currentEndpoint
+          )}`
+        )
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
@@ -305,13 +324,17 @@ export default function BridgeDeposits() {
           throw new Error('Expected deposits to be an array')
         }
 
-        const formattedDeposits: Deposit[] = deposits.map((deposit: APIDeposit) => ({
-          ...deposit,
-          amount: BigInt(deposit.amount),
-          tip: BigInt(deposit.tip),
-          blockHeight: BigInt(deposit.blockHeight),
-          blockTimestamp: deposit.blockTimestamp ? new Date(deposit.blockTimestamp) : undefined,
-        }))
+        const formattedDeposits: Deposit[] = deposits.map(
+          (deposit: APIDeposit) => ({
+            ...deposit,
+            amount: BigInt(deposit.amount),
+            tip: BigInt(deposit.tip),
+            blockHeight: BigInt(deposit.blockHeight),
+            blockTimestamp: deposit.blockTimestamp
+              ? new Date(deposit.blockTimestamp)
+              : undefined,
+          })
+        )
 
         setDeposits(formattedDeposits)
 
@@ -509,7 +532,7 @@ export default function BridgeDeposits() {
                         </Tooltip>
                       </Td>
                       <Td isNumeric>
-                        {'tip' in tx 
+                        {'tip' in tx
                           ? formatEther(tx.amount)
                           : formatEther(tx.amount / BigInt(100))}
                       </Td>
@@ -533,7 +556,7 @@ export default function BridgeDeposits() {
                                     {
                                       reportStatuses[tx.id].data?.aggregate
                                         ?.aggregate_power
-                                  }
+                                    }
                                   </Text>
                                   <Text>
                                     Date:{' '}
