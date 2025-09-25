@@ -51,13 +51,16 @@ const fetchDelegatorCount = async (
       `/api/validator-delegations/${validatorAddress}`
     )
     if (!response.ok) {
-      return 0
+      console.warn(
+        `Failed to fetch delegations for ${validatorAddress}: ${response.status}`
+      )
+      return 0 // Return 0 for failed requests to avoid breaking the UI
     }
     const data = await response.json()
     return data.delegation_responses?.length || 0
   } catch (error) {
     console.error('Error fetching delegator count:', error)
-    return 0
+    return 0 // Return 0 for failed requests to avoid breaking the UI
   }
 }
 
