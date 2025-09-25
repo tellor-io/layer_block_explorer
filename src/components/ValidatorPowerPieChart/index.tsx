@@ -82,6 +82,7 @@ export default function ValidatorPowerPieChart() {
         setValidators(activeValidators)
       } catch (err) {
         if (!isMounted) return
+        console.error('Error fetching validators:', err)
         setError(err instanceof Error ? err.message : 'Failed to fetch validators')
       } finally {
         if (isMounted) {

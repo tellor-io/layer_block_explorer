@@ -21,15 +21,31 @@ export default async function handler(
     // Remove /rpc from the endpoint for API calls
     const baseEndpoint = currentEndpoint.replace('/rpc', '')
     
-    // Make the request to the RPC endpoint
+    // Make the request to the RPC endpoint with timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+    
     const response = await fetch(
-      `${baseEndpoint}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations`
+      `${baseEndpoint}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations`,
+      {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        }
+      }
     )
 
+    clearTimeout(timeoutId)
+
     if (!response.ok) {
-      return res.status(response.status).json({ 
-        error: 'Failed to fetch delegations',
-        status: response.status 
+      console.warn(`RPC request failed with status ${response.status} for ${validatorAddress} from ${baseEndpoint}`)
+      // Report failure to RPC manager
+      await rpcManager.reportFailure(currentEndpoint)
+      
+      // Return empty delegations instead of error for better UX
+      return res.status(200).json({
+        delegation_responses: []
       })
     }
 
@@ -40,17 +56,19 @@ export default async function handler(
     
     return res.status(200).json(data)
   } catch (error) {
+    console.error('Error fetching validator delegations:', error)
+    
     // Report failure to RPC manager
     try {
       const currentEndpoint = await rpcManager.getCurrentEndpoint()
       await rpcManager.reportFailure(currentEndpoint)
     } catch (rpcError) {
-      // Silently handle RPC failure reporting errors
+      console.error('Error reporting RPC failure:', rpcError)
     }
     
-    return res.status(500).json({ 
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
+    // Return empty delegations instead of error for better UX
+    return res.status(200).json({
+      delegation_responses: []
     })
   }
 }
