@@ -149,7 +149,7 @@ export const getReporterCount = async (
   try {
     // Get the current endpoint from the RPC manager
     const currentEndpoint = await rpcManager.getCurrentEndpoint()
-    
+
     const response = await axios.get('/api/reporter-count', {
       params: { queryId, timestamp, endpoint: currentEndpoint },
     })
@@ -180,19 +180,22 @@ export const getReporterSelectors = async (
 ): Promise<number | undefined> => {
   try {
     const params = new URLSearchParams({
-      t: Date.now().toString()
+      t: Date.now().toString(),
     })
     if (rpcAddress) {
       params.append('rpc', rpcAddress)
     }
-    
-    const response = await axios.get(`/api/reporter-selectors/${reporter}?${params.toString()}`, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
+
+    const response = await axios.get(
+      `/api/reporter-selectors/${reporter}?${params.toString()}`,
+      {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
       }
-    })
+    )
     if (response.data && typeof response.data.num_of_selectors === 'number') {
       return response.data.num_of_selectors
     } else {
@@ -340,9 +343,9 @@ export const getValidators = async (endpoint: string): Promise<any> => {
     const response = await axios.get('/api/validators', {
       params: { endpoint },
     })
-    
+
     const data = response.data
-    
+
     return data
   } catch (error) {
     console.error('Failed to fetch validators:', error)

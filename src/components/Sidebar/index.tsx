@@ -49,7 +49,7 @@ import { GiFactory, GiGavel, GiArchBridge } from 'react-icons/gi'
 import { TbChartBubbleFilled } from 'react-icons/tb'
 import { MdPersonSearch } from 'react-icons/md'
 import { BsPersonFillAdd, BsPersonCheck } from 'react-icons/bs'
-import { SiRelay } from "react-icons/si";
+import { SiRelay } from 'react-icons/si'
 
 interface LinkItemProps {
   name: string
@@ -146,7 +146,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
     // Check after a short delay to ensure DOM is fully rendered
     const timeoutId = setTimeout(checkScrollable, 100)
     window.addEventListener('resize', checkScrollable)
-    
+
     return () => {
       clearTimeout(timeoutId)
       window.removeEventListener('resize', checkScrollable)
@@ -187,12 +187,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
       }}
       {...rest}
     >
-      <Box
-        flex="1"
-        pt="20px"
-        pb="80px"
-        minH="min-content"
-      >
+      <Box flex="1" pt="20px" pb="80px" minH="min-content">
         <VStack spacing={4} align="stretch" w="100%">
           <Box>
             {LinkItems.map((link) => (
@@ -224,7 +219,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
           </Box>
         </VStack>
       </Box>
-      
+
       {/* Scroll indicator arrow */}
       {showScrollIndicator && (
         <Box

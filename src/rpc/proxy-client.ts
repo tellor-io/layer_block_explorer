@@ -46,7 +46,12 @@ export class ProxyHttpClient extends HttpClient {
     } else {
       // Use direct connection in development - create a new HttpClient for this request
       const directClient = new HttpClient(this.originalUrl)
-      return directClient.execute(method)
+      return directClient.execute({
+        jsonrpc: '2.0',
+        method,
+        params: params || [],
+        id: Math.floor(Math.random() * 1000000),
+      })
     }
   }
 }

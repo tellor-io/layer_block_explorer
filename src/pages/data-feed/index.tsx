@@ -68,7 +68,7 @@ interface AggregateReportEvent {
 const getQueryPairName = (queryId: string): string => {
   // Remove 0x prefix if present for consistent matching
   const cleanQueryId = queryId.startsWith('0x') ? queryId.slice(2) : queryId
-  
+
   if (cleanQueryId.endsWith('ad78ac')) return 'BTC/USD'
   if (cleanQueryId.endsWith('ce4992')) return 'ETH/USD'
   if (cleanQueryId.endsWith('67ded0')) return 'TRB/USD'
@@ -118,28 +118,30 @@ export default function DataFeed() {
   const processBlock = useCallback(
     async (block: NewBlockEvent): Promise<void> => {
       const blockHeight = block.header.height
-      
+
       // More robust duplicate check
-      if (processedBlocksRef.current.has(blockHeight) || 
-          aggregateReports.some(report => report.blockHeight === blockHeight)) {
-        return;
+      if (
+        processedBlocksRef.current.has(blockHeight) ||
+        aggregateReports.some((report) => report.blockHeight === blockHeight)
+      ) {
+        return
       }
 
-      let endpoint;
+      let endpoint
       try {
         endpoint = await rpcManager.getCurrentEndpoint()
         const baseEndpoint = endpoint
-        
+
         const response = await axios.get(
           `${baseEndpoint}/block_results?height=${blockHeight}`,
           {
-            timeout: 10000
+            timeout: 10000,
           }
         )
-        
+
         const blockResults = response.data.result
         const finalizeEvents = blockResults.finalize_block_events || []
-        let hasNewReports = false;
+        let hasNewReports = false
 
         for (const aggregateEvent of finalizeEvents) {
           if (aggregateEvent.type === 'aggregate_report') {
@@ -207,39 +209,41 @@ export default function DataFeed() {
                 totalPower: reporterData.totalPower,
               }
 
-              setAggregateReports(prev => {
+              setAggregateReports((prev) => {
                 // Check if we already have this report
-                const exists = prev.some(r => 
-                  r.blockHeight === newReport.blockHeight && 
-                  r.queryId === newReport.queryId
-                );
-                
+                const exists = prev.some(
+                  (r) =>
+                    r.blockHeight === newReport.blockHeight &&
+                    r.queryId === newReport.queryId
+                )
+
                 if (exists) {
-                  return prev;
+                  return prev
                 }
-                
-                hasNewReports = true;
-                return [newReport, ...prev].slice(0, 100);
-              });
+
+                hasNewReports = true
+                return [newReport, ...prev].slice(0, 100)
+              })
             } catch (error) {
               console.error('Error processing aggregate event:', error)
             }
           }
         }
-        
+
         // Only mark the block as processed if we actually processed it
         if (hasNewReports) {
-          processedBlocksRef.current.add(blockHeight);
+          processedBlocksRef.current.add(blockHeight)
         }
       } catch (error) {
         console.error('Error in processBlock:', error)
         if (axios.isAxiosError(error) && endpoint) {
           await rpcManager.reportFailure(endpoint)
-          
+
           if (error.message === 'Network Error') {
             toast({
               title: 'Network Error',
-              description: 'Failed to fetch block data. Retrying with different endpoint...',
+              description:
+                'Failed to fetch block data. Retrying with different endpoint...',
               status: 'warning',
               duration: 5000,
               isClosable: true,
@@ -254,20 +258,23 @@ export default function DataFeed() {
   // Clean up old processed blocks periodically
   useEffect(() => {
     const cleanup = setInterval(() => {
-      const oldestAllowedBlock = Math.max(...Array.from(processedBlocksRef.current)) - 100;
+      const oldestAllowedBlock =
+        Math.max(...Array.from(processedBlocksRef.current)) - 100
       processedBlocksRef.current = new Set(
-        Array.from(processedBlocksRef.current).filter(height => height > oldestAllowedBlock)
-      );
-    }, 60000); // Run every minute
+        Array.from(processedBlocksRef.current).filter(
+          (height) => height > oldestAllowedBlock
+        )
+      )
+    }, 60000) // Run every minute
 
-    return () => clearInterval(cleanup);
-  }, []);
+    return () => clearInterval(cleanup)
+  }, [])
 
   useEffect(() => {
     if (newBlock) {
-      processBlock(newBlock);
+      processBlock(newBlock)
     }
-  }, [newBlock, processBlock]);
+  }, [newBlock, processBlock])
 
   // Remove or comment out this useEffect
   /*

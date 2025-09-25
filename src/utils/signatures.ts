@@ -84,14 +84,12 @@ export const deriveSignatures = async (
             v: finalV,
           })
           signatures.push(signature)
-
         } catch (error) {
           console.error('Error recovering address:', error)
           continue
         }
       }
     }
-
 
     return {
       signatures,

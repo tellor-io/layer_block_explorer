@@ -123,7 +123,10 @@ export default function Blocks() {
             map[hexAddress] = validator.description.moniker
           })
           setValidatorMap(map)
-          console.log('Blocks page: Successfully fetched validators, map size:', Object.keys(map).length)
+          console.log(
+            'Blocks page: Successfully fetched validators, map size:',
+            Object.keys(map).length
+          )
         }
       } catch (error) {
         console.error('Error fetching validators:', error)
@@ -134,16 +137,19 @@ export default function Blocks() {
   useEffect(() => {
     async function fetchData() {
       try {
-        console.log('Blocks page: RPC address changed, refetching data. New address:', rpcAddress)
-        
+        console.log(
+          'Blocks page: RPC address changed, refetching data. New address:',
+          rpcAddress
+        )
+
         // Clear old data when switching endpoints
         setBlocks([])
         setTxs([])
         setError(null)
         setIsLoading(true)
-        
+
         // Add a small delay to ensure RPC manager has updated when switching endpoints
-        await new Promise(resolve => setTimeout(resolve, 100))
+        await new Promise((resolve) => setTimeout(resolve, 100))
 
         // Fetch validators using new endpoint
         await fetchValidators()
@@ -169,7 +175,9 @@ export default function Blocks() {
               lastCommitHash: fromBase64(latestBlock.header.last_commit_hash),
               dataHash: fromBase64(latestBlock.header.data_hash),
               validatorsHash: fromBase64(latestBlock.header.validators_hash),
-              nextValidatorsHash: fromBase64(latestBlock.header.next_validators_hash),
+              nextValidatorsHash: fromBase64(
+                latestBlock.header.next_validators_hash
+              ),
               consensusHash: fromBase64(latestBlock.header.consensus_hash),
               appHash: fromBase64(latestBlock.header.app_hash),
               lastResultsHash: fromBase64(latestBlock.header.last_results_hash),
@@ -186,8 +194,9 @@ export default function Blocks() {
         for (let i = 1; i < 10; i++) {
           const height = parseInt(latestBlock.header.height) - i
           prevBlockPromises.push(
-            axios.get(`/api/block-by-height/${height}`)
-              .then(response => {
+            axios
+              .get(`/api/block-by-height/${height}`)
+              .then((response) => {
                 if (response?.data?.block) {
                   const prevBlock = response.data.block
                   return {
@@ -195,16 +204,28 @@ export default function Blocks() {
                       version: { block: 0, app: 0 },
                       height: prevBlock.header.height,
                       time: new Date(prevBlock.header.time),
-                      proposerAddress: fromBase64(prevBlock.header.proposer_address),
+                      proposerAddress: fromBase64(
+                        prevBlock.header.proposer_address
+                      ),
                       chainId: prevBlock.header.chain_id,
                       lastBlockId: prevBlock.header.last_block_id,
-                      lastCommitHash: fromBase64(prevBlock.header.last_commit_hash),
+                      lastCommitHash: fromBase64(
+                        prevBlock.header.last_commit_hash
+                      ),
                       dataHash: fromBase64(prevBlock.header.data_hash),
-                      validatorsHash: fromBase64(prevBlock.header.validators_hash),
-                      nextValidatorsHash: fromBase64(prevBlock.header.next_validators_hash),
-                      consensusHash: fromBase64(prevBlock.header.consensus_hash),
+                      validatorsHash: fromBase64(
+                        prevBlock.header.validators_hash
+                      ),
+                      nextValidatorsHash: fromBase64(
+                        prevBlock.header.next_validators_hash
+                      ),
+                      consensusHash: fromBase64(
+                        prevBlock.header.consensus_hash
+                      ),
                       appHash: fromBase64(prevBlock.header.app_hash),
-                      lastResultsHash: fromBase64(prevBlock.header.last_results_hash),
+                      lastResultsHash: fromBase64(
+                        prevBlock.header.last_results_hash
+                      ),
                       evidenceHash: fromBase64(prevBlock.header.evidence_hash),
                     },
                     txs: prevBlock.data?.txs || [],
@@ -214,7 +235,7 @@ export default function Blocks() {
                 }
                 return null
               })
-              .catch(error => {
+              .catch((error) => {
                 console.warn(`Error fetching block at height ${height}:`, error)
                 return null
               })
@@ -223,9 +244,9 @@ export default function Blocks() {
 
         // Wait for all block fetches to complete
         const prevBlocks = await Promise.all(prevBlockPromises)
-        
+
         // Filter out null results and add valid blocks to blocksData
-        prevBlocks.forEach(block => {
+        prevBlocks.forEach((block) => {
           if (block) {
             blocksData.push(block)
           }
@@ -239,7 +260,9 @@ export default function Blocks() {
       } catch (error) {
         console.error('Error fetching blocks data:', error)
         if (axios.isAxiosError(error)) {
-          setError('Failed to fetch data. Please check your network connection.')
+          setError(
+            'Failed to fetch data. Please check your network connection.'
+          )
         } else {
           setError('An unexpected error occurred.')
         }

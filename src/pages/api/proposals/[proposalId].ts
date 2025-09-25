@@ -25,7 +25,10 @@ export default async function handler(
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
 
-    console.log('Fetching proposal from:', `${baseEndpoint}/cosmos/gov/v1/proposals/${proposalIdNum}`)
+    console.log(
+      'Fetching proposal from:',
+      `${baseEndpoint}/cosmos/gov/v1/proposals/${proposalIdNum}`
+    )
 
     // Query the REST API endpoint for proposal details (v1 format)
     const response = await fetch(
@@ -43,10 +46,10 @@ export default async function handler(
 
     const data = await response.json()
     console.log('Raw proposal data:', data)
-    
+
     // Format the response to match our expected structure
     const proposal = data.proposal
-    
+
     if (!proposal) {
       return res.status(404).json({ error: 'Proposal not found' })
     }
@@ -61,14 +64,16 @@ export default async function handler(
     let failedReason = proposal.failed_reason || ''
 
     // Extract message types
-    let messageTypes = messages.map((msg: any) => msg['@type'] || 'Unknown Type')
+    let messageTypes = messages.map(
+      (msg: any) => msg['@type'] || 'Unknown Type'
+    )
     let primaryType = messageTypes[0] || 'Unknown Type'
 
     // Format messages for display
     let formattedMessages = messages.map((msg: any, index: number) => ({
       index: index + 1,
       type: msg['@type'] || 'Unknown Type',
-      content: msg
+      content: msg,
     }))
 
     // Format dates
@@ -94,21 +99,35 @@ export default async function handler(
       votingStartTime: formatDate(proposal.voting_start_time),
       votingEndTime: formatDate(proposal.voting_end_time),
       totalDeposit: proposal.total_deposit || [],
-      tallyResult: proposal.final_tally_result ? {
-        yes: proposal.final_tally_result.yes_count || proposal.final_tally_result.yes || '0',
-        no: proposal.final_tally_result.no_count || proposal.final_tally_result.no || '0',
-        abstain: proposal.final_tally_result.abstain_count || proposal.final_tally_result.abstain || '0',
-        noWithVeto: proposal.final_tally_result.no_with_veto_count || proposal.final_tally_result.no_with_veto || '0',
-      } : null,
+      tallyResult: proposal.final_tally_result
+        ? {
+            yes:
+              proposal.final_tally_result.yes_count ||
+              proposal.final_tally_result.yes ||
+              '0',
+            no:
+              proposal.final_tally_result.no_count ||
+              proposal.final_tally_result.no ||
+              '0',
+            abstain:
+              proposal.final_tally_result.abstain_count ||
+              proposal.final_tally_result.abstain ||
+              '0',
+            noWithVeto:
+              proposal.final_tally_result.no_with_veto_count ||
+              proposal.final_tally_result.no_with_veto ||
+              '0',
+          }
+        : null,
     }
 
     console.log('Formatted response:', responseData)
     return res.status(200).json(responseData)
   } catch (error) {
     console.error('Error fetching proposal:', error)
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch proposal',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      details: error instanceof Error ? error.message : 'Unknown error',
     })
   }
 }

@@ -10,13 +10,13 @@ export default async function handler(
   try {
     const endpoint =
       (req.query.endpoint as string) || (await rpcManager.getCurrentEndpoint())
-        
+
     // Use Tendermint RPC client instead of REST API
     const tmClient = await Tendermint37Client.connect(endpoint)
     const client = await StargateClient.create(tmClient)
-    
+
     const block = await client.getBlock()
-    
+
     // Convert the block to the expected format
     const blockData = {
       block: {
@@ -29,12 +29,12 @@ export default async function handler(
           // We'll use the raw block data if available
         },
         data: {
-          txs: block.txs.map(tx => Buffer.from(tx).toString('base64')),
+          txs: block.txs.map((tx) => Buffer.from(tx).toString('base64')),
         },
         // Note: evidence and last_commit might not be available in the Block type
       },
     }
-    
+
     res.status(200).json(blockData)
   } catch (error) {
     console.error('API Route Error:', error)
