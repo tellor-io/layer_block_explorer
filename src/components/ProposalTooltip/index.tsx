@@ -66,14 +66,49 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
   const textColor = useColorModeValue('gray.800', 'white')
   const secondaryTextColor = useColorModeValue('gray.600', 'gray.300')
 
-  // Position tooltip to the right of the trigger element
+  // Position tooltip to the right of the trigger element, centered vertically
   const updatePosition = useCallback(() => {
     if (triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect()
-      setPosition({
-        x: rect.right + 10,
-        y: rect.top,
-      })
+      const tooltipHeight = 700 // maxH from tooltip content
+      const tooltipWidth = 700 // maxW from tooltip content
+      
+      // Calculate horizontal position (to the right with some padding)
+      let x = rect.right + 10
+      
+      // Calculate vertical position (centered on trigger element)
+      let y = rect.top + (rect.height / 2) - (tooltipHeight / 2)
+      
+      // Ensure tooltip stays within viewport
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+      
+      // Adjust horizontal position if tooltip would go off-screen
+      if (x + tooltipWidth > viewportWidth) {
+        x = rect.left - tooltipWidth - 10 // Show to the left instead
+      }
+      
+      // Adjust vertical position if tooltip would go off-screen
+      if (y < 10) {
+        y = 10 // Minimum top margin
+      } else if (y + tooltipHeight > viewportHeight - 10) {
+        // If tooltip would go off bottom, try to position it above the trigger
+        const spaceAbove = rect.top - 10
+        const spaceBelow = viewportHeight - rect.bottom - 10
+        
+        if (spaceAbove >= tooltipHeight) {
+          // Position above the trigger element
+          y = rect.top - tooltipHeight - 10
+        } else if (spaceBelow >= tooltipHeight) {
+          // Position below the trigger element
+          y = rect.bottom + 10
+        } else {
+          // Not enough space above or below, center in available space
+          y = Math.max(10, Math.min(y, viewportHeight - tooltipHeight - 10))
+        }
+      }
+      
+      setPosition({ x, y })
     }
   }, [])
 
@@ -108,6 +143,18 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
       }
     }, 100)
   }, [])
+
+  // Update position on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (isOpen) {
+        updatePosition()
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [isOpen, updatePosition])
 
   const fetchProposalDetails = async () => {
     if (proposalDetails || isLoading) return

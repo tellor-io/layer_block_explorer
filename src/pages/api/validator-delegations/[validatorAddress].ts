@@ -45,9 +45,10 @@ export default async function handler(
       // Report failure to RPC manager
       await rpcManager.reportFailure(currentEndpoint)
 
-      // Return empty delegations instead of error for better UX
-      return res.status(200).json({
-        delegation_responses: [],
+      // Return proper error status like other APIs
+      return res.status(response.status).json({
+        error: `Failed to fetch delegations for validator ${validatorAddress}`,
+        details: `RPC endpoint returned status ${response.status}`,
       })
     }
 
@@ -68,9 +69,10 @@ export default async function handler(
       console.error('Error reporting RPC failure:', rpcError)
     }
 
-    // Return empty delegations instead of error for better UX
-    return res.status(200).json({
-      delegation_responses: [],
+    // Return proper error status like other APIs
+    return res.status(500).json({
+      error: 'Failed to fetch validator delegations',
+      details: error instanceof Error ? error.message : 'Unknown error',
     })
   }
 }
