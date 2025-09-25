@@ -56,6 +56,7 @@ const fetchDelegatorCount = async (
     const data = await response.json()
     return data.delegation_responses?.length || 0
   } catch (error) {
+    console.error('Error fetching delegator count:', error)
     return 0
   }
 }
@@ -453,6 +454,7 @@ export default function Validators() {
         setIsLoading(false)
       })
       .catch((error: Error) => {
+        console.error('Error fetching validators:', error)
         toast({
           title: 'Failed to fetch validators',
           description: '',
