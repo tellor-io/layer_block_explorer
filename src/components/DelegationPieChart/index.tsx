@@ -8,6 +8,8 @@ import {
   Legend,
 } from 'recharts'
 import { Box, Text, useColorModeValue } from '@chakra-ui/react'
+import { useSelector } from 'react-redux'
+import { selectRPCAddress } from '@/store/connectSlice'
 
 interface DelegationData {
   delegation: {
@@ -49,13 +51,16 @@ export default function DelegationPieChart({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const rpcAddress = useSelector(selectRPCAddress)
 
   useEffect(() => {
     const fetchDelegations = async () => {
       try {
         setIsLoading(true)
         const response = await fetch(
-          `/api/validator-delegations/${validatorAddress}`
+          `/api/validator-delegations/${validatorAddress}?rpc=${encodeURIComponent(
+            rpcAddress
+          )}`
         )
         if (!response.ok) {
           throw new Error('Failed to fetch delegations')
@@ -73,7 +78,7 @@ export default function DelegationPieChart({
     }
 
     fetchDelegations()
-  }, [validatorAddress])
+  }, [validatorAddress, rpcAddress])
 
   if (isLoading) {
     return (
