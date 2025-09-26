@@ -16,46 +16,35 @@ export default async function handler(
   }
 
   try {
-    // Get the current endpoint from the RPC manager
-    const currentEndpoint = await rpcManager.getCurrentEndpoint()
+    // Get the current endpoint from the RPC manager, with fallback options like validators API
+    const endpoint =
+      (req.query.endpoint as string) ||
+      (req.query.rpc as string) ||
+      (await rpcManager.getCurrentEndpoint())
     // Remove /rpc from the endpoint for API calls
-    const baseEndpoint = currentEndpoint.replace('/rpc', '')
-
-    // Make the request to the RPC endpoint with timeout
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+    const baseEndpoint = endpoint.replace('/rpc', '')
 
     const response = await fetch(
-      `${baseEndpoint}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations`,
-      {
-        signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-      }
+      `${baseEndpoint}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations`
     )
-
-    clearTimeout(timeoutId)
 
     if (!response.ok) {
       console.warn(
         `RPC request failed with status ${response.status} for ${validatorAddress} from ${baseEndpoint}`
       )
       // Report failure to RPC manager
-      await rpcManager.reportFailure(currentEndpoint)
+      await rpcManager.reportFailure(endpoint)
 
-      // Return proper error status like other APIs
-      return res.status(response.status).json({
-        error: `Failed to fetch delegations for validator ${validatorAddress}`,
-        details: `RPC endpoint returned status ${response.status}`,
+      // Return empty delegations instead of error for better UX
+      return res.status(200).json({
+        delegation_responses: [],
       })
     }
 
     const data = await response.json()
 
     // Report success to RPC manager
-    await rpcManager.reportSuccess(currentEndpoint)
+    await rpcManager.reportSuccess(endpoint)
 
     return res.status(200).json(data)
   } catch (error) {
@@ -69,10 +58,9 @@ export default async function handler(
       console.error('Error reporting RPC failure:', rpcError)
     }
 
-    // Return proper error status like other APIs
-    return res.status(500).json({
-      error: 'Failed to fetch validator delegations',
-      details: error instanceof Error ? error.message : 'Unknown error',
+    // Return empty delegations instead of error for better UX
+    return res.status(200).json({
+      delegation_responses: [],
     })
   }
 }

@@ -12,6 +12,8 @@ import {
 } from '@chakra-ui/react'
 import { FiCopy } from 'react-icons/fi'
 import { useClipboard } from '@chakra-ui/react'
+import { useSelector } from 'react-redux'
+import { selectRPCAddress } from '@/store/connectSlice'
 
 interface ProposalDetails {
   proposalId: number
@@ -60,6 +62,7 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
   const triggerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const { hasCopied, onCopy } = useClipboard(proposalDetails?.summary || '')
+  const rpcAddress = useSelector(selectRPCAddress)
 
   const bgColor = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.600')
@@ -72,22 +75,22 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
       const rect = triggerRef.current.getBoundingClientRect()
       const tooltipHeight = 700 // maxH from tooltip content
       const tooltipWidth = 700 // maxW from tooltip content
-      
+
       // Calculate horizontal position (to the right with some padding)
       let x = rect.right + 10
-      
+
       // Calculate vertical position (centered on trigger element)
-      let y = rect.top + (rect.height / 2) - (tooltipHeight / 2)
-      
+      let y = rect.top + rect.height / 2 - tooltipHeight / 2
+
       // Ensure tooltip stays within viewport
       const viewportWidth = window.innerWidth
       const viewportHeight = window.innerHeight
-      
+
       // Adjust horizontal position if tooltip would go off-screen
       if (x + tooltipWidth > viewportWidth) {
         x = rect.left - tooltipWidth - 10 // Show to the left instead
       }
-      
+
       // Adjust vertical position if tooltip would go off-screen
       if (y < 10) {
         y = 10 // Minimum top margin
@@ -95,7 +98,7 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
         // If tooltip would go off bottom, try to position it above the trigger
         const spaceAbove = rect.top - 10
         const spaceBelow = viewportHeight - rect.bottom - 10
-        
+
         if (spaceAbove >= tooltipHeight) {
           // Position above the trigger element
           y = rect.top - tooltipHeight - 10
@@ -107,7 +110,7 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
           y = Math.max(10, Math.min(y, viewportHeight - tooltipHeight - 10))
         }
       }
-      
+
       setPosition({ x, y })
     }
   }, [])
@@ -164,7 +167,10 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
     setError(null)
 
     try {
-      const response = await fetch(`/api/proposals/${proposalId}`)
+      const url = rpcAddress 
+        ? `/api/proposals/${proposalId}?rpc=${encodeURIComponent(rpcAddress)}`
+        : `/api/proposals/${proposalId}`
+      const response = await fetch(url)
       console.log('API response status:', response.status)
       if (!response.ok) {
         throw new Error(`Failed to fetch proposal: ${response.statusText}`)
