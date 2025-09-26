@@ -21,8 +21,11 @@ export default async function handler(
       return res.status(400).json({ error: 'Invalid proposal ID' })
     }
 
-    // Get RPC endpoint using the same method as other API endpoints
-    const endpoint = await rpcManager.getCurrentEndpoint()
+    // Get RPC endpoint - check for custom endpoint in query params first
+    let endpoint = req.query.rpc as string
+    if (!endpoint) {
+      endpoint = await rpcManager.getCurrentEndpoint()
+    }
     const baseEndpoint = endpoint.replace('/rpc', '')
 
     console.log(

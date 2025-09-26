@@ -145,29 +145,92 @@ export async function queryProposalVotes(
   proposalId: number
 ) {
   try {
-    const queryClient = new QueryClient(tmClient)
+    // Use REST API instead of ABCI query for better compatibility
+    const rpcManager = RPCManager.getInstance()
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
 
-    const proposalPath = `/cosmos.gov.v1beta1.Query/Proposal`
-    const proposalRequest = QueryProposalRequest.encode({
-      proposalId: Long.fromNumber(proposalId),
-    }).finish()
-
-    const { value: proposalValue } = await queryClient.queryAbci(
-      proposalPath,
-      proposalRequest
+    const response = await axios.get(
+      `${baseEndpoint}/cosmos/gov/v1/proposals/${proposalId}`
     )
-    const proposalResponse = QueryProposalResponse.decode(proposalValue)
 
-    if (!proposalResponse.proposal) {
+    if (!response.data?.proposal) {
       return { hasVotes: false, voteDistribution: null, totalPower: 0 }
     }
 
-    const { yes, no, abstain, noWithVeto } =
-      proposalResponse.proposal.finalTallyResult || {}
-    const totalPower =
-      Number(yes) + Number(no) + Number(abstain) + Number(noWithVeto)
+    const proposal = response.data.proposal
+    const isVotingPeriod = proposal.status === 'PROPOSAL_STATUS_VOTING_PERIOD'
 
-    const formatVote = (vote: string | undefined) => {
+    let yes = '0'
+    let no = '0'
+    let abstain = '0'
+    let noWithVeto = '0'
+
+    if (isVotingPeriod) {
+      // For active voting period, fetch individual votes and calculate tally
+      try {
+        const votesResponse = await axios.get(
+          `${baseEndpoint}/cosmos/gov/v1/proposals/${proposalId}/votes`
+        )
+        
+        if (votesResponse.data?.votes) {
+          const votes = votesResponse.data.votes
+          let yesCount = 0
+          let noCount = 0
+          let abstainCount = 0
+          let noWithVetoCount = 0
+
+          votes.forEach((vote: any) => {
+            vote.options.forEach((option: any) => {
+              const weight = parseFloat(option.weight)
+              switch (option.option) {
+                case 'VOTE_OPTION_YES':
+                  yesCount += weight
+                  break
+                case 'VOTE_OPTION_NO':
+                  noCount += weight
+                  break
+                case 'VOTE_OPTION_ABSTAIN':
+                  abstainCount += weight
+                  break
+                case 'VOTE_OPTION_NO_WITH_VETO':
+                  noWithVetoCount += weight
+                  break
+              }
+            })
+          })
+
+          // Convert to the same format as final_tally_result (multiply by 1_000_000)
+          yes = (yesCount * 1_000_000).toString()
+          no = (noCount * 1_000_000).toString()
+          abstain = (abstainCount * 1_000_000).toString()
+          noWithVeto = (noWithVetoCount * 1_000_000).toString()
+        }
+      } catch (votesError) {
+        console.warn('Failed to fetch individual votes, using final_tally_result:', votesError)
+        // Fall back to final_tally_result if votes endpoint fails
+        const tallyResult = proposal.final_tally_result
+        if (tallyResult) {
+          yes = tallyResult.yes_count || tallyResult.yes || '0'
+          no = tallyResult.no_count || tallyResult.no || '0'
+          abstain = tallyResult.abstain_count || tallyResult.abstain || '0'
+          noWithVeto = tallyResult.no_with_veto_count || tallyResult.no_with_veto || '0'
+        }
+      }
+    } else {
+      // For completed proposals, use final_tally_result
+      const tallyResult = proposal.final_tally_result
+      if (tallyResult) {
+        yes = tallyResult.yes_count || tallyResult.yes || '0'
+        no = tallyResult.no_count || tallyResult.no || '0'
+        abstain = tallyResult.abstain_count || tallyResult.abstain || '0'
+        noWithVeto = tallyResult.no_with_veto_count || tallyResult.no_with_veto || '0'
+      }
+    }
+
+    const totalPower = Number(yes) + Number(no) + Number(abstain) + Number(noWithVeto)
+
+    const formatVote = (vote: string) => {
       const voteNumber = Number(vote) / 1_000_000
       const percentage =
         totalPower > 0 ? (voteNumber / (totalPower / 1_000_000)) * 100 : 0

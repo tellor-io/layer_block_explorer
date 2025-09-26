@@ -29,7 +29,7 @@ import {
   FiExternalLink,
   FiMail,
 } from 'react-icons/fi'
-import { selectTmClient } from '@/store/connectSlice'
+import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
 import { queryAllValidators } from '@/rpc/abci'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
@@ -44,23 +44,23 @@ import { useRouter } from 'next/router'
 
 // Function to fetch delegator count for a validator
 const fetchDelegatorCount = async (
-  validatorAddress: string
+  validatorAddress: string,
+  rpcAddress: string
 ): Promise<number> => {
   try {
     const response = await fetch(
-      `/api/validator-delegations/${validatorAddress}`
+      `/api/validator-delegations/${validatorAddress}?rpc=${encodeURIComponent(
+        rpcAddress
+      )}`
     )
     if (!response.ok) {
-      console.warn(
-        `Failed to fetch delegations for ${validatorAddress}: ${response.status}`
-      )
-      return 0 // Return 0 for failed requests to avoid breaking the UI
+      return 0
     }
     const data = await response.json()
     return data.delegation_responses?.length || 0
   } catch (error) {
     console.error('Error fetching delegator count:', error)
-    return 0 // Return 0 for failed requests to avoid breaking the UI
+    return 0
   }
 }
 
@@ -394,6 +394,7 @@ export default function Validators() {
   const highlightBgColor = useColorModeValue('gray.100', 'gray.700')
 
   const tmClient = useSelector(selectTmClient)
+  const rpcAddress = useSelector(selectRPCAddress)
   const toast = useToast()
 
   const validatorDataWithPercentage = useMemo(() => {
@@ -444,7 +445,8 @@ export default function Validators() {
         const validatorsWithDelegatorCounts = await Promise.all(
           validatorData.map(async (validator) => {
             const delegatorCount = await fetchDelegatorCount(
-              validator.operatorAddress
+              validator.operatorAddress,
+              rpcAddress
             )
             return {
               ...validator,

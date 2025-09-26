@@ -40,7 +40,7 @@ import {
 } from '@/utils/constant'
 import { decodeContentProposal } from '@/encoding'
 import { useClipboard, Tooltip } from '@chakra-ui/react'
-import { FiCopy } from 'react-icons/fi'
+import { FiInfo } from 'react-icons/fi'
 import { fromUtf8 } from '@cosmjs/encoding'
 import ProposalTooltip from '@/components/ProposalTooltip'
 
@@ -64,7 +64,7 @@ const CopyableTitle = ({
         >
           {title}
         </Text>
-        <Icon as={FiCopy} boxSize={4} />
+        <Icon as={FiInfo} boxSize={4} />
       </HStack>
     </ProposalTooltip>
   )
