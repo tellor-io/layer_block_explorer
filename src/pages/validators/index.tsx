@@ -475,7 +475,7 @@ export default function Validators() {
         })
         setIsLoading(false)
       })
-  }, [tmClient, toast])
+  }, [tmClient, rpcAddress, toast])
 
   useEffect(() => {
     if (
