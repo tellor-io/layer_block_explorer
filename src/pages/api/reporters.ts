@@ -7,7 +7,7 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    const { endpoint: customEndpoint, rpc } = req.query
+    const { endpoint: customEndpoint, rpc, sortBy, sortOrder, page, perPage } = req.query
 
     // Use custom endpoint if provided, otherwise use RPC address from query, otherwise use rpcManager
     let endpoint: string
@@ -30,6 +30,58 @@ export default async function handler(
     }
 
     const data = await response.json()
+
+    // Apply sorting if requested
+    if (sortBy && data.reporters) {
+      const sortField = sortBy as string
+      const order = sortOrder === 'desc' ? -1 : 1
+      
+      data.reporters.sort((a: any, b: any) => {
+        let aValue = a[sortField]
+        let bValue = b[sortField]
+        
+        // Handle nested properties
+        if (sortField === 'displayName') {
+          aValue = a.address // Use address for sorting since displayName is derived
+          bValue = b.address
+        } else if (sortField === 'power') {
+          aValue = parseInt(a.power || '0')
+          bValue = parseInt(b.power || '0')
+        } else if (sortField === 'min_tokens_required') {
+          aValue = parseInt(a.metadata?.min_tokens_required || '0')
+          bValue = parseInt(b.metadata?.min_tokens_required || '0')
+        } else if (sortField === 'commission_rate') {
+          aValue = parseFloat(a.metadata?.commission_rate || '0')
+          bValue = parseFloat(b.metadata?.commission_rate || '0')
+        } else if (sortField === 'jailed') {
+          aValue = a.metadata?.jailed ? 'Yes' : 'No'
+          bValue = b.metadata?.jailed ? 'Yes' : 'No'
+        }
+        
+        // Handle string comparison
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return aValue.localeCompare(bValue) * order
+        }
+        
+        // Handle numeric comparison
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return (aValue - bValue) * order
+        }
+        
+        return 0
+      })
+    }
+
+    // Apply pagination if requested
+    if (page && perPage && data.reporters) {
+      const pageNum = parseInt(page as string)
+      const perPageNum = parseInt(perPage as string)
+      const start = pageNum * perPageNum
+      const end = start + perPageNum
+      
+      data.reporters = data.reporters.slice(start, end)
+    }
+
     res.status(200).json(data)
   } catch (error) {
     console.error('API Route Error:', error)

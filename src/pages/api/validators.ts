@@ -14,7 +14,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { clearCache } = req.query
+  const { clearCache, sortBy, sortOrder, page, perPage } = req.query
 
   // Allow cache clearing via query parameter
   if (clearCache === 'true') {
@@ -30,10 +30,10 @@ export default async function handler(
     // Remove '/rpc' from the endpoint if it exists
     const baseEndpoint = endpoint.replace('/rpc', '')
 
-    // Check cache first
+    // Check cache first (only if no sorting/pagination)
     const cacheKey = baseEndpoint
     const cachedData = cache.get(cacheKey)
-    if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
+    if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION && !sortBy) {
       return res.status(200).json(cachedData.data)
     }
 
@@ -47,11 +47,58 @@ export default async function handler(
 
     const data = await response.json()
 
-    // Cache the data
-    cache.set(cacheKey, {
-      data,
-      timestamp: Date.now(),
-    })
+    // Apply sorting if requested
+    if (sortBy && data.validators) {
+      const sortField = sortBy as string
+      const order = sortOrder === 'desc' ? -1 : 1
+      
+      data.validators.sort((a: any, b: any) => {
+        let aValue = a[sortField]
+        let bValue = b[sortField]
+        
+        // Handle nested properties
+        if (sortField === 'validator') {
+          aValue = a.description?.moniker || a.operator_address
+          bValue = b.description?.moniker || b.operator_address
+        } else if (sortField === 'votingPower') {
+          aValue = parseInt(a.tokens || '0')
+          bValue = parseInt(b.tokens || '0')
+        } else if (sortField === 'commission') {
+          aValue = parseFloat(a.commission?.commission_rates?.rate || '0')
+          bValue = parseFloat(b.commission?.commission_rates?.rate || '0')
+        }
+        
+        // Handle string comparison
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return aValue.localeCompare(bValue) * order
+        }
+        
+        // Handle numeric comparison
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return (aValue - bValue) * order
+        }
+        
+        return 0
+      })
+    }
+
+    // Apply pagination if requested
+    if (page && perPage && data.validators) {
+      const pageNum = parseInt(page as string)
+      const perPageNum = parseInt(perPage as string)
+      const start = pageNum * perPageNum
+      const end = start + perPageNum
+      
+      data.validators = data.validators.slice(start, end)
+    }
+
+    // Cache the data (only if no sorting/pagination)
+    if (!sortBy) {
+      cache.set(cacheKey, {
+        data,
+        timestamp: Date.now(),
+      })
+    }
 
     res.status(200).json(data)
   } catch (error) {
