@@ -24,9 +24,17 @@ export default async function handler(
     // Remove /rpc from the endpoint for API calls
     const baseEndpoint = endpoint.replace('/rpc', '')
 
+    console.log(`[PROD DEBUG] Validator: ${validatorAddress}`)
+    console.log(`[PROD DEBUG] Query params:`, req.query)
+    console.log(`[PROD DEBUG] Using endpoint: ${endpoint}`)
+    console.log(`[PROD DEBUG] Base endpoint: ${baseEndpoint}`)
+
     const response = await fetch(
       `${baseEndpoint}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations`
     )
+
+    console.log(`[PROD DEBUG] Response status: ${response.status}`)
+    console.log(`[PROD DEBUG] Response ok: ${response.ok}`)
 
     if (!response.ok) {
       console.warn(
@@ -42,6 +50,8 @@ export default async function handler(
     }
 
     const data = await response.json()
+
+    console.log(`[PROD DEBUG] Delegation count: ${data.delegation_responses?.length || 0}`)
 
     // Report success to RPC manager
     await rpcManager.reportSuccess(endpoint)
