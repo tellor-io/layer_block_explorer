@@ -37,15 +37,18 @@ export default async function handler(
     console.log(`[PROD DEBUG] Response ok: ${response.ok}`)
 
     if (!response.ok) {
+      const errorText = await response.text()
       console.warn(
         `RPC request failed with status ${response.status} for ${validatorAddress} from ${baseEndpoint}`
       )
+      console.warn(`Error response: ${errorText}`)
       // Report failure to RPC manager
       await rpcManager.reportFailure(endpoint)
 
       // Return empty delegations instead of error for better UX
       return res.status(200).json({
         delegation_responses: [],
+        error: `RPC request failed: ${response.status} - ${errorText}`,
       })
     }
 
@@ -71,6 +74,7 @@ export default async function handler(
     // Return empty delegations instead of error for better UX
     return res.status(200).json({
       delegation_responses: [],
+      error: `Exception: ${error instanceof Error ? error.message : 'Unknown error'}`,
     })
   }
 }

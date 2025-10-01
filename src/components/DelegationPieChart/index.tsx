@@ -70,6 +70,9 @@ export default function DelegationPieChart({
         }
         const data = await response.json()
         console.log(`[PROD DEBUG] PieChart: Got ${data.delegation_responses?.length || 0} delegations`)
+        if (data.error) {
+          console.warn(`[PROD DEBUG] PieChart: API returned error: ${data.error}`)
+        }
         setDelegations(data.delegation_responses || [])
       } catch (err) {
         console.error('Error fetching delegations:', err) // Debug log
