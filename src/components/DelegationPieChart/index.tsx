@@ -70,6 +70,7 @@ export default function DelegationPieChart({
         }
         const data = await response.json()
         console.log(`[PROD DEBUG] PieChart: Got ${data.delegation_responses?.length || 0} delegations`)
+        console.log(`[PROD DEBUG] PieChart: Raw data:`, data.delegation_responses)
         if (data.error) {
           console.warn(`[PROD DEBUG] PieChart: API returned error: ${data.error}`)
         }
@@ -133,6 +134,13 @@ export default function DelegationPieChart({
   const chartData = delegations.map((delegation) => {
     const shares = parseFloat(delegation.delegation.shares)
     const amount = parseFloat(delegation.balance.amount)
+    console.log(`[PROD DEBUG] PieChart: Processing delegation:`, {
+      delegator: delegation.delegation.delegator_address,
+      shares: delegation.delegation.shares,
+      parsedShares: shares,
+      amount: delegation.balance.amount,
+      parsedAmount: amount
+    })
     return {
       name: delegation.delegation.delegator_address,
       value: shares,
@@ -143,6 +151,7 @@ export default function DelegationPieChart({
 
   // Calculate percentages
   const totalShares = chartData.reduce((sum, item) => sum + item.value, 0)
+  console.log(`[PROD DEBUG] PieChart: Total shares: ${totalShares}`)
   chartData.forEach((item) => {
     item.percentage = (item.value / totalShares) * 100
   })
