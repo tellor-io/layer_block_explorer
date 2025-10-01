@@ -13,6 +13,7 @@ import {
   Tooltip,
 } from '@chakra-ui/react'
 import { useEffect, useState } from 'react'
+import { SortingState } from '@tanstack/react-table'
 import NextLink from 'next/link'
 import { FiChevronRight, FiHome, FiCopy } from 'react-icons/fi'
 import DataTable from '@/components/Datatable'
@@ -186,6 +187,7 @@ export default function Reporters() {
   const [total, setTotal] = useState(0)
   const [data, setData] = useState<ReporterData[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [sorting, setSorting] = useState<SortingState>([])
   const toast = useToast()
   const rpcAddress = useSelector(selectRPCAddress)
 
@@ -201,6 +203,20 @@ export default function Reporters() {
     console.log('Reporters page: RPC address changed to:', rpcAddress)
     setIsLoading(true)
     const url = '/api/reporters'
+    
+    // Build query parameters
+    const params = new URLSearchParams({
+      rpc: rpcAddress,
+      page: page.toString(),
+      perPage: perPage.toString(),
+    })
+
+    // Add sorting parameters if any
+    if (sorting.length > 0) {
+      const sort = sorting[0]
+      params.append('sortBy', sort.id)
+      params.append('sortOrder', sort.desc ? 'desc' : 'asc')
+    }
 
     // Add a small delay to ensure RPC manager has updated when switching endpoints
     const timer = setTimeout(() => {
@@ -249,7 +265,7 @@ export default function Reporters() {
 
           // Then fetch reporters with cache busting and RPC address
           return fetch(
-            `${url}?t=${Date.now()}&rpc=${encodeURIComponent(rpcAddress)}`,
+            `${url}?t=${Date.now()}&${params.toString()}`,
             {
               headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -306,10 +322,8 @@ export default function Reporters() {
                       }
                     }
                   )
-                  const start = page * perPage
-                  const end = start + perPage
-                  const paginatedData = formattedData.slice(start, end)
-                  setData(paginatedData)
+                  // Data is already paginated by the API
+                  setData(formattedData)
                   setIsLoading(false) // Success case
                 })
               } else {
@@ -336,7 +350,7 @@ export default function Reporters() {
       clearTimeout(timer)
       setIsLoading(false)
     }
-  }, [page, perPage, toast, rpcAddress, refreshKey])
+  }, [page, perPage, toast, rpcAddress, refreshKey, sorting])
 
   const onChangePagination = (value: {
     pageIndex: number
@@ -344,6 +358,11 @@ export default function Reporters() {
   }) => {
     setPage(value.pageIndex)
     setPerPage(value.pageSize)
+  }
+
+  const handleSortingChange = (newSorting: SortingState) => {
+    setSorting(newSorting)
+    setPage(0) // Reset to first page when sorting changes
   }
 
   return (
@@ -396,6 +415,8 @@ export default function Reporters() {
             total={total}
             isLoading={isLoading}
             onChangePagination={onChangePagination}
+            onChangeSorting={handleSortingChange}
+            serverSideSorting={true}
           />
         </Box>
       </main>

@@ -24,10 +24,6 @@ export default async function handler(
     // Remove /rpc from the endpoint for API calls
     const baseEndpoint = endpoint.replace('/rpc', '')
 
-    console.log(`[PROD DEBUG] Validator: ${validatorAddress}`)
-    console.log(`[PROD DEBUG] Query params:`, req.query)
-    console.log(`[PROD DEBUG] Using endpoint: ${endpoint}`)
-    console.log(`[PROD DEBUG] Base endpoint: ${baseEndpoint}`)
 
     // Retry logic with exponential backoff
     const maxRetries = 3
@@ -36,18 +32,12 @@ export default async function handler(
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`[PROD DEBUG] Attempt ${attempt + 1}/${maxRetries + 1} for ${validatorAddress}`)
-        
         const response = await fetch(
           `${baseEndpoint}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations`
         )
 
-        console.log(`[PROD DEBUG] Response status: ${response.status}`)
-        console.log(`[PROD DEBUG] Response ok: ${response.ok}`)
-
         if (response.ok) {
           const data = await response.json()
-          console.log(`[PROD DEBUG] Success on attempt ${attempt + 1}: ${data.delegation_responses?.length || 0} delegations`)
           await rpcManager.reportSuccess(endpoint)
           return res.status(200).json(data)
         }
@@ -55,7 +45,6 @@ export default async function handler(
         // If not the last attempt, wait and retry
         if (attempt < maxRetries) {
           const delay = baseDelay * Math.pow(2, attempt) // Exponential backoff: 1s, 2s, 4s
-          console.log(`[PROD DEBUG] Request failed with status ${response.status}, retrying in ${delay}ms...`)
           await new Promise(resolve => setTimeout(resolve, delay))
           continue
         }
@@ -63,19 +52,13 @@ export default async function handler(
         // Last attempt failed
         const errorText = await response.text()
         lastError = { status: response.status, text: errorText }
-        console.warn(
-          `RPC request failed after ${maxRetries + 1} attempts with status ${response.status} for ${validatorAddress} from ${baseEndpoint}`
-        )
-        console.warn(`Error response: ${errorText}`)
         
       } catch (error) {
         lastError = error
-        console.warn(`[PROD DEBUG] Request error on attempt ${attempt + 1}:`, error)
         
         // If not the last attempt, wait and retry
         if (attempt < maxRetries) {
           const delay = baseDelay * Math.pow(2, attempt)
-          console.log(`[PROD DEBUG] Retrying in ${delay}ms...`)
           await new Promise(resolve => setTimeout(resolve, delay))
           continue
         }
@@ -84,7 +67,6 @@ export default async function handler(
 
     // All retries failed
     await rpcManager.reportFailure(endpoint)
-    console.log(`[PROD DEBUG] All ${maxRetries + 1} attempts failed for ${validatorAddress}`)
 
     // Return empty delegations if all retries fail
     return res.status(200).json({

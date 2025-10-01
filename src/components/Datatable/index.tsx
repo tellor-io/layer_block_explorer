@@ -43,6 +43,8 @@ export type DataTableProps<Data extends object> = {
   total: number
   isLoading?: boolean
   onChangePagination: Function
+  onChangeSorting?: (sorting: SortingState) => void
+  serverSideSorting?: boolean
 }
 
 export default function DataTable<Data extends object>({
@@ -51,6 +53,8 @@ export default function DataTable<Data extends object>({
   total,
   isLoading,
   onChangePagination,
+  onChangeSorting,
+  serverSideSorting = false,
 }: DataTableProps<Data>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [pageCount, setPageCount] = useState(0)
@@ -75,19 +79,30 @@ export default function DataTable<Data extends object>({
     onChangePagination(pagination)
   }, [total, pagination])
 
+  const handleSortingChange = (updaterOrValue: any) => {
+    const newSorting = typeof updaterOrValue === 'function' 
+      ? updaterOrValue(sorting) 
+      : updaterOrValue
+    setSorting(newSorting)
+    if (onChangeSorting) {
+      onChangeSorting(newSorting)
+    }
+  }
+
   const table = useReactTable({
     columns,
     data,
     pageCount: pageCount,
     getCoreRowModel: getCoreRowModel(),
-    onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
+    onSortingChange: handleSortingChange,
+    getSortedRowModel: serverSideSorting ? undefined : getSortedRowModel(),
     state: {
       sorting,
       pagination,
     },
     onPaginationChange: setPagination,
     manualPagination: true,
+    manualSorting: serverSideSorting,
   })
 
   return (

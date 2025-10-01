@@ -21,6 +21,7 @@ import {
 } from '@chakra-ui/react'
 import { useEffect, useState, useMemo } from 'react'
 import { useSelector } from 'react-redux'
+import { SortingState } from '@tanstack/react-table'
 import NextLink from 'next/link'
 import {
   FiChevronRight,
@@ -48,24 +49,16 @@ const fetchDelegatorCount = async (
   rpcAddress: string
 ): Promise<number> => {
   try {
-    console.log(`[PROD DEBUG] Frontend: Fetching delegator count for ${validatorAddress}`)
-    console.log(`[PROD DEBUG] Frontend: RPC address: ${rpcAddress}`)
     const response = await fetch(
       `/api/validator-delegations/${validatorAddress}?rpc=${encodeURIComponent(
         rpcAddress
       )}`
     )
-    console.log(`[PROD DEBUG] Frontend: Response status: ${response.status}`)
     if (!response.ok) {
-      console.log(`[PROD DEBUG] Frontend: Response not ok, returning 0`)
       return 0
     }
     const data = await response.json()
     const count = data.delegation_responses?.length || 0
-    console.log(`[PROD DEBUG] Frontend: Got ${count} delegators`)
-    if (data.error) {
-      console.warn(`[PROD DEBUG] Frontend: API returned error: ${data.error}`)
-    }
     return count
   } catch (error) {
     console.error('Error fetching delegator count:', error)
@@ -297,11 +290,18 @@ const columns: ColumnDef<ValidatorData, any>[] = [
   }),
   columnHelper.accessor('status', {
     header: () => (
-      <div style={{ width: '60px', textAlign: 'left' }}>Status</div>
+      <div style={{ width: '60px', textAlign: 'left' }}>Bond Status</div>
     ),
-    cell: (info) => (
-      <div style={{ width: '60px', textAlign: 'left' }}>{info.getValue()}</div>
-    ),
+    cell: (info) => {
+      const status = info.getValue()
+      // Remove BOND_STATUS_ prefix if present
+      const cleanStatus = status.replace(/^BOND_STATUS_/, '')
+      return (
+        <div style={{ width: '60px', textAlign: 'left' }}>
+          <Text fontSize="sm">{cleanStatus}</Text>
+        </div>
+      )
+    },
   }),
   columnHelper.accessor('votingPower', {
     header: () => (
@@ -400,6 +400,7 @@ export default function Validators() {
   const [allValidators, setAllValidators] = useState<ValidatorData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [totalVotingPower, setTotalVotingPower] = useState(0)
+  const [sorting, setSorting] = useState<SortingState>([])
   const highlightBgColor = useColorModeValue('gray.100', 'gray.700')
 
   const tmClient = useSelector(selectTmClient)
@@ -421,64 +422,80 @@ export default function Validators() {
     if (!tmClient) return
 
     setIsLoading(true)
-    queryAllValidators(tmClient)
-      .then(async (response: ValidatorResponse) => {
-        const validators = response.validators
-        const activeValidators = validators.filter((val) =>
-          isActiveValidator(val.status)
-        )
-        const totalPower = activeValidators.reduce(
-          (sum, val) => sum + convertVotingPower(val.tokens),
-          0
-        )
-        setTotalVotingPower(totalPower)
-        setTotal(response.pagination?.total.low ?? 0)
+    const fetchValidators = async () => {
+      try {
+        // Build query parameters
+        const params = new URLSearchParams({
+          rpc: rpcAddress,
+          page: page.toString(),
+          perPage: perPage.toString(),
+        })
 
-        const validatorData: ValidatorData[] = validators.map((val) => ({
-          operatorAddress: val.operatorAddress ?? '',
-          validator: val.description?.moniker ?? '',
-          status: isActiveValidator(val.status) ? 'Active' : 'Inactive',
-          votingPower: convertVotingPower(val.tokens),
-          votingPowerPercentage: '',
-          commission: convertRateToPercent(
-            val.commission?.commissionRates?.rate
-          ),
-          delegatorCount: 0, // Will be fetched below
-          identity: val.description?.identity,
-          website: val.description?.website,
-          details: val.description?.details,
-          securityContact: val.description?.security_contact,
-        }))
+        // Add sorting parameters if any
+        if (sorting.length > 0) {
+          const sort = sorting[0]
+          params.append('sortBy', sort.id)
+          params.append('sortOrder', sort.desc ? 'desc' : 'asc')
+        }
 
-        // Fetch delegator counts for all validators
-        const validatorsWithDelegatorCounts = await Promise.all(
-          validatorData.map(async (validator) => {
-            const delegatorCount = await fetchDelegatorCount(
-              validator.operatorAddress,
-              rpcAddress
-            )
-            return {
-              ...validator,
-              delegatorCount,
-            }
-          })
-        )
+        const response = await fetch(`/api/validators?${params.toString()}`)
+        if (!response.ok) {
+          throw new Error('Failed to fetch validators')
+        }
+        const data: ValidatorResponse = await response.json()
 
-        setAllValidators(validatorsWithDelegatorCounts)
-        setIsLoading(false)
-      })
-      .catch((error: Error) => {
+        if (data.validators) {
+          setTotal(data.pagination?.total?.low || data.validators.length)
+
+          // Fetch delegator counts for all validators
+          const validatorsWithDelegatorCounts = await Promise.all(
+            data.validators.map(async (validator) => {
+              const delegatorCount = await fetchDelegatorCount(
+                validator.operator_address,
+                rpcAddress
+              )
+              return {
+                operatorAddress: validator.operator_address,
+                validator: validator.description?.moniker || validator.operator_address,
+                identity: validator.description?.identity || '',
+                website: validator.description?.website || '',
+                details: validator.description?.details || '',
+                securityContact: validator.description?.security_contact || '',
+                votingPower: parseInt(validator.tokens || '0'),
+                votingPowerPercentage: '0%', // Will be calculated below
+                commission: convertRateToPercent(validator.commission?.commission_rates?.rate || '0'),
+                delegatorCount,
+                status: validator.status,
+                jailed: validator.jailed,
+              }
+            })
+          )
+
+          setAllValidators(validatorsWithDelegatorCounts)
+
+          // Calculate total voting power
+          const totalPower = validatorsWithDelegatorCounts.reduce(
+            (sum, validator) => sum + validator.votingPower,
+            0
+          )
+          setTotalVotingPower(totalPower)
+        }
+      } catch (error) {
         console.error('Error fetching validators:', error)
         toast({
-          title: 'Failed to fetch validators',
-          description: '',
+          title: 'Error',
+          description: 'Failed to fetch validators',
           status: 'error',
           duration: 5000,
           isClosable: true,
         })
+      } finally {
         setIsLoading(false)
-      })
-  }, [tmClient, rpcAddress, toast])
+      }
+    }
+
+    fetchValidators()
+  }, [tmClient, rpcAddress, toast, page, perPage, sorting])
 
   useEffect(() => {
     if (
@@ -529,6 +546,11 @@ export default function Validators() {
   }) => {
     setPage(value.pageIndex)
     setPerPage(value.pageSize)
+  }
+
+  const handleSortingChange = (newSorting: SortingState) => {
+    setSorting(newSorting)
+    setPage(0) // Reset to first page when sorting changes
   }
 
   return (
@@ -609,6 +631,8 @@ export default function Validators() {
             total={total}
             isLoading={isLoading}
             onChangePagination={onChangePagination}
+            onChangeSorting={handleSortingChange}
+            serverSideSorting={true}
           />
         </Box>
       </main>
