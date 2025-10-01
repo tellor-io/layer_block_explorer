@@ -48,16 +48,22 @@ const fetchDelegatorCount = async (
   rpcAddress: string
 ): Promise<number> => {
   try {
+    console.log(`[PROD DEBUG] Frontend: Fetching delegator count for ${validatorAddress}`)
+    console.log(`[PROD DEBUG] Frontend: RPC address: ${rpcAddress}`)
     const response = await fetch(
       `/api/validator-delegations/${validatorAddress}?rpc=${encodeURIComponent(
         rpcAddress
       )}`
     )
+    console.log(`[PROD DEBUG] Frontend: Response status: ${response.status}`)
     if (!response.ok) {
+      console.log(`[PROD DEBUG] Frontend: Response not ok, returning 0`)
       return 0
     }
     const data = await response.json()
-    return data.delegation_responses?.length || 0
+    const count = data.delegation_responses?.length || 0
+    console.log(`[PROD DEBUG] Frontend: Got ${count} delegators`)
+    return count
   } catch (error) {
     console.error('Error fetching delegator count:', error)
     return 0

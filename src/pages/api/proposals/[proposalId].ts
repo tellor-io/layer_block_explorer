@@ -1,5 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { rpcManager } from '../../../utils/rpcManager'
+import { queryProposalVotes } from '../../../rpc/abci'
+import { Tendermint37Client } from '@cosmjs/tendermint-rpc'
 
 export default async function handler(
   req: NextApiRequest,
@@ -85,25 +87,26 @@ export default async function handler(
       return new Date(dateString).toISOString()
     }
 
-    const responseData = {
-      proposalId: proposalIdNum,
-      title,
-      summary,
-      metadata,
-      proposer,
-      expedited,
-      failedReason,
-      messages: formattedMessages,
-      messageTypes,
-      primaryType,
-      status: proposal.status,
-      submitTime: formatDate(proposal.submit_time),
-      depositEndTime: formatDate(proposal.deposit_end_time),
-      votingStartTime: formatDate(proposal.voting_start_time),
-      votingEndTime: formatDate(proposal.voting_end_time),
-      totalDeposit: proposal.total_deposit || [],
-      tallyResult: proposal.final_tally_result
-        ? {
+    // Get live vote results using queryProposalVotes
+    let tallyResult = null
+    try {
+      console.log(`Fetching live vote results for proposal ${proposalIdNum}`)
+      const tmClient = await Tendermint37Client.connect(endpoint)
+      const voteResults = await queryProposalVotes(tmClient, proposalIdNum)
+      
+      if (voteResults.hasVotes && voteResults.voteDistribution) {
+        tallyResult = {
+          yes: (voteResults.voteDistribution.yes.value * 1_000_000).toString(),
+          no: (voteResults.voteDistribution.no.value * 1_000_000).toString(),
+          abstain: (voteResults.voteDistribution.abstain.value * 1_000_000).toString(),
+          noWithVeto: (voteResults.voteDistribution.veto.value * 1_000_000).toString(),
+        }
+        console.log(`Live vote results for proposal ${proposalIdNum}:`, tallyResult)
+      } else {
+        console.log(`No live votes found for proposal ${proposalIdNum}, using final_tally_result`)
+        // Fall back to final_tally_result if no live votes
+        if (proposal.final_tally_result) {
+          tallyResult = {
             yes:
               proposal.final_tally_result.yes_count ||
               proposal.final_tally_result.yes ||
@@ -121,7 +124,51 @@ export default async function handler(
               proposal.final_tally_result.no_with_veto ||
               '0',
           }
-        : null,
+        }
+      }
+    } catch (voteError) {
+      console.error('Error fetching live votes:', voteError)
+      // Fall back to final_tally_result
+      if (proposal.final_tally_result) {
+        tallyResult = {
+          yes:
+            proposal.final_tally_result.yes_count ||
+            proposal.final_tally_result.yes ||
+            '0',
+          no:
+            proposal.final_tally_result.no_count ||
+            proposal.final_tally_result.no ||
+            '0',
+          abstain:
+            proposal.final_tally_result.abstain_count ||
+            proposal.final_tally_result.abstain ||
+            '0',
+          noWithVeto:
+            proposal.final_tally_result.no_with_veto_count ||
+            proposal.final_tally_result.no_with_veto ||
+            '0',
+        }
+      }
+    }
+
+    const responseData = {
+      proposalId: proposalIdNum,
+      title,
+      summary,
+      metadata,
+      proposer,
+      expedited,
+      failedReason,
+      messages: formattedMessages,
+      messageTypes,
+      primaryType,
+      status: proposal.status,
+      submitTime: formatDate(proposal.submit_time),
+      depositEndTime: formatDate(proposal.deposit_end_time),
+      votingStartTime: formatDate(proposal.voting_start_time),
+      votingEndTime: formatDate(proposal.voting_end_time),
+      totalDeposit: proposal.total_deposit || [],
+      tallyResult,
     }
 
     console.log('Formatted response:', responseData)
