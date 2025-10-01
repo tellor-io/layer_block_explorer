@@ -57,15 +57,19 @@ export default function DelegationPieChart({
     const fetchDelegations = async () => {
       try {
         setIsLoading(true)
+        console.log(`[PROD DEBUG] PieChart: Fetching delegations for ${validatorAddress}`)
+        console.log(`[PROD DEBUG] PieChart: RPC address: ${rpcAddress}`)
         const response = await fetch(
           `/api/validator-delegations/${validatorAddress}?rpc=${encodeURIComponent(
             rpcAddress
           )}`
         )
+        console.log(`[PROD DEBUG] PieChart: Response status: ${response.status}`)
         if (!response.ok) {
           throw new Error('Failed to fetch delegations')
         }
         const data = await response.json()
+        console.log(`[PROD DEBUG] PieChart: Got ${data.delegation_responses?.length || 0} delegations`)
         setDelegations(data.delegation_responses || [])
       } catch (err) {
         console.error('Error fetching delegations:', err) // Debug log
