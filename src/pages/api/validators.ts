@@ -15,7 +15,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { clearCache } = req.query
+  const { clearCache, sortBy, sortOrder, page, perPage } = req.query
 
   // Allow cache clearing via query parameter
   if (clearCache === 'true') {

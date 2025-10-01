@@ -57,23 +57,15 @@ export default function DelegationPieChart({
     const fetchDelegations = async () => {
       try {
         setIsLoading(true)
-        console.log(`[PROD DEBUG] PieChart: Fetching delegations for ${validatorAddress}`)
-        console.log(`[PROD DEBUG] PieChart: RPC address: ${rpcAddress}`)
         const response = await fetch(
           `/api/validator-delegations/${validatorAddress}?rpc=${encodeURIComponent(
             rpcAddress
           )}`
         )
-        console.log(`[PROD DEBUG] PieChart: Response status: ${response.status}`)
         if (!response.ok) {
           throw new Error('Failed to fetch delegations')
         }
         const data = await response.json()
-        console.log(`[PROD DEBUG] PieChart: Got ${data.delegation_responses?.length || 0} delegations`)
-        console.log(`[PROD DEBUG] PieChart: Raw data:`, data.delegation_responses)
-        if (data.error) {
-          console.warn(`[PROD DEBUG] PieChart: API returned error: ${data.error}`)
-        }
         setDelegations(data.delegation_responses || [])
       } catch (err) {
         console.error('Error fetching delegations:', err) // Debug log
@@ -134,13 +126,6 @@ export default function DelegationPieChart({
   const chartData = delegations.map((delegation) => {
     const shares = parseFloat(delegation.delegation.shares)
     const amount = parseFloat(delegation.balance.amount)
-    console.log(`[PROD DEBUG] PieChart: Processing delegation:`, {
-      delegator: delegation.delegation.delegator_address,
-      shares: delegation.delegation.shares,
-      parsedShares: shares,
-      amount: delegation.balance.amount,
-      parsedAmount: amount
-    })
     return {
       name: delegation.delegation.delegator_address,
       value: shares,
@@ -151,7 +136,6 @@ export default function DelegationPieChart({
 
   // Calculate percentages
   const totalShares = chartData.reduce((sum, item) => sum + item.value, 0)
-  console.log(`[PROD DEBUG] PieChart: Total shares: ${totalShares}`)
   chartData.forEach((item) => {
     item.percentage = (item.value / totalShares) * 100
   })
@@ -315,29 +299,6 @@ export default function DelegationPieChart({
               />
             ))}
           </Pie>
-          {activeIndex !== null && (
-            <path
-              d={`M${
-                width * 0.13 +
-                50 *
-                  Math.cos(
-                    (activeIndex * 2 * Math.PI) / finalChartData.length -
-                      Math.PI / 2
-                  )
-              },${
-                height / 2 +
-                50 *
-                  Math.sin(
-                    (activeIndex * 2 * Math.PI) / finalChartData.length -
-                      Math.PI / 2
-                  )
-              } L${width * 0.13 + 60},${height / 2}`}
-              stroke={COLORS[activeIndex % COLORS.length]}
-              strokeWidth={2}
-              fill="none"
-              strokeDasharray="5,5"
-            />
-          )}
         </PieChart>
       </ResponsiveContainer>
     </Box>
