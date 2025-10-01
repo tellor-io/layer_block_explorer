@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { Box, Text, useColorModeValue, VStack } from '@chakra-ui/react'
 import { useRouter } from 'next/router'
+import { useSelector } from 'react-redux'
+import { selectRPCAddress } from '@/store/connectSlice'
 import { isActiveValidator } from '@/utils/helper'
 
 interface ValidatorData {
@@ -50,6 +52,7 @@ export default function ValidatorPowerPieChart() {
   const [error, setError] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const router = useRouter()
+  const rpcAddress = useSelector(selectRPCAddress)
 
   useEffect(() => {
     let isMounted = true
@@ -57,7 +60,9 @@ export default function ValidatorPowerPieChart() {
     const fetchValidators = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch('/api/validators')
+        const response = await fetch(
+          `/api/validators?rpc=${encodeURIComponent(rpcAddress)}`
+        )
         if (!response.ok) {
           throw new Error('Failed to fetch validators')
         }
@@ -98,7 +103,7 @@ export default function ValidatorPowerPieChart() {
       clearTimeout(timer)
       isMounted = false
     }
-  }, [])
+  }, [rpcAddress])
 
   // Move chartData calculation to useMemo at the top level
   const chartData = useMemo(() => {
