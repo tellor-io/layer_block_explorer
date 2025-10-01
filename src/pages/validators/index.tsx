@@ -69,7 +69,7 @@ const fetchDelegatorCount = async (
 type ValidatorData = {
   operatorAddress: string
   validator: string
-  status: string
+  status: number
   votingPower: number
   votingPowerPercentage: string
   commission: string
@@ -78,6 +78,7 @@ type ValidatorData = {
   website?: string
   details?: string
   securityContact?: string
+  jailed?: boolean
 }
 
 const columnHelper = createColumnHelper<ValidatorData>()
@@ -368,7 +369,7 @@ const columns: ColumnDef<ValidatorData, any>[] = [
 
 interface ValidatorResponse {
   validators: Array<{
-    operatorAddress?: string
+    operator_address?: string
     description?: {
       moniker?: string
       identity?: string
@@ -378,8 +379,9 @@ interface ValidatorResponse {
     }
     status: number
     tokens: string
+    jailed?: boolean
     commission?: {
-      commissionRates?: {
+      commission_rates?: {
         rate?: string
       }
     }
@@ -450,6 +452,9 @@ export default function Validators() {
           // Fetch delegator counts for all validators
           const validatorsWithDelegatorCounts = await Promise.all(
             data.validators.map(async (validator) => {
+              if (!validator.operator_address) {
+                throw new Error('Validator missing operator_address')
+              }
               const delegatorCount = await fetchDelegatorCount(
                 validator.operator_address,
                 rpcAddress
@@ -466,7 +471,7 @@ export default function Validators() {
                 commission: convertRateToPercent(validator.commission?.commission_rates?.rate || '0'),
                 delegatorCount,
                 status: validator.status,
-                jailed: validator.jailed,
+                jailed: validator.jailed || false,
               }
             })
           )
