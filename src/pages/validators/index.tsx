@@ -63,6 +63,9 @@ const fetchDelegatorCount = async (
     const data = await response.json()
     const count = data.delegation_responses?.length || 0
     console.log(`[PROD DEBUG] Frontend: Got ${count} delegators`)
+    if (data.error) {
+      console.warn(`[PROD DEBUG] Frontend: API returned error: ${data.error}`)
+    }
     return count
   } catch (error) {
     console.error('Error fetching delegator count:', error)
