@@ -95,6 +95,11 @@ const columns = [
         </div>
       )
     },
+    sortingFn: (rowA, rowB) => {
+      const a = rowA.original.displayName
+      const b = rowB.original.displayName
+      return a.localeCompare(b)
+    },
   }),
   columnHelper.accessor('power', {
     header: () => (
@@ -141,6 +146,11 @@ const columns = [
     cell: (props) => (
       <div style={{ width: '80px', textAlign: 'left' }}>{props.getValue()}</div>
     ),
+    sortingFn: (rowA, rowB) => {
+      const a = rowA.original.selectors
+      const b = rowB.original.selectors
+      return a - b
+    },
   }),
   columnHelper.accessor('commission_rate', {
     header: () => (
@@ -211,11 +221,13 @@ export default function Reporters() {
       perPage: perPage.toString(),
     })
 
-    // Add sorting parameters if any
+    // Add sorting parameters if any (skip displayName and selectors as they're handled client-side)
     if (sorting.length > 0) {
       const sort = sorting[0]
-      params.append('sortBy', sort.id)
-      params.append('sortOrder', sort.desc ? 'desc' : 'asc')
+      if (sort.id !== 'displayName' && sort.id !== 'selectors') {
+        params.append('sortBy', sort.id)
+        params.append('sortOrder', sort.desc ? 'desc' : 'asc')
+      }
     }
 
     // Add a small delay to ensure RPC manager has updated when switching endpoints
@@ -416,7 +428,7 @@ export default function Reporters() {
             isLoading={isLoading}
             onChangePagination={onChangePagination}
             onChangeSorting={handleSortingChange}
-            serverSideSorting={true}
+            serverSideSorting={sorting.length === 0 || (sorting[0]?.id !== 'displayName' && sorting[0]?.id !== 'selectors')}
           />
         </Box>
       </main>

@@ -345,6 +345,11 @@ const columns: ColumnDef<ValidatorData, any>[] = [
     meta: {
       isNumeric: true,
     },
+    sortingFn: (rowA, rowB) => {
+      const a = rowA.original.delegatorCount
+      const b = rowB.original.delegatorCount
+      return a - b
+    },
   }),
   columnHelper.accessor('operatorAddress', {
     header: () => (
@@ -364,6 +369,7 @@ const columns: ColumnDef<ValidatorData, any>[] = [
         </div>
       )
     },
+    enableSorting: false,
   }),
 ]
 
@@ -433,11 +439,13 @@ export default function Validators() {
           perPage: perPage.toString(),
         })
 
-        // Add sorting parameters if any
+        // Add sorting parameters if any (skip delegatorCount as it's handled client-side)
         if (sorting.length > 0) {
           const sort = sorting[0]
-          params.append('sortBy', sort.id)
-          params.append('sortOrder', sort.desc ? 'desc' : 'asc')
+          if (sort.id !== 'delegatorCount') {
+            params.append('sortBy', sort.id)
+            params.append('sortOrder', sort.desc ? 'desc' : 'asc')
+          }
         }
 
         const response = await fetch(`/api/validators?${params.toString()}`)
@@ -637,7 +645,7 @@ export default function Validators() {
             isLoading={isLoading}
             onChangePagination={onChangePagination}
             onChangeSorting={handleSortingChange}
-            serverSideSorting={true}
+            serverSideSorting={sorting.length === 0 || sorting[0]?.id !== 'delegatorCount'}
           />
         </Box>
       </main>
