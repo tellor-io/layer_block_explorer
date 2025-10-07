@@ -66,6 +66,10 @@ export default async function handler(
         } else if (sortField === 'commission') {
           aValue = parseFloat(a.commission?.commission_rates?.rate || '0')
           bValue = parseFloat(b.commission?.commission_rates?.rate || '0')
+        } else if (sortField === 'delegatorCount') {
+          // Note: delegatorCount is calculated client-side, so we can't sort by it server-side
+          // This will be handled by client-side sorting
+          return 0
         }
         
         // Handle string comparison

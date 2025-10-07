@@ -42,7 +42,10 @@ export default async function handler(
         
         // Handle nested properties
         if (sortField === 'displayName') {
-          aValue = a.address // Use address for sorting since displayName is derived
+          // For displayName sorting, we need to sort by the actual display name
+          // Since displayName is derived client-side, we'll sort by address as a fallback
+          // The client-side will handle proper alphabetical sorting
+          aValue = a.address
           bValue = b.address
         } else if (sortField === 'power') {
           aValue = parseInt(a.power || '0')
@@ -56,6 +59,10 @@ export default async function handler(
         } else if (sortField === 'jailed') {
           aValue = a.metadata?.jailed ? 'Yes' : 'No'
           bValue = b.metadata?.jailed ? 'Yes' : 'No'
+        } else if (sortField === 'selectors') {
+          // Note: selectors is calculated client-side, so we can't sort by it server-side
+          // This will be handled by client-side sorting
+          return 0
         }
         
         // Handle string comparison
