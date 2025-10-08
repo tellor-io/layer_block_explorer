@@ -217,14 +217,18 @@ export default function Reporters() {
     // Build query parameters
     const params = new URLSearchParams({
       rpc: rpcAddress,
-      page: page.toString(),
-      perPage: perPage.toString(),
     })
 
-    // Add sorting parameters if any (skip displayName and selectors as they're handled client-side)
-    if (sorting.length > 0) {
-      const sort = sorting[0]
-      if (sort.id !== 'displayName' && sort.id !== 'selectors') {
+    // For client-side sorting, we need all data. For server-side sorting, use pagination
+    const isClientSideSorting = sorting.length > 0 && (sorting[0].id === 'displayName' || sorting[0].id === 'selectors')
+    
+    if (!isClientSideSorting) {
+      params.append('page', page.toString())
+      params.append('perPage', perPage.toString())
+      
+      // Add sorting parameters if any
+      if (sorting.length > 0) {
+        const sort = sorting[0]
         params.append('sortBy', sort.id)
         params.append('sortOrder', sort.desc ? 'desc' : 'asc')
       }
@@ -334,8 +338,41 @@ export default function Reporters() {
                       }
                     }
                   )
-                  // Data is already paginated by the API
-                  setData(formattedData)
+
+                  // Apply client-side sorting if needed
+                  if (isClientSideSorting) {
+                    const sort = sorting[0]
+                    formattedData.sort((a, b) => {
+                      let aValue, bValue
+                      if (sort.id === 'displayName') {
+                        aValue = a.displayName
+                        bValue = b.displayName
+                        const result = aValue.localeCompare(bValue)
+                        return sort.desc ? -result : result
+                      } else if (sort.id === 'selectors') {
+                        aValue = a.selectors
+                        bValue = b.selectors
+                        const result = aValue - bValue
+                        return sort.desc ? -result : result
+                      }
+                      return 0
+                    })
+                  }
+
+                  // Apply pagination for client-side sorting
+                  if (isClientSideSorting) {
+                    const start = page * perPage
+                    const end = start + perPage
+                    const paginatedData = formattedData.slice(start, end)
+                    setData(paginatedData)
+                    setTotal(formattedData.length)
+                  } else {
+                    setData(formattedData)
+                    setTotal(
+                      parseInt(responseData.pagination?.total) ||
+                        responseData.reporters.length
+                    )
+                  }
                   setIsLoading(false) // Success case
                 })
               } else {
