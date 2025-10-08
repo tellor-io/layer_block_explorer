@@ -500,6 +500,13 @@ export default function Validators() {
             })
           }
 
+          // Calculate total voting power from all validators (before pagination)
+          const totalPower = validatorsWithDelegatorCounts.reduce(
+            (sum, validator) => sum + validator.votingPower,
+            0
+          )
+          setTotalVotingPower(totalPower)
+
           // Apply pagination for client-side sorting
           if (isClientSideSorting) {
             const start = page * perPage
@@ -511,13 +518,6 @@ export default function Validators() {
             setAllValidators(validatorsWithDelegatorCounts)
             setTotal(data.pagination?.total?.low || data.validators.length)
           }
-
-          // Calculate total voting power
-          const totalPower = validatorsWithDelegatorCounts.reduce(
-            (sum, validator) => sum + validator.votingPower,
-            0
-          )
-          setTotalVotingPower(totalPower)
         }
       } catch (error) {
         console.error('Error fetching validators:', error)
