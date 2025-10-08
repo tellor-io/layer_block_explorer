@@ -306,12 +306,15 @@ const columns: ColumnDef<ValidatorData, any>[] = [
   }),
   columnHelper.accessor('votingPower', {
     header: () => (
-      <div style={{ width: '100px', textAlign: 'left' }}>Voting Power</div>
+      <div style={{ width: '100px', textAlign: 'left' }}>Tokens</div>
     ),
     cell: (info) => (
       <div style={{ width: '100px', textAlign: 'left' }}>
         <Text>
-          {info.getValue().toLocaleString()}{' '}
+          {(info.getValue() / 10**6).toLocaleString(undefined, {
+            minimumFractionDigits: 6,
+            maximumFractionDigits: 6
+          })} TRB{' '}
           <Text as="span" color="gray.500" fontSize="sm">
             ({info.row.original.votingPowerPercentage})
           </Text>
@@ -435,14 +438,18 @@ export default function Validators() {
         // Build query parameters
         const params = new URLSearchParams({
           rpc: rpcAddress,
-          page: page.toString(),
-          perPage: perPage.toString(),
         })
 
-        // Add sorting parameters if any (skip delegatorCount as it's handled client-side)
-        if (sorting.length > 0) {
-          const sort = sorting[0]
-          if (sort.id !== 'delegatorCount') {
+        // For client-side sorting, we need all data. For server-side sorting, use pagination
+        const isClientSideSorting = sorting.length > 0 && sorting[0].id === 'delegatorCount'
+        
+        if (!isClientSideSorting) {
+          params.append('page', page.toString())
+          params.append('perPage', perPage.toString())
+          
+          // Add sorting parameters if any
+          if (sorting.length > 0) {
+            const sort = sorting[0]
             params.append('sortBy', sort.id)
             params.append('sortOrder', sort.desc ? 'desc' : 'asc')
           }
@@ -455,8 +462,6 @@ export default function Validators() {
         const data: ValidatorResponse = await response.json()
 
         if (data.validators) {
-          setTotal(data.pagination?.total?.low || data.validators.length)
-
           // Fetch delegator counts for all validators
           const validatorsWithDelegatorCounts = await Promise.all(
             data.validators.map(async (validator) => {
@@ -484,7 +489,28 @@ export default function Validators() {
             })
           )
 
-          setAllValidators(validatorsWithDelegatorCounts)
+          // Apply client-side sorting if needed
+          if (isClientSideSorting) {
+            const sort = sorting[0]
+            validatorsWithDelegatorCounts.sort((a, b) => {
+              const aValue = a.delegatorCount
+              const bValue = b.delegatorCount
+              const result = aValue - bValue
+              return sort.desc ? -result : result
+            })
+          }
+
+          // Apply pagination for client-side sorting
+          if (isClientSideSorting) {
+            const start = page * perPage
+            const end = start + perPage
+            const paginatedValidators = validatorsWithDelegatorCounts.slice(start, end)
+            setAllValidators(paginatedValidators)
+            setTotal(validatorsWithDelegatorCounts.length)
+          } else {
+            setAllValidators(validatorsWithDelegatorCounts)
+            setTotal(data.pagination?.total?.low || data.validators.length)
+          }
 
           // Calculate total voting power
           const totalPower = validatorsWithDelegatorCounts.reduce(
