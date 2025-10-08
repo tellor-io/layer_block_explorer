@@ -280,8 +280,13 @@ export default function Reporters() {
           }
 
           // Then fetch reporters with cache busting and RPC address
+          // For client-side sorting, don't add pagination params to get all data
+          const reportersUrl = isClientSideSorting 
+            ? `${url}?t=${Date.now()}&rpc=${encodeURIComponent(rpcAddress)}`
+            : `${url}?t=${Date.now()}&${params.toString()}`
+            
           return fetch(
-            `${url}?t=${Date.now()}&${params.toString()}`,
+            reportersUrl,
             {
               headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
