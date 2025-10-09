@@ -213,19 +213,21 @@ export default function Reporters() {
     console.log('Reporters page: RPC address changed to:', rpcAddress)
     setIsLoading(true)
     const url = '/api/reporters'
-    
+
     // Build query parameters
     const params = new URLSearchParams({
       rpc: rpcAddress,
     })
 
     // For client-side sorting, we need all data. For server-side sorting, use pagination
-    const isClientSideSorting = sorting.length > 0 && (sorting[0].id === 'displayName' || sorting[0].id === 'selectors')
-    
+    const isClientSideSorting =
+      sorting.length > 0 &&
+      (sorting[0].id === 'displayName' || sorting[0].id === 'selectors')
+
     if (!isClientSideSorting) {
       params.append('page', page.toString())
       params.append('perPage', perPage.toString())
-      
+
       // Add sorting parameters if any
       if (sorting.length > 0) {
         const sort = sorting[0]
@@ -281,20 +283,17 @@ export default function Reporters() {
 
           // Then fetch reporters with cache busting and RPC address
           // For client-side sorting, don't add pagination params to get all data
-          const reportersUrl = isClientSideSorting 
+          const reportersUrl = isClientSideSorting
             ? `${url}?t=${Date.now()}&rpc=${encodeURIComponent(rpcAddress)}`
             : `${url}?t=${Date.now()}&${params.toString()}`
-            
-          return fetch(
-            reportersUrl,
-            {
-              headers: {
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                Pragma: 'no-cache',
-                Expires: '0',
-              },
-            }
-          )
+
+          return fetch(reportersUrl, {
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              Pragma: 'no-cache',
+              Expires: '0',
+            },
+          })
             .then((response) => {
               if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`)
@@ -314,20 +313,12 @@ export default function Reporters() {
                   (reporter: APIReporter) => reporter.address
                 )
 
-                // Fetch selectors for all reporters with better error handling
-                const selectorPromises = reporterAddresses.map((address: string) =>
-                  getReporterSelectors(address, rpcAddress)
-                )
-                
-                return Promise.allSettled(selectorPromises).then((selectorResults) => {
-                  const selectorsData = selectorResults.map((result, index) => {
-                    if (result.status === 'fulfilled') {
-                      return result.value ?? 0
-                    } else {
-                      console.error(`Failed to fetch selectors for reporter ${index}:`, result.reason)
-                      return 0 // Fallback to 0
-                    }
-                  })
+                // Fetch selectors for all reporters
+                return Promise.all(
+                  reporterAddresses.map((address: string) =>
+                    getReporterSelectors(address, rpcAddress)
+                  )
+                ).then((selectorsData) => {
                   const formattedData = responseData.reporters.map(
                     (reporter: APIReporter, index: number) => {
                       const strippedReporterAddress = stripAddressPrefix(
@@ -352,10 +343,10 @@ export default function Reporters() {
                     }
                   )
 
-                  // Apply client side sorting if needed
+                  // Apply client-side sorting if needed
                   if (isClientSideSorting) {
                     const sort = sorting[0]
-                    formattedData.sort((a: any, b: any) => {
+                    formattedData.sort((a: ReporterData, b: ReporterData) => {
                       let aValue, bValue
                       if (sort.id === 'displayName') {
                         aValue = a.displayName
@@ -478,7 +469,11 @@ export default function Reporters() {
             isLoading={isLoading}
             onChangePagination={onChangePagination}
             onChangeSorting={handleSortingChange}
-            serverSideSorting={sorting.length === 0 || (sorting[0]?.id !== 'displayName' && sorting[0]?.id !== 'selectors')}
+            serverSideSorting={
+              sorting.length === 0 ||
+              (sorting[0]?.id !== 'displayName' &&
+                sorting[0]?.id !== 'selectors')
+            }
           />
         </Box>
       </main>

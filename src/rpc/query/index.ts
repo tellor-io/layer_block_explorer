@@ -189,7 +189,6 @@ export const getReporterSelectors = async (
     const response = await axios.get(
       `/api/reporter-selectors/${reporter}?${params.toString()}`,
       {
-        timeout: 10000, // 10 second timeout
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           Pragma: 'no-cache',
@@ -200,15 +199,9 @@ export const getReporterSelectors = async (
     if (response.data && typeof response.data.num_of_selectors === 'number') {
       return response.data.num_of_selectors
     } else {
-      console.warn(`Invalid response for reporter selectors: ${reporter}`)
       return undefined
     }
   } catch (error) {
-    if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
-      console.warn(`Timeout fetching selectors for reporter: ${reporter}`)
-    } else {
-      console.error(`Error fetching selectors for reporter ${reporter}:`, error)
-    }
     return undefined
   }
 }
