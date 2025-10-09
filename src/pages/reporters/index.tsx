@@ -314,12 +314,20 @@ export default function Reporters() {
                   (reporter: APIReporter) => reporter.address
                 )
 
-                // Fetch selectors for all reporters
-                return Promise.all(
-                  reporterAddresses.map((address: string) =>
-                    getReporterSelectors(address, rpcAddress)
-                  )
-                ).then((selectorsData) => {
+                // Fetch selectors for all reporters with better error handling
+                const selectorPromises = reporterAddresses.map((address: string) =>
+                  getReporterSelectors(address, rpcAddress)
+                )
+                
+                return Promise.allSettled(selectorPromises).then((selectorResults) => {
+                  const selectorsData = selectorResults.map((result, index) => {
+                    if (result.status === 'fulfilled') {
+                      return result.value ?? 0
+                    } else {
+                      console.error(`Failed to fetch selectors for reporter ${index}:`, result.reason)
+                      return 0 // Fallback to 0
+                    }
+                  })
                   const formattedData = responseData.reporters.map(
                     (reporter: APIReporter, index: number) => {
                       const strippedReporterAddress = stripAddressPrefix(
@@ -344,10 +352,10 @@ export default function Reporters() {
                     }
                   )
 
-                  // Apply client-side sorting if needed
+                  // Apply client side sorting if needed
                   if (isClientSideSorting) {
                     const sort = sorting[0]
-                    formattedData.sort((a, b) => {
+                    formattedData.sort((a: any, b: any) => {
                       let aValue, bValue
                       if (sort.id === 'displayName') {
                         aValue = a.displayName

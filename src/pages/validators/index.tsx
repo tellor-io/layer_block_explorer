@@ -49,19 +49,38 @@ const fetchDelegatorCount = async (
   rpcAddress: string
 ): Promise<number> => {
   try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+    
     const response = await fetch(
       `/api/validator-delegations/${validatorAddress}?rpc=${encodeURIComponent(
         rpcAddress
-      )}`
+      )}`,
+      {
+        signal: controller.signal,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      }
     )
+    
+    clearTimeout(timeoutId)
+    
     if (!response.ok) {
+      console.warn(`Failed to fetch delegator count for ${validatorAddress}: ${response.status}`)
       return 0
     }
     const data = await response.json()
     const count = data.delegation_responses?.length || 0
     return count
   } catch (error) {
-    console.error('Error fetching delegator count:', error)
+    if (error.name === 'AbortError') {
+      console.warn(`Timeout fetching delegator count for ${validatorAddress}`)
+    } else {
+      console.error('Error fetching delegator count:', error)
+    }
     return 0
   }
 }
@@ -462,32 +481,58 @@ export default function Validators() {
         const data: ValidatorResponse = await response.json()
 
         if (data.validators) {
-          // Fetch delegator counts for all validators
-          const validatorsWithDelegatorCounts = await Promise.all(
-            data.validators.map(async (validator) => {
-              if (!validator.operator_address) {
-                throw new Error('Validator missing operator_address')
-              }
-              const delegatorCount = await fetchDelegatorCount(
-                validator.operator_address,
-                rpcAddress
-              )
-              return {
-                operatorAddress: validator.operator_address,
-                validator: validator.description?.moniker || validator.operator_address,
-                identity: validator.description?.identity || '',
-                website: validator.description?.website || '',
-                details: validator.description?.details || '',
-                securityContact: validator.description?.security_contact || '',
-                votingPower: parseInt(validator.tokens || '0'),
-                votingPowerPercentage: '0%', // Will be calculated below
-                commission: convertRateToPercent(validator.commission?.commission_rates?.rate || '0'),
-                delegatorCount,
-                status: validator.status,
-                jailed: validator.jailed || false,
+          // Fetch delegator counts for all validators with better error handling
+          const validatorPromises = data.validators.map(async (validator) => {
+            if (!validator.operator_address) {
+              throw new Error('Validator missing operator_address')
+            }
+            const delegatorCount = await fetchDelegatorCount(
+              validator.operator_address,
+              rpcAddress
+            )
+            return {
+              operatorAddress: validator.operator_address,
+              validator: validator.description?.moniker || validator.operator_address,
+              identity: validator.description?.identity || '',
+              website: validator.description?.website || '',
+              details: validator.description?.details || '',
+              securityContact: validator.description?.security_contact || '',
+              votingPower: parseInt(validator.tokens || '0'),
+              votingPowerPercentage: '0%', // Will be calculated below
+              commission: convertRateToPercent(validator.commission?.commission_rates?.rate || '0'),
+              delegatorCount,
+              status: validator.status,
+              jailed: validator.jailed || false,
+            }
+          })
+
+          // Use Promise.allSettled to handle individual failures gracefully
+          const validatorResults = await Promise.allSettled(validatorPromises)
+          const validatorsWithDelegatorCounts = validatorResults
+            .map((result, index) => {
+              if (result.status === 'fulfilled') {
+                return result.value
+              } else {
+                console.error(`Failed to fetch delegator count for validator ${index}:`, result.reason)
+                // Return a fallback validator with 0 delegators
+                const validator = data.validators[index]
+                return {
+                  operatorAddress: validator.operator_address || '',
+                  validator: validator.description?.moniker || validator.operator_address || '',
+                  identity: validator.description?.identity || '',
+                  website: validator.description?.website || '',
+                  details: validator.description?.details || '',
+                  securityContact: validator.description?.security_contact || '',
+                  votingPower: parseInt(validator.tokens || '0'),
+                  votingPowerPercentage: '0%',
+                  commission: convertRateToPercent(validator.commission?.commission_rates?.rate || '0'),
+                  delegatorCount: 0, // Fallback to 0
+                  status: validator.status,
+                  jailed: validator.jailed || false,
+                }
               }
             })
-          )
+            .filter(Boolean) // Remove any null/undefined results
 
           // Apply client-side sorting if needed
           if (isClientSideSorting) {
