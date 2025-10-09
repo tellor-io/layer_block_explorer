@@ -352,7 +352,7 @@ export default function Reporters() {
                     }
                   )
 
-                  // Apply client-side sorting if needed
+                  // Apply client side sorting if needed
                   if (isClientSideSorting) {
                     const sort = sorting[0]
                     formattedData.sort((a: any, b: any) => {
