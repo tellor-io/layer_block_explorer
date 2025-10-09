@@ -7,7 +7,14 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    const { endpoint: customEndpoint, rpc, sortBy, sortOrder, page, perPage } = req.query
+    const {
+      endpoint: customEndpoint,
+      rpc,
+      sortBy,
+      sortOrder,
+      page,
+      perPage,
+    } = req.query
 
     // Use custom endpoint if provided, otherwise use RPC address from query, otherwise use rpcManager
     let endpoint: string
@@ -35,11 +42,11 @@ export default async function handler(
     if (sortBy && data.reporters) {
       const sortField = sortBy as string
       const order = sortOrder === 'desc' ? -1 : 1
-      
+
       data.reporters.sort((a: any, b: any) => {
         let aValue = a[sortField]
         let bValue = b[sortField]
-        
+
         // Handle nested properties
         if (sortField === 'displayName') {
           // For displayName sorting, we need to sort by the actual display name
@@ -64,17 +71,17 @@ export default async function handler(
           // This will be handled by client-side sorting
           return 0
         }
-        
+
         // Handle string comparison
         if (typeof aValue === 'string' && typeof bValue === 'string') {
           return aValue.localeCompare(bValue) * order
         }
-        
+
         // Handle numeric comparison
         if (typeof aValue === 'number' && typeof bValue === 'number') {
           return (aValue - bValue) * order
         }
-        
+
         return 0
       })
     }
@@ -85,7 +92,7 @@ export default async function handler(
       const perPageNum = parseInt(perPage as string)
       const start = pageNum * perPageNum
       const end = start + perPageNum
-      
+
       data.reporters = data.reporters.slice(start, end)
     }
 

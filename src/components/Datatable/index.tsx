@@ -80,9 +80,10 @@ export default function DataTable<Data extends object>({
   }, [total, pagination])
 
   const handleSortingChange = (updaterOrValue: any) => {
-    const newSorting = typeof updaterOrValue === 'function' 
-      ? updaterOrValue(sorting) 
-      : updaterOrValue
+    const newSorting =
+      typeof updaterOrValue === 'function'
+        ? updaterOrValue(sorting)
+        : updaterOrValue
     setSorting(newSorting)
     if (onChangeSorting) {
       onChangeSorting(newSorting)

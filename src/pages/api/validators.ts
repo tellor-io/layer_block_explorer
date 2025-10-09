@@ -33,7 +33,11 @@ export default async function handler(
     // Check cache first (only if no sorting/pagination)
     const cacheKey = baseEndpoint
     const cachedData = cache.get(cacheKey)
-    if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION && !sortBy) {
+    if (
+      cachedData &&
+      Date.now() - cachedData.timestamp < CACHE_DURATION &&
+      !sortBy
+    ) {
       return res.status(200).json(cachedData.data)
     }
 
@@ -51,11 +55,11 @@ export default async function handler(
     if (sortBy && data.validators) {
       const sortField = sortBy as string
       const order = sortOrder === 'desc' ? -1 : 1
-      
+
       data.validators.sort((a: any, b: any) => {
         let aValue = a[sortField]
         let bValue = b[sortField]
-        
+
         // Handle nested properties
         if (sortField === 'validator') {
           aValue = a.description?.moniker || a.operator_address
@@ -71,17 +75,17 @@ export default async function handler(
           // This will be handled by client-side sorting
           return 0
         }
-        
+
         // Handle string comparison
         if (typeof aValue === 'string' && typeof bValue === 'string') {
           return aValue.localeCompare(bValue) * order
         }
-        
+
         // Handle numeric comparison
         if (typeof aValue === 'number' && typeof bValue === 'number') {
           return (aValue - bValue) * order
         }
-        
+
         return 0
       })
     }
@@ -92,7 +96,7 @@ export default async function handler(
       const perPageNum = parseInt(perPage as string)
       const start = pageNum * perPageNum
       const end = start + perPageNum
-      
+
       data.validators = data.validators.slice(start, end)
     }
 
