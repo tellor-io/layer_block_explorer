@@ -1,4 +1,4 @@
-import { createSlice, Action } from '@reduxjs/toolkit'
+import { createSlice, Action, PayloadAction } from '@reduxjs/toolkit'
 import { AppState } from './index'
 import { HYDRATE } from 'next-redux-wrapper'
 import { NewBlockEvent, TxEvent } from '@cosmjs/tendermint-rpc'
@@ -10,6 +10,14 @@ export interface StreamState {
   txEvent: TxEvent | null
   subsNewBlock: Subscription | null
   subsTxEvent: Subscription | null
+  // GraphQL subscription state
+  graphqlSubscriptions: {
+    blocks: any | null
+    transactions: any | null
+    validators: any | null
+    reporters: any | null
+  }
+  dataSource: 'rpc' | 'graphql' | 'mixed'
 }
 
 // Initial state
@@ -18,6 +26,13 @@ const initialState: StreamState = {
   txEvent: null,
   subsNewBlock: null,
   subsTxEvent: null,
+  graphqlSubscriptions: {
+    blocks: null,
+    transactions: null,
+    validators: null,
+    reporters: null,
+  },
+  dataSource: 'rpc',
 }
 
 // Define a type for the HYDRATE action
@@ -49,6 +64,19 @@ export const streamSlice = createSlice({
     setSubsTxEvent(state, action) {
       state.subsTxEvent = action.payload
     },
+    
+    // GraphQL subscription actions
+    setGraphQLSubscription(state, action: PayloadAction<{ type: keyof StreamState['graphqlSubscriptions']; data: any }>) {
+      const { type, data } = action.payload
+      state.graphqlSubscriptions[type] = data
+    },
+    clearGraphQLSubscription(state, action: PayloadAction<keyof StreamState['graphqlSubscriptions']>) {
+      const type = action.payload
+      state.graphqlSubscriptions[type] = null
+    },
+    setDataSource(state, action: PayloadAction<'rpc' | 'graphql' | 'mixed'>) {
+      state.dataSource = action.payload
+    },
   },
 
   // Special reducer for hydrating the state. Special case for next-redux-wrapper
@@ -62,13 +90,22 @@ export const streamSlice = createSlice({
   },
 })
 
-export const { setNewBlock, setTxEvent, setSubsNewBlock, setSubsTxEvent } =
-  streamSlice.actions
+export const { 
+  setNewBlock, 
+  setTxEvent, 
+  setSubsNewBlock, 
+  setSubsTxEvent,
+  setGraphQLSubscription,
+  clearGraphQLSubscription,
+  setDataSource,
+} = streamSlice.actions
 
 export const selectNewBlock = (state: AppState) => state.stream.newBlock
 export const selectTxEvent = (state: AppState) => state.stream.txEvent
 
 export const selectSubsNewBlock = (state: AppState) => state.stream.subsNewBlock
 export const selectSubsTxEvent = (state: AppState) => state.stream.subsTxEvent
+export const selectGraphQLSubscriptions = (state: AppState) => state.stream.graphqlSubscriptions
+export const selectDataSource = (state: AppState) => state.stream.dataSource
 
 export default streamSlice.reducer

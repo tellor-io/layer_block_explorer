@@ -1,7 +1,4 @@
 import { useEffect, useState, useMemo } from 'react'
-import axios from 'axios'
-import { pubkeyToAddress as aminoPubkeyToAddress, Pubkey } from '@cosmjs/amino'
-import { fromBech32, fromBase64 } from '@cosmjs/encoding'
 import { useSelector } from 'react-redux'
 import { NewBlockEvent, TxEvent } from '@cosmjs/tendermint-rpc'
 import {
@@ -41,11 +38,11 @@ import { toHex } from '@cosmjs/encoding'
 import { TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
 import { timeFromNow, trimHash, getTypeMsg } from '@/utils/helper'
 import { sha256 } from '@cosmjs/crypto'
-import { getValidators } from '@/rpc/query'
 import { CopyableHash } from '@/components/CopyableHash'
-import { rpcManager } from '@/utils/rpcManager'
 import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
 import Head from 'next/head'
+import { useRealTimeBlocks } from '@/hooks/useRealTimeBlocks'
+import { GraphQLService, GraphQLBlock } from '@/services/graphqlService'
 
 const MAX_ROWS = 20
 
@@ -74,11 +71,41 @@ export default function Blocks() {
   const txEvent = useSelector(selectTxEvent)
   const tmClient = useSelector(selectTmClient)
   const rpcAddress = useSelector(selectRPCAddress)
-  const [blocks, setBlocks] = useState<NewBlockEvent[]>([])
   const [txs, setTxs] = useState<Tx[]>([])
   const [validatorMap, setValidatorMap] = useState<ValidatorMap>({})
-  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Use the GraphQL-based real-time blocks hook
+  const { blocks: graphqlBlocks, isLoading, error: blocksError, refetch } = useRealTimeBlocks({
+    limit: MAX_ROWS,
+    offset: 0,
+    enableSubscription: true,
+  })
+
+  // Convert GraphQL blocks to NewBlockEvent format for compatibility
+  const blocks = useMemo(() => {
+    return graphqlBlocks.map((block: GraphQLBlock): NewBlockEvent => ({
+      header: {
+        version: { block: 0, app: 0 },
+        height: parseInt(block.blockHeight),
+        time: new Date(block.blockTime),
+        proposerAddress: new Uint8Array(Buffer.from(block.proposerAddress, 'hex')),
+        chainId: block.chainId || '',
+        lastBlockId: { hash: new Uint8Array(), parts: { total: 0, hash: new Uint8Array() } },
+        lastCommitHash: new Uint8Array(Buffer.from(block.consensusHash || '', 'hex')),
+        dataHash: new Uint8Array(Buffer.from(block.dataHash || '', 'hex')),
+        validatorsHash: new Uint8Array(Buffer.from(block.validatorsHash || '', 'hex')),
+        nextValidatorsHash: new Uint8Array(Buffer.from(block.nextValidatorsHash || '', 'hex')),
+        consensusHash: new Uint8Array(Buffer.from(block.consensusHash || '', 'hex')),
+        appHash: new Uint8Array(Buffer.from(block.appHash || '', 'hex')),
+        lastResultsHash: new Uint8Array(),
+        evidenceHash: new Uint8Array(Buffer.from(block.evidenceHash || '', 'hex')),
+      },
+      txs: [] as readonly Uint8Array[], // GraphQL doesn't provide transaction data in blocks query
+      lastCommit: null, // Use null instead of undefined for compatibility
+      evidence: [] as readonly any[], // Use empty array instead of null for compatibility
+    }))
+  }, [graphqlBlocks])
 
   const iconColor = useColorModeValue('light-theme', 'dark-theme')
   const containerBg = useColorModeValue('light-container', 'dark-container')
@@ -113,20 +140,37 @@ export default function Blocks() {
   const fetchValidators = async () => {
     if (tmClient) {
       try {
-        const endpoint = await rpcManager.getCurrentEndpoint()
-        console.log('Blocks page: Fetching validators from endpoint:', endpoint)
-        const validatorsResponse = await getValidators(endpoint)
-        if (validatorsResponse?.validators) {
+        // Use GraphQL service to fetch validators
+        const validatorsResponse = await GraphQLService.getValidators()
+        if (validatorsResponse?.length > 0) {
           const map: { [key: string]: string } = {}
-          validatorsResponse.validators.forEach((validator: Validator) => {
-            const hexAddress = pubkeyToAddress(validator.consensus_pubkey.key)
-            map[hexAddress] = validator.description.moniker
+          validatorsResponse.forEach((validator: any) => {
+            if (validator.consensusAddress) {
+              map[validator.consensusAddress.toLowerCase()] = validator.description?.moniker || 'Unknown'
+            }
           })
           setValidatorMap(map)
-          console.log('Blocks page: Successfully fetched validators, map size:', Object.keys(map).length)
+          console.log('Blocks page: Successfully fetched validators via GraphQL, map size:', Object.keys(map).length)
         }
       } catch (error) {
-        console.error('Error fetching validators:', error)
+        console.error('Error fetching validators via GraphQL:', error)
+        // Fallback to RPC if GraphQL fails
+        try {
+          const { getValidators } = await import('@/rpc/query')
+          const endpoint = await import('@/utils/rpcManager').then(m => m.rpcManager.getCurrentEndpoint())
+          const validatorsResponse = await getValidators(endpoint)
+          if (validatorsResponse?.validators) {
+            const map: { [key: string]: string } = {}
+            validatorsResponse.validators.forEach((validator: Validator) => {
+              const hexAddress = pubkeyToAddress(validator.consensus_pubkey.key)
+              map[hexAddress] = validator.description.moniker
+            })
+            setValidatorMap(map)
+            console.log('Blocks page: Successfully fetched validators via RPC fallback, map size:', Object.keys(map).length)
+          }
+        } catch (rpcError) {
+          console.error('Error fetching validators via RPC fallback:', rpcError)
+        }
       }
     }
   }
@@ -137,10 +181,8 @@ export default function Blocks() {
         console.log('Blocks page: RPC address changed, refetching data. New address:', rpcAddress)
         
         // Clear old data when switching endpoints
-        setBlocks([])
         setTxs([])
         setError(null)
-        setIsLoading(true)
         
         // Add a small delay to ensure RPC manager has updated when switching endpoints
         await new Promise(resolve => setTimeout(resolve, 100))
@@ -148,109 +190,23 @@ export default function Blocks() {
         // Fetch validators using new endpoint
         await fetchValidators()
 
-        // Fetch blocks
-        console.log('Blocks page: Fetching latest block...')
-        const blocksResponse = await axios.get('/api/latest-block')
-
-        if (!blocksResponse?.data?.block) {
-          throw new Error('Invalid block data received')
-        }
-
-        const latestBlock = blocksResponse.data.block
-        const blocksData = [
-          {
-            header: {
-              version: { block: 0, app: 0 },
-              height: latestBlock.header.height,
-              time: new Date(latestBlock.header.time),
-              proposerAddress: fromBase64(latestBlock.header.proposer_address),
-              chainId: latestBlock.header.chain_id,
-              lastBlockId: latestBlock.header.last_block_id,
-              lastCommitHash: fromBase64(latestBlock.header.last_commit_hash),
-              dataHash: fromBase64(latestBlock.header.data_hash),
-              validatorsHash: fromBase64(latestBlock.header.validators_hash),
-              nextValidatorsHash: fromBase64(latestBlock.header.next_validators_hash),
-              consensusHash: fromBase64(latestBlock.header.consensus_hash),
-              appHash: fromBase64(latestBlock.header.app_hash),
-              lastResultsHash: fromBase64(latestBlock.header.last_results_hash),
-              evidenceHash: fromBase64(latestBlock.header.evidence_hash),
-            },
-            txs: latestBlock.data?.txs || [],
-            lastCommit: latestBlock.last_commit,
-            evidence: latestBlock.evidence,
-          },
-        ]
-
-        // Fetch previous blocks in parallel
-        const prevBlockPromises = []
-        for (let i = 1; i < 10; i++) {
-          const height = parseInt(latestBlock.header.height) - i
-          prevBlockPromises.push(
-            axios.get(`/api/block-by-height/${height}`)
-              .then(response => {
-                if (response?.data?.block) {
-                  const prevBlock = response.data.block
-                  return {
-                    header: {
-                      version: { block: 0, app: 0 },
-                      height: prevBlock.header.height,
-                      time: new Date(prevBlock.header.time),
-                      proposerAddress: fromBase64(prevBlock.header.proposer_address),
-                      chainId: prevBlock.header.chain_id,
-                      lastBlockId: prevBlock.header.last_block_id,
-                      lastCommitHash: fromBase64(prevBlock.header.last_commit_hash),
-                      dataHash: fromBase64(prevBlock.header.data_hash),
-                      validatorsHash: fromBase64(prevBlock.header.validators_hash),
-                      nextValidatorsHash: fromBase64(prevBlock.header.next_validators_hash),
-                      consensusHash: fromBase64(prevBlock.header.consensus_hash),
-                      appHash: fromBase64(prevBlock.header.app_hash),
-                      lastResultsHash: fromBase64(prevBlock.header.last_results_hash),
-                      evidenceHash: fromBase64(prevBlock.header.evidence_hash),
-                    },
-                    txs: prevBlock.data?.txs || [],
-                    lastCommit: prevBlock.last_commit,
-                    evidence: prevBlock.evidence,
-                  }
-                }
-                return null
-              })
-              .catch(error => {
-                console.warn(`Error fetching block at height ${height}:`, error)
-                return null
-              })
-          )
-        }
-
-        // Wait for all block fetches to complete
-        const prevBlocks = await Promise.all(prevBlockPromises)
-        
-        // Filter out null results and add valid blocks to blocksData
-        prevBlocks.forEach(block => {
-          if (block) {
-            blocksData.push(block)
-          }
-        })
-
-        // Sort blocks by height in descending order
-        blocksData.sort((a, b) => b.header.height - a.header.height)
-
-        setBlocks(blocksData as NewBlockEvent[])
-        setIsLoading(false)
+        // Refetch blocks using GraphQL
+        await refetch()
       } catch (error) {
-        console.error('Error fetching blocks data:', error)
-        if (axios.isAxiosError(error)) {
-          setError('Failed to fetch data. Please check your network connection.')
-        } else {
-          setError('An unexpected error occurred.')
-        }
-        setIsLoading(false)
-        // Clear blocks on error to prevent showing stale data
-        setBlocks([])
+        console.error('Error fetching data:', error)
+        setError('An unexpected error occurred.')
         setTxs([])
       }
     }
     fetchData()
-  }, [tmClient, rpcAddress])
+  }, [tmClient, rpcAddress, refetch])
+
+  // Update error state when blocks error occurs
+  useEffect(() => {
+    if (blocksError) {
+      setError(blocksError)
+    }
+  }, [blocksError])
 
   useEffect(() => {
     if (newBlock) {
@@ -265,38 +221,8 @@ export default function Blocks() {
   }, [txEvent])
 
   const updateBlocks = (block: NewBlockEvent) => {
-    setBlocks((prevBlocks) => {
-      // Ensure block.txs exists
-      const newBlock = {
-        ...block,
-        txs: block.txs || [], // Ensure txs is always an array
-      }
-
-      // Check if this exact block already exists
-      const exists = prevBlocks.some((existingBlock) => {
-        // Safely compare block heights
-        const heightMatch =
-          existingBlock.header.height === newBlock.header.height
-
-        // Safely compare timestamps if both exist
-        const timeMatch =
-          existingBlock.header.time && newBlock.header.time
-            ? existingBlock.header.time.getTime() ===
-              newBlock.header.time.getTime()
-            : false
-
-        return heightMatch && timeMatch
-      })
-
-      if (
-        !exists &&
-        (!prevBlocks.length ||
-          newBlock.header.height > prevBlocks[0].header.height)
-      ) {
-        return [newBlock, ...prevBlocks.slice(0, MAX_ROWS - 1)]
-      }
-      return prevBlocks
-    })
+    // This is now handled by the useRealTimeBlocks hook
+    // The hook automatically manages real-time updates via GraphQL subscriptions
   }
 
   const updateTxs = (txEvent: TxEvent) => {
@@ -553,8 +479,8 @@ export default function Blocks() {
     </>
   )
 }
-
 export function pubkeyToAddress(pubkey: string): string {
   const hash = sha256(Buffer.from(pubkey, 'base64'))
   return toHex(hash.slice(0, 20)).toLowerCase()
 }
+

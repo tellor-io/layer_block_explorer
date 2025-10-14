@@ -55,3 +55,17 @@ export const RPC_ENDPOINTS = [
   'https://mainnet.tellorlayer.com/rpc', // primary URL
   'https://node-palmito.tellorlayer.com/rpc', // fallback URL
 ]
+
+export const GRAPHQL_ENDPOINTS = [
+  'https://indexer.tellorlayer.com/graphql', // primary GraphQL URL
+  'https://backup-indexer.tellorlayer.com/graphql', // fallback GraphQL URL
+]
+
+export const DATA_SOURCE_CONFIG = {
+  PRIMARY: 'graphql',
+  FALLBACK: 'rpc',
+  AUTO_FALLBACK: true,
+  HEALTH_CHECK_INTERVAL: 30000,
+  GRAPHQL_TIMEOUT: 10000,
+  GRAPHQL_MAX_RETRIES: 3,
+}

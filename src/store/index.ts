@@ -3,6 +3,7 @@ import { createWrapper } from 'next-redux-wrapper'
 import connectReducer from './connectSlice'
 import streamReducer from './streamSlice'
 import paramsReducer from './paramsSlice'
+import graphqlReducer from './graphqlSlice'
 import { AppStore } from './types'
 
 const makeStore = () =>
@@ -11,6 +12,7 @@ const makeStore = () =>
       connect: connectReducer,
       stream: streamReducer,
       params: paramsReducer,
+      graphql: graphqlReducer,
     },
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({

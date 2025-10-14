@@ -1,0 +1,273 @@
+# To improve query performance, we strongly suggest adding indexes to any field that you plan to filter or sort by
+# Add the `@index` or `@index(unique: true)` annotation after any non-key field
+# https://academy.subquery.network/build/graphql.html#indexing-by-non-primary-key-field
+
+type Block @entity {
+  id: ID! # The block height
+  blockHeight: BigInt! @index(unique: true)
+  blockHash: String! @index
+  blockTime: Date! @index
+  appHash: String!
+  chainId: String!
+  consensusHash: String!
+  dataHash: String!
+  evidenceHash: String!
+  nextValidatorsHash: String!
+  validatorsHash: String!
+  proposerAddress: String!
+  numberOfTx: Int!
+  voteExtensions: String
+}
+
+type Transaction @entity {
+  id: ID! # tx_hash
+  txData: String!
+  blockHeight: BigInt! @index(unique: true)
+  timestamp: Date!
+}
+
+type FinalizedEvents @entity {
+  id: ID! # block height
+  blockHeight: BigInt! @index(unique: true)
+  events: [String]
+}
+
+# Oracle
+type MicroReport @entity {
+  id: ID! # reporter-metaId
+  queryId: String!
+  queryIdHeight: String! @index # queryId-height
+  metaId: String! @index
+  height: BigInt!
+  reporter: String!
+  power: BigInt!
+  cycleList: Boolean!
+}
+
+type MetaIdAggregate @entity {
+  id: ID! # metaId
+  totalPower: BigInt!
+  reporterCount: Int!
+}
+
+type AggregateReport @entity {
+  id: ID! # queryId-timestamp
+  queryId: String! @index
+  queryData: String!
+  value: String!
+  aggregatePower: BigInt!
+  microReportHeight: BigInt! @index
+  blockHeight: BigInt! @index
+  timestamp: Date! @index
+  flagged: Boolean!
+  totalReporters: Int!
+  totalPower: BigInt!
+  cyclist: Boolean!
+}
+
+# Bridge
+
+type BridgeDeposit @entity {
+  id: ID! # DepositId
+  depositId: Int! @index(unique: true)
+  blockHeight: BigInt
+  timestamp: BigInt!
+  sender: String!
+  recipient: String!
+  amount: BigInt!
+  tip: BigInt!
+  reported: Boolean!
+  claimed: Boolean!
+}
+
+type Withdraw @entity {
+  id: ID! # DepositID
+  depositId: Int! @index(unique: true)
+  blockHeight: BigInt!
+  sender: String!
+  recipient: String!
+  amount: BigInt!
+}
+
+# Staking
+
+type CommissionRates @jsonField(indexed: false) {
+  rate: String!
+  maxRate: String!
+  maxChangeRate: String!
+}
+
+type Commission @jsonField(indexed: false) {
+  commissionRates: CommissionRates
+  updateTime: Date!
+}
+
+type Validator @entity {
+  id: ID! # validatorAddress
+  operatorAddress: String! @index
+  consensusPubkey: String!
+  consensusAddress: String! @index(unique: true)
+  delegatorAddress: String!
+  jailed: Boolean!
+  bondStatus: String! @index
+  tokens: BigInt! @index
+  delegatorShares: BigInt!
+  description: Description!
+  unbondingHeight: BigInt!
+  unbondingTime: BigInt!
+  commission: Commission!
+  minSelfDelegation: String!
+  unbondingOnHoldRefCount: BigInt
+  unbondingIds: [BigInt!]
+  missedBlocks: Int!
+  delegations: [Delegation] @derivedFrom(field: "validatorAddress")
+}
+
+type Delegation @entity {
+  id: ID! # delegatorAddress-validatorAddress
+  delegatorAddress: String! @index
+  validatorAddress: Validator!
+  shares: BigInt!
+}
+
+type Description @jsonField(indexed: false) {
+  moniker: String!
+  identity: String!
+  website: String!
+  securityContact: String!
+  details: String!
+}
+
+# Reporter
+type Reporter @entity {
+  id: ID! # reporter address
+  creationHeight: BigInt!
+  commissionRate: BigInt!
+  LastUpdated: Date!
+  minTokensRequired: BigInt!
+  moniker: String!
+  jailed: Boolean!
+  jailedUntil: Date!
+  # selectors: [Selector] @derivedFrom(field: "reporterAddress")
+}
+
+type Selector @entity {
+  id: ID!
+  reporterAddress: String! @index
+  lockedUntilTime: Date!
+}
+
+# Governance
+
+type Coin @jsonField(indexed: false) {
+  denom: String
+  amount: String
+}
+
+type GovProposal @entity {
+  id: ID! # proposalId
+  proposalId: Int! @index(unique: true)
+  messages: String!
+  status: String! @index
+  submitTime: Date!
+  depositEndTime: Date
+  votingStartTime: Date @index
+  votingEndTime: Date @index
+  metaData: String!
+  title: String
+  summary: String!
+  proposer: String @index
+  expedited: Boolean!
+  votes: [Vote] @derivedFrom(field: "proposal")
+}
+
+type WeightedVoteOption @jsonField(indexed: false) {
+  VoteOption: Int!
+  Weight: String!
+}
+
+type Vote @entity {
+  id: ID! # proposalID-voterAccAddress
+  proposal: GovProposal!
+  option: [WeightedVoteOption]
+  metaData: String!
+}
+
+type EvmAddress @entity {
+  id: ID!
+  evmAddress: String!
+}
+
+# Parameters
+
+type StakingParams @entity {
+  id: ID! # "stakingParams"
+  unbondingTime: String!
+  maxValidators: Int!
+  maxEntries: Int!
+  historicalEntries: Int!
+  bondDenom: String!
+  minCommissionRate: String!
+}
+
+type GovParams @entity {
+  id: ID! # "govParams"
+  minDeposit: [Coin]!
+  maxDepositPeriod: String!
+  votingPeriod: String!
+  quorum: String!
+  threshold: String!
+  vetoThreshold: String!
+  minInitialDepositRatio: String!
+  proposalCancelRatio: String!
+  proposalCancelDest: String!
+  expeditedVotingPeriod: String!
+  expeditedThreshold: String!
+  expeditedMinDeposit: [Coin]!
+  burnVoteQuorum: Boolean!
+  burnProposalDepositPrevote: Boolean!
+  burnVoteVeto: Boolean!
+  minDepositRatio: String!
+}
+
+type DistributionParams @entity {
+  id: ID! # "distributionParams"
+  communityTax: String!
+  baseProposerReward: String!
+  bonusProposerReward: String!
+  withdrawAddrEnabled: Boolean!
+}
+
+type SlashingParams @entity {
+  id: ID! # "slashingParams"
+  signedBlocksWindow: String!
+  minSignedPerWindow: String!
+  downtimeJailDuration: String!
+  slashFractionDoubleSign: String!
+  slashFractionDowntime: String!
+}
+
+type OracleParams @entity {
+  id: ID! # oracleParams
+  minStakeAmount: String!
+  minTipAmount: String!
+  maxTipAmount: String!
+}
+
+type RegistryParams @entity {
+  id: ID! # registryParams
+  maxReportBufferWindow: String!
+}
+
+type DisputeParams @entity {
+  id: ID! # disputeParams
+  teamAddress: String!
+}
+
+type ReporterParams @entity {
+  id: ID! # reporterParams
+  minCommissionRate: String!
+  minLoya: String!
+  maxSelectors: String!
+  maxNumOfDelegations: String!
+}
