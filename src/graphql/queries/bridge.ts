@@ -22,10 +22,10 @@ export const GET_BRIDGE_DEPOSITS = gql`
  */
 export const GET_BRIDGE_DEPOSITS_PAGINATED = gql`
   ${BRIDGE_DEPOSIT_FIELDS}
-  query GetBridgeDepositsPaginated($limit: Int!, $offset: Int!) {
+  query GetBridgeDepositsPaginated($limit: Int!) {
     bridgeDeposits(
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -51,11 +51,14 @@ export const GET_BRIDGE_DEPOSIT_BY_ID = gql`
  */
 export const GET_BRIDGE_DEPOSITS_BY_SENDER = gql`
   ${BRIDGE_DEPOSIT_FIELDS}
-  query GetBridgeDepositsBySender($sender: String!, $limit: Int!, $offset: Int!) {
+  query GetBridgeDepositsBySender(
+    $sender: String!
+    $limit: Int!
+  ) {
     bridgeDeposits(
       where: { sender_eq: $sender }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -69,11 +72,14 @@ export const GET_BRIDGE_DEPOSITS_BY_SENDER = gql`
  */
 export const GET_BRIDGE_DEPOSITS_BY_RECIPIENT = gql`
   ${BRIDGE_DEPOSIT_FIELDS}
-  query GetBridgeDepositsByRecipient($recipient: String!, $limit: Int!, $offset: Int!) {
+  query GetBridgeDepositsByRecipient(
+    $recipient: String!
+    $limit: Int!
+  ) {
     bridgeDeposits(
       where: { recipient_eq: $recipient }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -87,11 +93,11 @@ export const GET_BRIDGE_DEPOSITS_BY_RECIPIENT = gql`
  */
 export const GET_REPORTED_BRIDGE_DEPOSITS = gql`
   ${BRIDGE_DEPOSIT_FIELDS}
-  query GetReportedBridgeDeposits($limit: Int!, $offset: Int!) {
+  query GetReportedBridgeDeposits($limit: Int!) {
     bridgeDeposits(
       where: { reported_eq: true }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -105,11 +111,11 @@ export const GET_REPORTED_BRIDGE_DEPOSITS = gql`
  */
 export const GET_UNCLAIMED_BRIDGE_DEPOSITS = gql`
   ${BRIDGE_DEPOSIT_FIELDS}
-  query GetUnclaimedBridgeDeposits($limit: Int!, $offset: Int!) {
+  query GetUnclaimedBridgeDeposits($limit: Int!) {
     bridgeDeposits(
       where: { claimed_eq: false }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -123,11 +129,11 @@ export const GET_UNCLAIMED_BRIDGE_DEPOSITS = gql`
  */
 export const GET_CLAIMED_BRIDGE_DEPOSITS = gql`
   ${BRIDGE_DEPOSIT_FIELDS}
-  query GetClaimedBridgeDeposits($limit: Int!, $offset: Int!) {
+  query GetClaimedBridgeDeposits($limit: Int!) {
     bridgeDeposits(
       where: { claimed_eq: true }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -141,16 +147,15 @@ export const GET_CLAIMED_BRIDGE_DEPOSITS = gql`
  */
 export const GET_BRIDGE_DEPOSITS_BY_AMOUNT_RANGE = gql`
   ${BRIDGE_DEPOSIT_FIELDS}
-  query GetBridgeDepositsByAmountRange($minAmount: BigInt!, $maxAmount: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetBridgeDepositsByAmountRange(
+    $minAmount: BigInt!
+    $maxAmount: BigInt!
+    $limit: Int!
+  ) {
     bridgeDeposits(
-      where: {
-        and: [
-          { amount_gte: $minAmount }
-          { amount_lte: $maxAmount }
-        ]
-      }
+      where: { and: [{ amount_gte: $minAmount }, { amount_lte: $maxAmount }] }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -164,16 +169,15 @@ export const GET_BRIDGE_DEPOSITS_BY_AMOUNT_RANGE = gql`
  */
 export const GET_BRIDGE_DEPOSITS_BY_TIP_RANGE = gql`
   ${BRIDGE_DEPOSIT_FIELDS}
-  query GetBridgeDepositsByTipRange($minTip: BigInt!, $maxTip: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetBridgeDepositsByTipRange(
+    $minTip: BigInt!
+    $maxTip: BigInt!
+    $limit: Int!
+  ) {
     bridgeDeposits(
-      where: {
-        and: [
-          { tip_gte: $minTip }
-          { tip_lte: $maxTip }
-        ]
-      }
+      where: { and: [{ tip_gte: $minTip }, { tip_lte: $maxTip }] }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -187,16 +191,17 @@ export const GET_BRIDGE_DEPOSITS_BY_TIP_RANGE = gql`
  */
 export const GET_BRIDGE_DEPOSITS_BY_BLOCK_RANGE = gql`
   ${BRIDGE_DEPOSIT_FIELDS}
-  query GetBridgeDepositsByBlockRange($minBlock: BigInt!, $maxBlock: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetBridgeDepositsByBlockRange(
+    $minBlock: BigInt!
+    $maxBlock: BigInt!
+    $limit: Int!
+  ) {
     bridgeDeposits(
       where: {
-        and: [
-          { blockHeight_gte: $minBlock }
-          { blockHeight_lte: $maxBlock }
-        ]
+        and: [{ blockHeight_gte: $minBlock }, { blockHeight_lte: $maxBlock }]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -210,16 +215,17 @@ export const GET_BRIDGE_DEPOSITS_BY_BLOCK_RANGE = gql`
  */
 export const GET_BRIDGE_DEPOSITS_BY_TIME_RANGE = gql`
   ${BRIDGE_DEPOSIT_FIELDS}
-  query GetBridgeDepositsByTimeRange($startTime: BigInt!, $endTime: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetBridgeDepositsByTimeRange(
+    $startTime: BigInt!
+    $endTime: BigInt!
+    $limit: Int!
+  ) {
     bridgeDeposits(
       where: {
-        and: [
-          { timestamp_gte: $startTime }
-          { timestamp_lte: $endTime }
-        ]
+        and: [{ timestamp_gte: $startTime }, { timestamp_lte: $endTime }]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -280,10 +286,10 @@ export const GET_WITHDRAWS = gql`
  */
 export const GET_WITHDRAWS_PAGINATED = gql`
   ${WITHDRAW_FIELDS}
-  query GetWithdrawsPaginated($limit: Int!, $offset: Int!) {
+  query GetWithdrawsPaginated($limit: Int!) {
     withdraws(
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: blockHeight
       orderDirection: desc
     ) {
@@ -309,11 +315,11 @@ export const GET_WITHDRAW_BY_DEPOSIT_ID = gql`
  */
 export const GET_WITHDRAWS_BY_SENDER = gql`
   ${WITHDRAW_FIELDS}
-  query GetWithdrawsBySender($sender: String!, $limit: Int!, $offset: Int!) {
+  query GetWithdrawsBySender($sender: String!, $limit: Int!) {
     withdraws(
       where: { sender_eq: $sender }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: blockHeight
       orderDirection: desc
     ) {
@@ -327,11 +333,14 @@ export const GET_WITHDRAWS_BY_SENDER = gql`
  */
 export const GET_WITHDRAWS_BY_RECIPIENT = gql`
   ${WITHDRAW_FIELDS}
-  query GetWithdrawsByRecipient($recipient: String!, $limit: Int!, $offset: Int!) {
+  query GetWithdrawsByRecipient(
+    $recipient: String!
+    $limit: Int!
+  ) {
     withdraws(
       where: { recipient_eq: $recipient }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: blockHeight
       orderDirection: desc
     ) {
@@ -345,16 +354,15 @@ export const GET_WITHDRAWS_BY_RECIPIENT = gql`
  */
 export const GET_WITHDRAWS_BY_AMOUNT_RANGE = gql`
   ${WITHDRAW_FIELDS}
-  query GetWithdrawsByAmountRange($minAmount: BigInt!, $maxAmount: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetWithdrawsByAmountRange(
+    $minAmount: BigInt!
+    $maxAmount: BigInt!
+    $limit: Int!
+  ) {
     withdraws(
-      where: {
-        and: [
-          { amount_gte: $minAmount }
-          { amount_lte: $maxAmount }
-        ]
-      }
+      where: { and: [{ amount_gte: $minAmount }, { amount_lte: $maxAmount }] }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: blockHeight
       orderDirection: desc
     ) {
@@ -368,16 +376,17 @@ export const GET_WITHDRAWS_BY_AMOUNT_RANGE = gql`
  */
 export const GET_WITHDRAWS_BY_BLOCK_RANGE = gql`
   ${WITHDRAW_FIELDS}
-  query GetWithdrawsByBlockRange($minBlock: BigInt!, $maxBlock: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetWithdrawsByBlockRange(
+    $minBlock: BigInt!
+    $maxBlock: BigInt!
+    $limit: Int!
+  ) {
     withdraws(
       where: {
-        and: [
-          { blockHeight_gte: $minBlock }
-          { blockHeight_lte: $maxBlock }
-        ]
+        and: [{ blockHeight_gte: $minBlock }, { blockHeight_lte: $maxBlock }]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: blockHeight
       orderDirection: desc
     ) {
@@ -424,30 +433,23 @@ export const GET_WITHDRAW_STATS = gql`
 export const GET_BRIDGE_ACTIVITY_BY_ADDRESS = gql`
   ${BRIDGE_DEPOSIT_FIELDS}
   ${WITHDRAW_FIELDS}
-  query GetBridgeActivityByAddress($address: String!, $limit: Int!, $offset: Int!) {
+  query GetBridgeActivityByAddress(
+    $address: String!
+    $limit: Int!
+  ) {
     bridgeDeposits(
-      where: {
-        or: [
-          { sender_eq: $address }
-          { recipient_eq: $address }
-        ]
-      }
+      where: { or: [{ sender_eq: $address }, { recipient_eq: $address }] }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
       ...BridgeDepositFields
     }
     withdraws(
-      where: {
-        or: [
-          { sender_eq: $address }
-          { recipient_eq: $address }
-        ]
-      }
+      where: { or: [{ sender_eq: $address }, { recipient_eq: $address }] }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: blockHeight
       orderDirection: desc
     ) {
@@ -462,7 +464,10 @@ export const GET_BRIDGE_ACTIVITY_BY_ADDRESS = gql`
 export const SEARCH_BRIDGE_TRANSACTIONS = gql`
   ${BRIDGE_DEPOSIT_FIELDS}
   ${WITHDRAW_FIELDS}
-  query SearchBridgeTransactions($searchTerm: String!, $limit: Int!, $offset: Int!) {
+  query SearchBridgeTransactions(
+    $searchTerm: String!
+    $limit: Int!
+  ) {
     bridgeDeposits(
       where: {
         or: [
@@ -472,7 +477,7 @@ export const SEARCH_BRIDGE_TRANSACTIONS = gql`
         ]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -487,7 +492,7 @@ export const SEARCH_BRIDGE_TRANSACTIONS = gql`
         ]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: blockHeight
       orderDirection: desc
     ) {

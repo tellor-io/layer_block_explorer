@@ -40,7 +40,10 @@ const { GET_LATEST_BLOCK } = CommonQueries
 Fragments are defined in `fragments.ts` and provide reusable field selections:
 
 ```typescript
-import { BLOCK_FIELDS, VALIDATOR_BASIC_FIELDS } from '@/graphql/queries/fragments'
+import {
+  BLOCK_FIELDS,
+  VALIDATOR_BASIC_FIELDS,
+} from '@/graphql/queries/fragments'
 
 // Fragments are automatically included in queries
 const query = gql`
@@ -56,6 +59,7 @@ const query = gql`
 ### 3. Query Optimization
 
 All queries include:
+
 - **Pagination**: `limit` and `offset` parameters
 - **Sorting**: `orderBy` and `orderDirection` parameters
 - **Filtering**: `where` clauses for specific conditions
@@ -64,6 +68,7 @@ All queries include:
 ## Query Categories
 
 ### Blocks (`blocks.ts`)
+
 - Latest block retrieval
 - Block by height/hash
 - Paginated block lists
@@ -72,6 +77,7 @@ All queries include:
 - Search functionality
 
 ### Transactions (`transactions.ts`)
+
 - Transaction by hash
 - Paginated transaction lists
 - Transactions by block
@@ -80,6 +86,7 @@ All queries include:
 - Search functionality
 
 ### Validators (`validators.ts`)
+
 - All validators
 - Validator by address
 - Active/jailed validators
@@ -88,6 +95,7 @@ All queries include:
 - Search by moniker/identity
 
 ### Reporters (`reporters.ts`)
+
 - All reporters
 - Reporter by address
 - Active/jailed reporters
@@ -96,6 +104,7 @@ All queries include:
 - Search functionality
 
 ### Bridge (`bridge.ts`)
+
 - Bridge deposits
 - Withdrawals
 - Status-based filtering (reported/claimed)
@@ -103,6 +112,7 @@ All queries include:
 - Address-based activity
 
 ### Oracle (`oracle.ts`)
+
 - Aggregate reports
 - Micro reports
 - Meta ID aggregates
@@ -113,26 +123,31 @@ All queries include:
 ## Best Practices
 
 ### 1. Fragment Usage
+
 - Always use fragments for field selection
 - Create basic and full field variants
 - Keep fragments focused and reusable
 
 ### 2. Pagination
+
 - Always include pagination parameters
 - Use consistent ordering (usually DESC by timestamp/height)
 - Provide both basic and full detail variants
 
 ### 3. Filtering
+
 - Use specific `where` clauses for performance
 - Support multiple filter combinations
 - Include search functionality where appropriate
 
 ### 4. Performance
+
 - Limit field selection to what's needed
 - Use indexed fields in `where` clauses
 - Avoid deep nesting in queries
 
 ### 5. Error Handling
+
 - Queries are designed to work with the existing error boundaries
 - Use the `GraphQLResponse<T>` type for type safety
 - Handle empty results gracefully
@@ -140,6 +155,7 @@ All queries include:
 ## Query Patterns
 
 ### Basic Query Pattern
+
 ```typescript
 export const GET_ENTITY = gql`
   ${ENTITY_FIELDS}
@@ -152,6 +168,7 @@ export const GET_ENTITY = gql`
 ```
 
 ### Paginated Query Pattern
+
 ```typescript
 export const GET_ENTITIES = gql`
   ${ENTITY_FIELDS}
@@ -169,6 +186,7 @@ export const GET_ENTITIES = gql`
 ```
 
 ### Filtered Query Pattern
+
 ```typescript
 export const GET_ENTITIES_BY_STATUS = gql`
   ${ENTITY_FIELDS}
@@ -187,6 +205,7 @@ export const GET_ENTITIES_BY_STATUS = gql`
 ```
 
 ### Search Query Pattern
+
 ```typescript
 export const SEARCH_ENTITIES = gql`
   ${ENTITY_FIELDS}

@@ -3,6 +3,13 @@ import { graphqlClientManager } from '../utils/graphqlClient'
 import { rpcManager } from '../utils/rpcManager'
 import { Tendermint37Client } from '@cosmjs/tendermint-rpc'
 import { StargateClient } from '@cosmjs/stargate'
+import {
+  monitoringService,
+  recordQuery,
+  recordError,
+  recordFallback,
+} from '../utils/monitoring'
+import { DataSourceType } from '../utils/dataSourceManager'
 
 // Import GraphQL queries
 import {
@@ -193,15 +200,21 @@ export class GraphQLService {
   }
 
   /**
-   * Generic GraphQL query executor with error handling
+   * Generic GraphQL query executor with error handling and monitoring
    */
   private static async executeQuery<T>(
     query: any,
     variables?: any,
     fallbackFn?: () => Promise<T>
   ): Promise<T> {
+    const startTime = Date.now()
+    const queryName = query.definitions?.[0]?.name?.value || 'unknown'
+    let endpoint = ''
+
     try {
       const client = await this.getClient()
+      endpoint = await graphqlClientManager.getCurrentEndpoint()
+
       const result = await client.query({
         query,
         variables,
@@ -214,19 +227,88 @@ export class GraphQLService {
         throw new Error(`GraphQL error: ${result.error.message}`)
       }
 
+      const duration = Date.now() - startTime
+
+      // Record successful query
+      recordQuery(DataSourceType.GRAPHQL, queryName, duration, true, endpoint, {
+        variables,
+        dataSize: JSON.stringify(result.data).length,
+      })
+
       return result.data as T
     } catch (error) {
+      const duration = Date.now() - startTime
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error'
+
+      // Record failed query
+      recordError(DataSourceType.GRAPHQL, errorMessage, queryName, endpoint, {
+        variables,
+        duration,
+      })
+
       console.warn('GraphQL query failed, attempting fallback:', error)
-      
+
       if (fallbackFn) {
         try {
-          return await fallbackFn()
+          const fallbackStartTime = Date.now()
+          const fallbackResult = await fallbackFn()
+          const fallbackDuration = Date.now() - fallbackStartTime
+
+          // Record fallback usage
+          recordFallback(
+            DataSourceType.GRAPHQL,
+            DataSourceType.RPC,
+            errorMessage,
+            queryName,
+            {
+              originalDuration: duration,
+              fallbackDuration,
+              variables,
+            }
+          )
+
+          // Record successful fallback query
+          recordQuery(
+            DataSourceType.RPC,
+            queryName,
+            fallbackDuration,
+            true,
+            undefined,
+            {
+              variables,
+              isFallback: true,
+            }
+          )
+
+          return fallbackResult
         } catch (fallbackError) {
+          const fallbackDuration = Date.now() - startTime
+          const fallbackErrorMessage =
+            fallbackError instanceof Error
+              ? fallbackError.message
+              : 'Unknown fallback error'
+
+          // Record fallback failure
+          recordError(
+            DataSourceType.RPC,
+            fallbackErrorMessage,
+            queryName,
+            undefined,
+            {
+              variables,
+              duration: fallbackDuration,
+              isFallback: true,
+            }
+          )
+
           console.error('Fallback also failed:', fallbackError)
-          throw new Error(`Both GraphQL and fallback failed. GraphQL: ${error}, Fallback: ${fallbackError}`)
+          throw new Error(
+            `Both GraphQL and fallback failed. GraphQL: ${error}, Fallback: ${fallbackError}`
+          )
         }
       }
-      
+
       throw error
     }
   }
@@ -239,22 +321,32 @@ export class GraphQLService {
    * Get latest block with RPC fallback
    */
   public static async getLatestBlock(): Promise<GraphQLBlock> {
-    return this.executeQuery(
+    const result = await this.executeQuery<any>(
       GET_LATEST_BLOCK,
       undefined,
       this.getLatestBlockRPC
     )
+    
+    // Transform GraphQL response format
+    if (result && result.blocks && result.blocks.edges && result.blocks.edges.length > 0) {
+      return result.blocks.edges[0].node
+    }
+    
+    return result
   }
 
   /**
    * Get block by height with RPC fallback
    */
   public static async getBlockByHeight(height: number): Promise<GraphQLBlock> {
-    return this.executeQuery(
+    const result = await this.executeQuery(
       GET_BLOCK_BY_HEIGHT,
       { height: height.toString() },
       () => this.getBlockByHeightRPC(height)
     )
+    
+    // GraphQL response is already in the correct format for single block
+    return result
   }
 
   /**
@@ -264,22 +356,32 @@ export class GraphQLService {
     limit: number = 20,
     offset: number = 0
   ): Promise<GraphQLBlock[]> {
-    return this.executeQuery(
-      GET_BLOCKS,
-      { limit, offset },
-      () => this.getBlocksRPC(limit, offset)
+    const result = await this.executeQuery<any>(GET_BLOCKS, { limit, offset }, () =>
+      this.getBlocksRPC(limit, offset)
     )
+    
+    // Transform GraphQL response format to array
+    if (result && result.blocks && result.blocks.edges) {
+      return result.blocks.edges.map((edge: any) => edge.node)
+    }
+    
+    return result || []
   }
 
   /**
    * Get block by hash with RPC fallback
    */
   public static async getBlockByHash(hash: string): Promise<GraphQLBlock> {
-    return this.executeQuery(
-      GET_BLOCK_BY_HASH,
-      { hash },
-      () => this.getBlockByHashRPC(hash)
+    const result = await this.executeQuery<any>(GET_BLOCK_BY_HASH, { hash }, () =>
+      this.getBlockByHashRPC(hash)
     )
+    
+    // Transform GraphQL response format
+    if (result && result.blocks && result.blocks.edges && result.blocks.edges.length > 0) {
+      return result.blocks.edges[0].node
+    }
+    
+    return result
   }
 
   // ============================================================================
@@ -289,11 +391,11 @@ export class GraphQLService {
   /**
    * Get transaction by hash with RPC fallback
    */
-  public static async getTransactionByHash(hash: string): Promise<GraphQLTransaction> {
-    return this.executeQuery(
-      GET_TRANSACTION_BY_HASH,
-      { hash },
-      () => this.getTransactionByHashRPC(hash)
+  public static async getTransactionByHash(
+    hash: string
+  ): Promise<GraphQLTransaction> {
+    return this.executeQuery(GET_TRANSACTION_BY_HASH, { hash }, () =>
+      this.getTransactionByHashRPC(hash)
     )
   }
 
@@ -304,11 +406,16 @@ export class GraphQLService {
     limit: number = 20,
     offset: number = 0
   ): Promise<GraphQLTransaction[]> {
-    return this.executeQuery(
-      GET_TRANSACTIONS,
-      { limit, offset },
-      () => this.getTransactionsRPC(limit, offset)
+    const result = await this.executeQuery<any>(GET_TRANSACTIONS, { limit, offset }, () =>
+      this.getTransactionsRPC(limit, offset)
     )
+    
+    // Transform GraphQL response format to array
+    if (result && result.transactions && result.transactions.edges) {
+      return result.transactions.edges.map((edge: any) => edge.node)
+    }
+    
+    return result || []
   }
 
   // ============================================================================
@@ -319,21 +426,28 @@ export class GraphQLService {
    * Get all validators with Swagger API fallback
    */
   public static async getValidators(): Promise<GraphQLValidator[]> {
-    return this.executeQuery(
+    const result = await this.executeQuery<any>(
       GET_VALIDATORS,
       undefined,
       this.getValidatorsSwagger
     )
+    
+    // Transform GraphQL response format to array
+    if (result && result.validators && result.validators.edges) {
+      return result.validators.edges.map((edge: any) => edge.node)
+    }
+    
+    return result || []
   }
 
   /**
    * Get validator by address with Swagger API fallback
    */
-  public static async getValidatorByAddress(address: string): Promise<GraphQLValidator> {
-    return this.executeQuery(
-      GET_VALIDATOR_BY_ADDRESS,
-      { address },
-      () => this.getValidatorByAddressSwagger(address)
+  public static async getValidatorByAddress(
+    address: string
+  ): Promise<GraphQLValidator> {
+    return this.executeQuery(GET_VALIDATOR_BY_ADDRESS, { address }, () =>
+      this.getValidatorByAddressSwagger(address)
     )
   }
 
@@ -345,21 +459,24 @@ export class GraphQLService {
    * Get all reporters with Swagger API fallback
    */
   public static async getReporters(): Promise<GraphQLReporter[]> {
-    return this.executeQuery(
-      GET_REPORTERS,
-      undefined,
-      this.getReportersSwagger
-    )
+    const result = await this.executeQuery<any>(GET_REPORTERS, undefined, this.getReportersSwagger)
+    
+    // Transform GraphQL response format to array
+    if (result && result.reporters && result.reporters.edges) {
+      return result.reporters.edges.map((edge: any) => edge.node)
+    }
+    
+    return result || []
   }
 
   /**
    * Get reporter by address with Swagger API fallback
    */
-  public static async getReporterByAddress(address: string): Promise<GraphQLReporter> {
-    return this.executeQuery(
-      GET_REPORTER_BY_ADDRESS,
-      { address },
-      () => this.getReporterByAddressSwagger(address)
+  public static async getReporterByAddress(
+    address: string
+  ): Promise<GraphQLReporter> {
+    return this.executeQuery(GET_REPORTER_BY_ADDRESS, { address }, () =>
+      this.getReporterByAddressSwagger(address)
     )
   }
 
@@ -377,11 +494,10 @@ export class GraphQLService {
   /**
    * Get bridge deposit by ID (GraphQL only - no fallback available)
    */
-  public static async getBridgeDepositById(depositId: number): Promise<GraphQLBridgeDeposit> {
-    return this.executeQuery(
-      GET_BRIDGE_DEPOSIT_BY_ID,
-      { depositId }
-    )
+  public static async getBridgeDepositById(
+    depositId: number
+  ): Promise<GraphQLBridgeDeposit> {
+    return this.executeQuery(GET_BRIDGE_DEPOSIT_BY_ID, { depositId })
   }
 
   // ============================================================================
@@ -391,7 +507,9 @@ export class GraphQLService {
   /**
    * Get aggregate reports (GraphQL only - no fallback available)
    */
-  public static async getAggregateReports(queryId?: string): Promise<GraphQLAggregateReport[]> {
+  public static async getAggregateReports(
+    queryId?: string
+  ): Promise<GraphQLAggregateReport[]> {
     return this.executeQuery(
       GET_AGGREGATE_REPORTS,
       queryId ? { queryId } : undefined
@@ -402,10 +520,7 @@ export class GraphQLService {
    * Get oracle data (GraphQL only - no fallback available)
    */
   public static async getOracleData(queryId: string): Promise<any> {
-    return this.executeQuery(
-      GET_ORACLE_DATA_BY_QUERY_ID,
-      { queryId }
-    )
+    return this.executeQuery(GET_ORACLE_DATA_BY_QUERY_ID, { queryId })
   }
 
   // ============================================================================
@@ -419,9 +534,9 @@ export class GraphQLService {
     const endpoint = await rpcManager.getCurrentEndpoint()
     const tmClient = await Tendermint37Client.connect(endpoint)
     const client = await StargateClient.create(tmClient)
-    
+
     const block = await client.getBlock()
-    
+
     return {
       id: block.header.height.toString(),
       blockHeight: block.header.height.toString(),
@@ -443,13 +558,15 @@ export class GraphQLService {
   /**
    * RPC fallback for block by height
    */
-  private static async getBlockByHeightRPC(height: number): Promise<GraphQLBlock> {
+  private static async getBlockByHeightRPC(
+    height: number
+  ): Promise<GraphQLBlock> {
     const endpoint = await rpcManager.getCurrentEndpoint()
     const tmClient = await Tendermint37Client.connect(endpoint)
     const client = await StargateClient.create(tmClient)
-    
+
     const block = await client.getBlock(height)
-    
+
     return {
       id: block.header.height.toString(),
       blockHeight: block.header.height.toString(),
@@ -471,7 +588,10 @@ export class GraphQLService {
   /**
    * RPC fallback for blocks with pagination
    */
-  private static async getBlocksRPC(limit: number, offset: number): Promise<GraphQLBlock[]> {
+  private static async getBlocksRPC(
+    limit: number,
+    offset: number
+  ): Promise<GraphQLBlock[]> {
     const latestBlock = await this.getLatestBlockRPC()
     const blocks: GraphQLBlock[] = []
 
@@ -500,8 +620,12 @@ export class GraphQLService {
     // a more sophisticated search mechanism
     const latestBlock = await this.getLatestBlockRPC()
     const maxSearchHeight = parseInt(latestBlock.blockHeight)
-    
-    for (let height = maxSearchHeight; height >= Math.max(0, maxSearchHeight - 1000); height--) {
+
+    for (
+      let height = maxSearchHeight;
+      height >= Math.max(0, maxSearchHeight - 1000);
+      height--
+    ) {
       try {
         const block = await this.getBlockByHeightRPC(height)
         if (block.blockHash === hash) {
@@ -511,25 +635,27 @@ export class GraphQLService {
         continue
       }
     }
-    
+
     throw new Error(`Block with hash ${hash} not found in recent blocks`)
   }
 
   /**
    * RPC fallback for transaction by hash
    */
-  private static async getTransactionByHashRPC(hash: string): Promise<GraphQLTransaction> {
+  private static async getTransactionByHashRPC(
+    hash: string
+  ): Promise<GraphQLTransaction> {
     const endpoint = await rpcManager.getCurrentEndpoint()
     const tmClient = await Tendermint37Client.connect(endpoint)
-    
+
     // Convert string hash to Uint8Array for the RPC call
     const hashBytes = new TextEncoder().encode(hash)
     const tx = await tmClient.tx({ hash: hashBytes })
-    
+
     if (!tx.result) {
       throw new Error(`Transaction ${hash} not found`)
     }
-    
+
     return {
       id: hash,
       txData: tx.tx ? Buffer.from(tx.tx).toString('base64') : '', // tx.tx contains the transaction data
@@ -541,7 +667,10 @@ export class GraphQLService {
   /**
    * RPC fallback for transactions with pagination
    */
-  private static async getTransactionsRPC(limit: number, offset: number): Promise<GraphQLTransaction[]> {
+  private static async getTransactionsRPC(
+    limit: number,
+    offset: number
+  ): Promise<GraphQLTransaction[]> {
     // RPC doesn't have direct transaction pagination, so we need to fetch blocks and extract transactions
     const blocks = await this.getBlocksRPC(limit, offset)
     const transactions: GraphQLTransaction[] = []
@@ -564,15 +693,17 @@ export class GraphQLService {
   private static async getValidatorsSwagger(): Promise<GraphQLValidator[]> {
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
-    const response = await fetch(`${baseEndpoint}/cosmos/staking/v1beta1/validators`)
-    
+
+    const response = await fetch(
+      `${baseEndpoint}/cosmos/staking/v1beta1/validators`
+    )
+
     if (!response.ok) {
       throw new Error(`Swagger API request failed: ${response.status}`)
     }
-    
+
     const data: SwaggerValidatorResponse = await response.json()
-    
+
     return data.validators.map((validator) => ({
       id: validator.address,
       operatorAddress: validator.address,
@@ -610,19 +741,23 @@ export class GraphQLService {
   /**
    * Swagger API fallback for validator by address
    */
-  private static async getValidatorByAddressSwagger(address: string): Promise<GraphQLValidator> {
+  private static async getValidatorByAddressSwagger(
+    address: string
+  ): Promise<GraphQLValidator> {
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
-    const response = await fetch(`${baseEndpoint}/cosmos/staking/v1beta1/validators/${address}`)
-    
+
+    const response = await fetch(
+      `${baseEndpoint}/cosmos/staking/v1beta1/validators/${address}`
+    )
+
     if (!response.ok) {
       throw new Error(`Swagger API request failed: ${response.status}`)
     }
-    
+
     const data = await response.json()
     const validator = data.validator
-    
+
     return {
       id: validator.address,
       operatorAddress: validator.address,
@@ -663,15 +798,17 @@ export class GraphQLService {
   private static async getReportersSwagger(): Promise<GraphQLReporter[]> {
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
-    const response = await fetch(`${baseEndpoint}/tellor-io/layer/reporter/reporters`)
-    
+
+    const response = await fetch(
+      `${baseEndpoint}/tellor-io/layer/reporter/reporters`
+    )
+
     if (!response.ok) {
       throw new Error(`Swagger API request failed: ${response.status}`)
     }
-    
+
     const data: SwaggerReporterResponse = await response.json()
-    
+
     return data.reporters.map((reporter) => ({
       id: reporter.address,
       creationHeight: reporter.creation_height,
@@ -687,19 +824,23 @@ export class GraphQLService {
   /**
    * Swagger API fallback for reporter by address
    */
-  private static async getReporterByAddressSwagger(address: string): Promise<GraphQLReporter> {
+  private static async getReporterByAddressSwagger(
+    address: string
+  ): Promise<GraphQLReporter> {
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
-    
-    const response = await fetch(`${baseEndpoint}/tellor-io/layer/reporter/reporters/${address}`)
-    
+
+    const response = await fetch(
+      `${baseEndpoint}/tellor-io/layer/reporter/reporters/${address}`
+    )
+
     if (!response.ok) {
       throw new Error(`Swagger API request failed: ${response.status}`)
     }
-    
+
     const data = await response.json()
     const reporter = data.reporter
-    
+
     return {
       id: reporter.address,
       creationHeight: reporter.creation_height,
@@ -711,20 +852,226 @@ export class GraphQLService {
       jailedUntil: reporter.jailed_until,
     }
   }
+
+  /**
+   * Search blocks by hash or height
+   */
+  static async searchBlocks(
+    searchTerm: string
+  ): Promise<{ blocks: GraphQLBlock[] }> {
+    const startTime = Date.now()
+
+    try {
+      recordQuery(DataSourceType.GRAPHQL, 'searchBlocks', 0, true)
+
+      // Try to parse as number (height)
+      const height = parseInt(searchTerm)
+      if (!isNaN(height)) {
+        const block = await this.getBlockByHeight(height)
+        return { blocks: [block] }
+      }
+
+      // Try to search by hash
+      const block = await this.getBlockByHash(searchTerm)
+      return { blocks: [block] }
+    } catch (error) {
+      recordError(
+        DataSourceType.GRAPHQL,
+        (error as Error).message,
+        'searchBlocks'
+      )
+      throw error
+    } finally {
+      const duration = Date.now() - startTime
+      monitoringService.recordQuery(
+        DataSourceType.GRAPHQL,
+        'searchBlocks',
+        duration,
+        true
+      )
+    }
+  }
+
+  /**
+   * Search transactions by hash
+   */
+  static async searchTransactions(
+    searchHash: string
+  ): Promise<{ transactions: GraphQLTransaction[] }> {
+    const startTime = Date.now()
+
+    try {
+      recordQuery(DataSourceType.GRAPHQL, 'searchTransactions', 0, true)
+
+      const transaction = await this.getTransactionByHash(searchHash)
+      return { transactions: [transaction] }
+    } catch (error) {
+      recordError(
+        DataSourceType.GRAPHQL,
+        (error as Error).message,
+        'searchTransactions'
+      )
+      throw error
+    } finally {
+      const duration = Date.now() - startTime
+      monitoringService.recordQuery(
+        DataSourceType.GRAPHQL,
+        'searchTransactions',
+        duration,
+        true
+      )
+    }
+  }
+
+  /**
+   * Search validators by moniker or address
+   */
+  static async searchValidators(
+    searchTerm: string
+  ): Promise<{ validators: GraphQLValidator[] }> {
+    const startTime = Date.now()
+
+    try {
+      recordQuery(DataSourceType.GRAPHQL, 'searchValidators', 0, true)
+
+      // Get all validators and filter
+      const validators = await this.getValidators()
+      const filteredValidators = validators.filter(
+        (validator) =>
+          validator.description.moniker
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          validator.operatorAddress
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())
+      )
+
+      return { validators: filteredValidators }
+    } catch (error) {
+      recordError(
+        DataSourceType.GRAPHQL,
+        (error as Error).message,
+        'searchValidators'
+      )
+      throw error
+    } finally {
+      const duration = Date.now() - startTime
+      monitoringService.recordQuery(
+        DataSourceType.GRAPHQL,
+        'searchValidators',
+        duration,
+        true
+      )
+    }
+  }
+
+  /**
+   * Search reporters by moniker or address
+   */
+  static async searchReporters(
+    searchTerm: string
+  ): Promise<{ reporters: GraphQLReporter[] }> {
+    const startTime = Date.now()
+
+    try {
+      recordQuery(DataSourceType.GRAPHQL, 'searchReporters', 0, true)
+
+      // Get all reporters and filter
+      const reporters = await this.getReporters()
+      const filteredReporters = reporters.filter(
+        (reporter) =>
+          reporter.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          reporter.moniker.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+
+      return { reporters: filteredReporters }
+    } catch (error) {
+      recordError(
+        DataSourceType.GRAPHQL,
+        (error as Error).message,
+        'searchReporters'
+      )
+      throw error
+    } finally {
+      const duration = Date.now() - startTime
+      monitoringService.recordQuery(
+        DataSourceType.GRAPHQL,
+        'searchReporters',
+        duration,
+        true
+      )
+    }
+  }
+
+  /**
+   * Search bridge deposits by ID or hash
+   */
+  static async searchBridgeDeposits(
+    searchTerm: string
+  ): Promise<{ deposits: GraphQLBridgeDeposit[] }> {
+    const startTime = Date.now()
+
+    try {
+      recordQuery(DataSourceType.GRAPHQL, 'searchBridgeDeposits', 0, true)
+
+      // Try to parse as number (deposit ID)
+      const depositId = parseInt(searchTerm)
+      if (!isNaN(depositId)) {
+        const deposit = await this.getBridgeDepositById(depositId)
+        return { deposits: [deposit] }
+      }
+
+      // Search by hash in all deposits
+      const deposits = await this.getBridgeDeposits()
+      const filteredDeposits = deposits.filter(
+        (deposit) =>
+          deposit.sender.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          deposit.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          deposit.id.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+
+      return { deposits: filteredDeposits }
+    } catch (error) {
+      recordError(
+        DataSourceType.GRAPHQL,
+        (error as Error).message,
+        'searchBridgeDeposits'
+      )
+      throw error
+    } finally {
+      const duration = Date.now() - startTime
+      monitoringService.recordQuery(
+        DataSourceType.GRAPHQL,
+        'searchBridgeDeposits',
+        duration,
+        true
+      )
+    }
+  }
 }
 
 // Export convenience functions for easy access
 export const getLatestBlock = () => GraphQLService.getLatestBlock()
-export const getBlockByHeight = (height: number) => GraphQLService.getBlockByHeight(height)
-export const getBlocks = (limit?: number, offset?: number) => GraphQLService.getBlocks(limit, offset)
-export const getBlockByHash = (hash: string) => GraphQLService.getBlockByHash(hash)
-export const getTransactionByHash = (hash: string) => GraphQLService.getTransactionByHash(hash)
-export const getTransactions = (limit?: number, offset?: number) => GraphQLService.getTransactions(limit, offset)
+export const getBlockByHeight = (height: number) =>
+  GraphQLService.getBlockByHeight(height)
+export const getBlocks = (limit?: number, offset?: number) =>
+  GraphQLService.getBlocks(limit, offset)
+export const getBlockByHash = (hash: string) =>
+  GraphQLService.getBlockByHash(hash)
+export const getTransactionByHash = (hash: string) =>
+  GraphQLService.getTransactionByHash(hash)
+export const getTransactions = (limit?: number, offset?: number) =>
+  GraphQLService.getTransactions(limit, offset)
 export const getValidators = () => GraphQLService.getValidators()
-export const getValidatorByAddress = (address: string) => GraphQLService.getValidatorByAddress(address)
+export const getValidatorByAddress = (address: string) =>
+  GraphQLService.getValidatorByAddress(address)
 export const getReporters = () => GraphQLService.getReporters()
-export const getReporterByAddress = (address: string) => GraphQLService.getReporterByAddress(address)
+export const getReporterByAddress = (address: string) =>
+  GraphQLService.getReporterByAddress(address)
 export const getBridgeDeposits = () => GraphQLService.getBridgeDeposits()
-export const getBridgeDepositById = (depositId: number) => GraphQLService.getBridgeDepositById(depositId)
-export const getAggregateReports = (queryId?: string) => GraphQLService.getAggregateReports(queryId)
-export const getOracleData = (queryId: string) => GraphQLService.getOracleData(queryId)
+export const getBridgeDepositById = (depositId: number) =>
+  GraphQLService.getBridgeDepositById(depositId)
+export const getAggregateReports = (queryId?: string) =>
+  GraphQLService.getAggregateReports(queryId)
+export const getOracleData = (queryId: string) =>
+  GraphQLService.getOracleData(queryId)

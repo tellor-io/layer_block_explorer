@@ -390,7 +390,7 @@ export class UnifiedDataService {
     options?: FetchOptions
   ): Promise<FetchResult<Block>> {
     return fetchWithFallback(async (source: DataSourceType) => {
-      if (source === DataSourceType.GRAPHQL) {
+      if (source === DataSourceType.GRAPHQL && typeof window !== 'undefined') {
         return await this.fetchLatestBlockGraphQL()
       } else {
         return await this.fetchLatestBlockRPC()
@@ -406,7 +406,7 @@ export class UnifiedDataService {
     options?: FetchOptions
   ): Promise<FetchResult<Block>> {
     return fetchWithFallback(async (source: DataSourceType) => {
-      if (source === DataSourceType.GRAPHQL) {
+      if (source === DataSourceType.GRAPHQL && typeof window !== 'undefined') {
         return await this.fetchBlockByHeightGraphQL(height)
       } else {
         return await this.fetchBlockByHeightRPC(height)
@@ -423,7 +423,7 @@ export class UnifiedDataService {
     options?: FetchOptions
   ): Promise<FetchResult<Block[]>> {
     return fetchWithFallback(async (source: DataSourceType) => {
-      if (source === DataSourceType.GRAPHQL) {
+      if (source === DataSourceType.GRAPHQL && typeof window !== 'undefined') {
         return await this.fetchBlocksGraphQL(limit, offset)
       } else {
         return await this.fetchBlocksRPC(limit, offset)
@@ -439,7 +439,7 @@ export class UnifiedDataService {
     options?: FetchOptions
   ): Promise<FetchResult<Transaction>> {
     return fetchWithFallback(async (source: DataSourceType) => {
-      if (source === DataSourceType.GRAPHQL) {
+      if (source === DataSourceType.GRAPHQL && typeof window !== 'undefined') {
         return await this.fetchTransactionByHashGraphQL(hash)
       } else {
         return await this.fetchTransactionByHashRPC(hash)
@@ -456,7 +456,7 @@ export class UnifiedDataService {
     options?: FetchOptions
   ): Promise<FetchResult<Transaction[]>> {
     return fetchWithFallback(async (source: DataSourceType) => {
-      if (source === DataSourceType.GRAPHQL) {
+      if (source === DataSourceType.GRAPHQL && typeof window !== 'undefined') {
         return await this.fetchTransactionsGraphQL(limit, offset)
       } else {
         return await this.fetchTransactionsRPC(limit, offset)
@@ -471,7 +471,7 @@ export class UnifiedDataService {
     options?: FetchOptions
   ): Promise<FetchResult<Validator[]>> {
     return fetchWithFallback(async (source: DataSourceType) => {
-      if (source === DataSourceType.GRAPHQL) {
+      if (source === DataSourceType.GRAPHQL && typeof window !== 'undefined') {
         return await this.fetchValidatorsGraphQL()
       } else {
         return await this.fetchValidatorsSwagger()
@@ -486,7 +486,7 @@ export class UnifiedDataService {
     options?: FetchOptions
   ): Promise<FetchResult<Reporter[]>> {
     return fetchWithFallback(async (source: DataSourceType) => {
-      if (source === DataSourceType.GRAPHQL) {
+      if (source === DataSourceType.GRAPHQL && typeof window !== 'undefined') {
         return await this.fetchReportersGraphQL()
       } else {
         return await this.fetchReportersSwagger()
@@ -502,7 +502,7 @@ export class UnifiedDataService {
     options?: FetchOptions
   ): Promise<FetchResult<AggregateReport[]>> {
     return fetchWithFallback(async (source: DataSourceType) => {
-      if (source === DataSourceType.GRAPHQL) {
+      if (source === DataSourceType.GRAPHQL && typeof window !== 'undefined') {
         return await this.fetchAggregateReportsGraphQL(queryId)
       } else {
         // TODO: Choose which fallback to implement
@@ -524,7 +524,7 @@ export class UnifiedDataService {
     options?: FetchOptions
   ): Promise<FetchResult<BridgeDeposit[]>> {
     return fetchWithFallback(async (source: DataSourceType) => {
-      if (source === DataSourceType.GRAPHQL) {
+      if (source === DataSourceType.GRAPHQL && typeof window !== 'undefined') {
         return await this.fetchBridgeDepositsGraphQL()
       } else {
         // TODO: Choose which fallback to implement
@@ -546,7 +546,7 @@ export class UnifiedDataService {
     options?: FetchOptions
   ): Promise<FetchResult<GovProposal[]>> {
     return fetchWithFallback(async (source: DataSourceType) => {
-      if (source === DataSourceType.GRAPHQL) {
+      if (source === DataSourceType.GRAPHQL && typeof window !== 'undefined') {
         return await this.fetchGovProposalsGraphQL()
       } else {
         // TODO: Choose which fallback to implement
@@ -1091,291 +1091,6 @@ export class UnifiedDataService {
       jailedUntil: reporter.jailed_until,
     }))
   }
-
-  // ============================================================================
-  // COMMENTED OUT FALLBACK IMPLEMENTATIONS
-  // Uncomment and implement the ones you want to use
-  // ============================================================================
-
-  // Aggregate Reports Fallback Options
-  /*
-  private static async fetchAggregateReportsRPC(queryId?: string): Promise<AggregateReport[]> {
-    // TODO: Implement RPC fallback for aggregate reports
-    // This would require custom RPC endpoints for oracle data
-    const path = queryId ? `/oracle/aggregate-reports?queryId=${queryId}` : '/oracle/aggregate-reports'
-    const data = await this.callRPC<any>(path)
-    
-    // Transform RPC response to unified format
-    return data.result.aggregateReports?.map((report: any) => ({
-      id: report.id,
-      queryId: report.queryId,
-      queryData: report.queryData,
-      value: report.value,
-      aggregatePower: report.aggregatePower,
-      microReportHeight: report.microReportHeight,
-      blockHeight: report.blockHeight,
-      timestamp: report.timestamp,
-      flagged: report.flagged,
-      totalReporters: report.totalReporters,
-      totalPower: report.totalPower,
-      cyclist: report.cyclist
-    })) || []
-  }
-
-  private static async fetchAggregateReportsSwagger(queryId?: string): Promise<AggregateReport[]> {
-    // TODO: Implement Swagger API fallback for aggregate reports
-    const path = queryId ? `/oracle/aggregate-reports?queryId=${queryId}` : '/oracle/aggregate-reports'
-    const data = await this.callSwaggerAPI<any>(path)
-    
-    // Transform Swagger response to unified format
-    return data.aggregateReports?.map((report: any) => ({
-      id: report.id,
-      queryId: report.queryId,
-      queryData: report.queryData,
-      value: report.value,
-      aggregatePower: report.aggregatePower,
-      microReportHeight: report.microReportHeight,
-      blockHeight: report.blockHeight,
-      timestamp: report.timestamp,
-      flagged: report.flagged,
-      totalReporters: report.totalReporters,
-      totalPower: report.totalPower,
-      cyclist: report.cyclist
-    })) || []
-  }
-  */
-
-  // Bridge Deposits Fallback Options
-  /*
-  private static async fetchBridgeDepositsRPC(): Promise<BridgeDeposit[]> {
-    // TODO: Implement RPC fallback for bridge deposits
-    const data = await this.callRPC<any>('/bridge/deposits')
-    
-    // Transform RPC response to unified format
-    return data.result.deposits?.map((deposit: any) => ({
-      id: deposit.id,
-      depositId: deposit.depositId,
-      blockHeight: deposit.blockHeight,
-      timestamp: deposit.timestamp,
-      sender: deposit.sender,
-      recipient: deposit.recipient,
-      amount: deposit.amount,
-      tip: deposit.tip,
-      reported: deposit.reported,
-      claimed: deposit.claimed
-    })) || []
-  }
-
-  private static async fetchBridgeDepositsSwagger(): Promise<BridgeDeposit[]> {
-    // TODO: Implement Swagger API fallback for bridge deposits
-    const data = await this.callSwaggerAPI<any>('/bridge/deposits')
-    
-    // Transform Swagger response to unified format
-    return data.deposits?.map((deposit: any) => ({
-      id: deposit.id,
-      depositId: deposit.depositId,
-      blockHeight: deposit.blockHeight,
-      timestamp: deposit.timestamp,
-      sender: deposit.sender,
-      recipient: deposit.recipient,
-      amount: deposit.amount,
-      tip: deposit.tip,
-      reported: deposit.reported,
-      claimed: deposit.claimed
-    })) || []
-  }
-  */
-
-  // Governance Proposals Fallback Options
-  /*
-  private static async fetchGovProposalsRPC(): Promise<GovProposal[]> {
-    // TODO: Implement RPC fallback for governance proposals
-    const data = await this.callRPC<any>('/gov/proposals')
-    
-    // Transform RPC response to unified format
-    return data.result.proposals?.map((proposal: any) => ({
-      id: proposal.id,
-      proposalId: proposal.proposalId,
-      messages: proposal.messages,
-      status: proposal.status,
-      submitTime: proposal.submitTime,
-      depositEndTime: proposal.depositEndTime,
-      votingStartTime: proposal.votingStartTime,
-      votingEndTime: proposal.votingEndTime,
-      metaData: proposal.metaData,
-      title: proposal.title,
-      summary: proposal.summary,
-      proposer: proposal.proposer,
-      expedited: proposal.expedited,
-      votes: proposal.votes
-    })) || []
-  }
-
-  private static async fetchGovProposalsSwagger(): Promise<GovProposal[]> {
-    // TODO: Implement Swagger API fallback for governance proposals
-    const data = await this.callSwaggerAPI<any>('/gov/proposals')
-    
-    // Transform Swagger response to unified format
-    return data.proposals?.map((proposal: any) => ({
-      id: proposal.id,
-      proposalId: proposal.proposalId,
-      messages: proposal.messages,
-      status: proposal.status,
-      submitTime: proposal.submitTime,
-      depositEndTime: proposal.depositEndTime,
-      votingStartTime: proposal.votingStartTime,
-      votingEndTime: proposal.votingEndTime,
-      metaData: proposal.metaData,
-      title: proposal.title,
-      summary: proposal.summary,
-      proposer: proposal.proposer,
-      expedited: proposal.expedited,
-      votes: proposal.votes
-    })) || []
-  }
-  */
-
-  // Additional Fallback Options for Other Methods
-  /*
-  // Micro Reports Fallback Options
-  private static async fetchMicroReportsRPC(queryId?: string): Promise<MicroReport[]> {
-    const path = queryId ? `/oracle/micro-reports?queryId=${queryId}` : '/oracle/micro-reports'
-    const data = await this.callRPC<any>(path)
-    
-    return data.result.microReports?.map((report: any) => ({
-      id: report.id,
-      queryId: report.queryId,
-      queryIdHeight: report.queryIdHeight,
-      metaId: report.metaId,
-      height: report.height,
-      reporter: report.reporter,
-      power: report.power,
-      cycleList: report.cycleList
-    })) || []
-  }
-
-  private static async fetchMicroReportsSwagger(queryId?: string): Promise<MicroReport[]> {
-    const path = queryId ? `/oracle/micro-reports?queryId=${queryId}` : '/oracle/micro-reports'
-    const data = await this.callSwaggerAPI<any>(path)
-    
-    return data.microReports?.map((report: any) => ({
-      id: report.id,
-      queryId: report.queryId,
-      queryIdHeight: report.queryIdHeight,
-      metaId: report.metaId,
-      height: report.height,
-      reporter: report.reporter,
-      power: report.power,
-      cycleList: report.cycleList
-    })) || []
-  }
-
-  // Delegations Fallback Options
-  private static async fetchDelegationsRPC(validatorAddress?: string): Promise<Delegation[]> {
-    const path = validatorAddress ? `/staking/delegations?validator=${validatorAddress}` : '/staking/delegations'
-    const data = await this.callRPC<any>(path)
-    
-    return data.result.delegations?.map((delegation: any) => ({
-      id: delegation.id,
-      delegatorAddress: delegation.delegatorAddress,
-      validatorAddress: delegation.validatorAddress,
-      shares: delegation.shares
-    })) || []
-  }
-
-  private static async fetchDelegationsSwagger(validatorAddress?: string): Promise<Delegation[]> {
-    const path = validatorAddress ? `/staking/delegations?validator=${validatorAddress}` : '/staking/delegations'
-    const data = await this.callSwaggerAPI<any>(path)
-    
-    return data.delegations?.map((delegation: any) => ({
-      id: delegation.id,
-      delegatorAddress: delegation.delegatorAddress,
-      validatorAddress: delegation.validatorAddress,
-      shares: delegation.shares
-    })) || []
-  }
-
-  // Withdraws Fallback Options
-  private static async fetchWithdrawsRPC(): Promise<Withdraw[]> {
-    const data = await this.callRPC<any>('/bridge/withdraws')
-    
-    return data.result.withdraws?.map((withdraw: any) => ({
-      id: withdraw.id,
-      depositId: withdraw.depositId,
-      blockHeight: withdraw.blockHeight,
-      sender: withdraw.sender,
-      recipient: withdraw.recipient,
-      amount: withdraw.amount
-    })) || []
-  }
-
-  private static async fetchWithdrawsSwagger(): Promise<Withdraw[]> {
-    const data = await this.callSwaggerAPI<any>('/bridge/withdraws')
-    
-    return data.withdraws?.map((withdraw: any) => ({
-      id: withdraw.id,
-      depositId: withdraw.depositId,
-      blockHeight: withdraw.blockHeight,
-      sender: withdraw.sender,
-      recipient: withdraw.recipient,
-      amount: withdraw.amount
-    })) || []
-  }
-
-  // Votes Fallback Options
-  private static async fetchVotesRPC(proposalId?: number): Promise<Vote[]> {
-    const path = proposalId ? `/gov/votes?proposalId=${proposalId}` : '/gov/votes'
-    const data = await this.callRPC<any>(path)
-    
-    return data.result.votes?.map((vote: any) => ({
-      id: vote.id,
-      proposal: vote.proposal,
-      option: vote.option,
-      metaData: vote.metaData
-    })) || []
-  }
-
-  private static async fetchVotesSwagger(proposalId?: number): Promise<Vote[]> {
-    const path = proposalId ? `/gov/votes?proposalId=${proposalId}` : '/gov/votes'
-    const data = await this.callSwaggerAPI<any>(path)
-    
-    return data.votes?.map((vote: any) => ({
-      id: vote.id,
-      proposal: vote.proposal,
-      option: vote.option,
-      metaData: vote.metaData
-    })) || []
-  }
-
-  // Parameters Fallback Options
-  private static async fetchStakingParamsRPC(): Promise<StakingParams> {
-    const data = await this.callRPC<any>('/params/staking')
-    
-    return {
-      id: 'stakingParams',
-      unbondingTime: data.result.unbondingTime,
-      maxValidators: data.result.maxValidators,
-      maxEntries: data.result.maxEntries,
-      historicalEntries: data.result.historicalEntries,
-      bondDenom: data.result.bondDenom,
-      minCommissionRate: data.result.minCommissionRate
-    }
-  }
-
-  private static async fetchStakingParamsSwagger(): Promise<StakingParams> {
-    const data = await this.callSwaggerAPI<any>('/params/staking')
-    
-    return {
-      id: 'stakingParams',
-      unbondingTime: data.unbondingTime,
-      maxValidators: data.maxValidators,
-      maxEntries: data.maxEntries,
-      historicalEntries: data.historicalEntries,
-      bondDenom: data.bondDenom,
-      minCommissionRate: data.minCommissionRate
-    }
-  }
-  */
 }
 
 // Export convenience functions

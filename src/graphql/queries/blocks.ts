@@ -9,10 +9,26 @@ import { BLOCK_FIELDS, BLOCK_BASIC_FIELDS } from './fragments'
  * Get the latest block with full details
  */
 export const GET_LATEST_BLOCK = gql`
-  ${BLOCK_FIELDS}
   query GetLatestBlock {
-    blocks(first: 1, orderBy: blockHeight, orderDirection: desc) {
-      ...BlockFields
+    blocks(first: 1, orderBy: BLOCK_HEIGHT_DESC) {
+      edges {
+        node {
+          id
+          blockHeight
+          blockHash
+          blockTime
+          appHash
+          chainId
+          consensusHash
+          dataHash
+          evidenceHash
+          nextValidatorsHash
+          validatorsHash
+          proposerAddress
+          numberOfTx
+          voteExtensions
+        }
+      }
     }
   }
 `
@@ -21,10 +37,22 @@ export const GET_LATEST_BLOCK = gql`
  * Get a specific block by height
  */
 export const GET_BLOCK_BY_HEIGHT = gql`
-  ${BLOCK_FIELDS}
   query GetBlockByHeight($height: BigInt!) {
     block(blockHeight: $height) {
-      ...BlockFields
+      id
+      blockHeight
+      blockHash
+      blockTime
+      appHash
+      chainId
+      consensusHash
+      dataHash
+      evidenceHash
+      nextValidatorsHash
+      validatorsHash
+      proposerAddress
+      numberOfTx
+      voteExtensions
     }
   }
 `
@@ -33,44 +61,80 @@ export const GET_BLOCK_BY_HEIGHT = gql`
  * Get a specific block by hash
  */
 export const GET_BLOCK_BY_HASH = gql`
-  ${BLOCK_FIELDS}
   query GetBlockByHash($hash: String!) {
     blocks(where: { blockHash_eq: $hash }, first: 1) {
-      ...BlockFields
+      edges {
+        node {
+          id
+          blockHeight
+          blockHash
+          blockTime
+          appHash
+          chainId
+          consensusHash
+          dataHash
+          evidenceHash
+          nextValidatorsHash
+          validatorsHash
+          proposerAddress
+          numberOfTx
+          voteExtensions
+        }
+      }
     }
   }
 `
 
 /**
  * Get blocks with pagination and basic fields
+ * NOTE: The GraphQL schema doesn't support 'skip' argument for pagination.
+ * Using 'first' only for now. For proper pagination, cursor-based pagination
+ * or a different approach may be needed.
  */
 export const GET_BLOCKS_BASIC = gql`
-  ${BLOCK_BASIC_FIELDS}
-  query GetBlocksBasic($limit: Int!, $offset: Int!) {
-    blocks(
-      first: $limit
-      skip: $offset
-      orderBy: blockHeight
-      orderDirection: desc
-    ) {
-      ...BlockBasicFields
+  query GetBlocksBasic($limit: Int!) {
+    blocks(first: $limit, orderBy: BLOCK_HEIGHT_DESC) {
+      edges {
+        node {
+          id
+          blockHeight
+          blockHash
+          blockTime
+          proposerAddress
+          numberOfTx
+        }
+      }
     }
   }
 `
 
 /**
  * Get blocks with pagination and full details
+ * NOTE: The GraphQL schema doesn't support 'skip' argument for pagination.
+ * Using 'first' only for now. For proper pagination, cursor-based pagination
+ * or a different approach may be needed.
  */
 export const GET_BLOCKS = gql`
-  ${BLOCK_FIELDS}
-  query GetBlocks($limit: Int!, $offset: Int!) {
-    blocks(
-      first: $limit
-      skip: $offset
-      orderBy: blockHeight
-      orderDirection: desc
-    ) {
-      ...BlockFields
+  query GetBlocks($limit: Int!) {
+    blocks(first: $limit, orderBy: BLOCK_HEIGHT_DESC) {
+      edges {
+        node {
+          id
+          blockHeight
+          blockHash
+          blockTime
+          appHash
+          chainId
+          consensusHash
+          dataHash
+          evidenceHash
+          nextValidatorsHash
+          validatorsHash
+          proposerAddress
+          numberOfTx
+          voteExtensions
+        }
+      }
     }
   }
 `
@@ -80,15 +144,19 @@ export const GET_BLOCKS = gql`
  */
 export const GET_BLOCKS_BY_PROPOSER = gql`
   ${BLOCK_BASIC_FIELDS}
-  query GetBlocksByProposer($proposerAddress: String!, $limit: Int!, $offset: Int!) {
+  query GetBlocksByProposer($proposerAddress: String!, $limit: Int!) {
     blocks(
       where: { proposerAddress_eq: $proposerAddress }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: blockHeight
       orderDirection: desc
     ) {
-      ...BlockBasicFields
+      edges {
+        node {
+          ...BlockBasicFields
+        }
+      }
     }
   }
 `
@@ -98,18 +166,23 @@ export const GET_BLOCKS_BY_PROPOSER = gql`
  */
 export const GET_BLOCKS_BY_TIME_RANGE = gql`
   ${BLOCK_BASIC_FIELDS}
-  query GetBlocksByTimeRange($startTime: DateTime!, $endTime: DateTime!, $limit: Int!, $offset: Int!) {
+  query GetBlocksByTimeRange(
+    $startTime: DateTime!
+    $endTime: DateTime!
+    $limit: Int!
+  ) {
     blocks(
-      where: { 
-        blockTime_gte: $startTime
-        blockTime_lte: $endTime
-      }
+      where: { blockTime_gte: $startTime, blockTime_lte: $endTime }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: blockHeight
       orderDirection: desc
     ) {
-      ...BlockBasicFields
+      edges {
+        node {
+          ...BlockBasicFields
+        }
+      }
     }
   }
 `
@@ -119,15 +192,19 @@ export const GET_BLOCKS_BY_TIME_RANGE = gql`
  */
 export const GET_BLOCKS_WITH_MIN_TXS = gql`
   ${BLOCK_BASIC_FIELDS}
-  query GetBlocksWithMinTxs($minTxs: Int!, $limit: Int!, $offset: Int!) {
+  query GetBlocksWithMinTxs($minTxs: Int!, $limit: Int!) {
     blocks(
       where: { numberOfTx_gte: $minTxs }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: blockHeight
       orderDirection: desc
     ) {
-      ...BlockBasicFields
+      edges {
+        node {
+          ...BlockBasicFields
+        }
+      }
     }
   }
 `
@@ -165,15 +242,19 @@ export const GET_BLOCK_STATS = gql`
  */
 export const GET_BLOCKS_WITH_VOTE_EXTENSIONS = gql`
   ${BLOCK_FIELDS}
-  query GetBlocksWithVoteExtensions($limit: Int!, $offset: Int!) {
+  query GetBlocksWithVoteExtensions($limit: Int!) {
     blocks(
       where: { voteExtensions_isNull: false }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: blockHeight
       orderDirection: desc
     ) {
-      ...BlockFields
+      edges {
+        node {
+          ...BlockFields
+        }
+      }
     }
   }
 `
@@ -183,7 +264,7 @@ export const GET_BLOCKS_WITH_VOTE_EXTENSIONS = gql`
  */
 export const SEARCH_BLOCKS = gql`
   ${BLOCK_BASIC_FIELDS}
-  query SearchBlocks($searchTerm: String!, $limit: Int!, $offset: Int!) {
+  query SearchBlocks($searchTerm: String!, $limit: Int!) {
     blocks(
       where: {
         or: [
@@ -192,11 +273,15 @@ export const SEARCH_BLOCKS = gql`
         ]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: blockHeight
       orderDirection: desc
     ) {
-      ...BlockBasicFields
+      edges {
+        node {
+          ...BlockBasicFields
+        }
+      }
     }
   }
 `

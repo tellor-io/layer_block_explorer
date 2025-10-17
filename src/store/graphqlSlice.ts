@@ -109,21 +109,34 @@ export const graphqlSlice = createSlice({
   initialState,
   reducers: {
     // Connection status actions
-    setConnectionStatus(state, action: PayloadAction<Partial<GraphQLConnectionStatus>>) {
+    setConnectionStatus(
+      state,
+      action: PayloadAction<Partial<GraphQLConnectionStatus>>
+    ) {
       state.connection = { ...state.connection, ...action.payload }
     },
-    setEndpointStatus(state, action: PayloadAction<{ endpoint: string; isOpen: boolean }>) {
-      state.connection.circuitBreakerStatus[action.payload.endpoint] = action.payload.isOpen
+    setEndpointStatus(
+      state,
+      action: PayloadAction<{ endpoint: string; isOpen: boolean }>
+    ) {
+      state.connection.circuitBreakerStatus[action.payload.endpoint] =
+        action.payload.isOpen
     },
     updateHealthCheck(state, action: PayloadAction<number>) {
       state.connection.lastHealthCheck = action.payload
     },
 
     // Query cache actions
-    setQueryCache(state, action: PayloadAction<{ key: string; data: any; error?: string }>) {
+    setQueryCache(
+      state,
+      action: PayloadAction<{ key: string; data: any; error?: string }>
+    ) {
       const { key, data, error } = action.payload
-      const existing = state.queryCache[key] || { fetchCount: 0, loading: false }
-      
+      const existing = state.queryCache[key] || {
+        fetchCount: 0,
+        loading: false,
+      }
+
       state.queryCache[key] = {
         timestamp: Date.now(),
         data,
@@ -133,7 +146,10 @@ export const graphqlSlice = createSlice({
         fetchCount: existing.fetchCount + 1,
       }
     },
-    setQueryLoading(state, action: PayloadAction<{ key: string; loading: boolean }>) {
+    setQueryLoading(
+      state,
+      action: PayloadAction<{ key: string; loading: boolean }>
+    ) {
       const { key, loading } = action.payload
       if (state.queryCache[key]) {
         state.queryCache[key].loading = loading
@@ -157,12 +173,15 @@ export const graphqlSlice = createSlice({
     },
 
     // Error handling actions
-    setGraphQLError(state, action: PayloadAction<{ error: string; query: string; endpoint: string }>) {
+    setGraphQLError(
+      state,
+      action: PayloadAction<{ error: string; query: string; endpoint: string }>
+    ) {
       const { error, query, endpoint } = action.payload
       state.errors.lastError = error
       state.errors.errorCount += 1
       state.errors.lastErrorTime = Date.now()
-      
+
       // Keep only last 50 errors in history
       state.errors.errorHistory = [
         { timestamp: Date.now(), error, query, endpoint },
@@ -176,16 +195,23 @@ export const graphqlSlice = createSlice({
     },
 
     // Performance tracking actions
-    recordQueryTime(state, action: PayloadAction<{ queryTime: number; query: string }>) {
+    recordQueryTime(
+      state,
+      action: PayloadAction<{ queryTime: number; query: string }>
+    ) {
       const { queryTime, query } = action.payload
       state.performance.totalQueries += 1
       state.performance.successfulQueries += 1
       state.performance.lastQueryTime = queryTime
-      
+
       // Update average query time
-      const totalTime = state.performance.averageQueryTime * (state.performance.totalQueries - 1) + queryTime
-      state.performance.averageQueryTime = totalTime / state.performance.totalQueries
-      
+      const totalTime =
+        state.performance.averageQueryTime *
+          (state.performance.totalQueries - 1) +
+        queryTime
+      state.performance.averageQueryTime =
+        totalTime / state.performance.totalQueries
+
       // Keep only last 100 query times in history
       state.performance.queryTimeHistory = [
         { timestamp: Date.now(), queryTime, query },
@@ -204,11 +230,14 @@ export const graphqlSlice = createSlice({
     setDataSourcePriority(state, action: PayloadAction<'graphql' | 'rpc'>) {
       state.dataSourcePriority = action.payload
     },
-    recordFallback(state, action: PayloadAction<{ reason: string; endpoint: string }>) {
+    recordFallback(
+      state,
+      action: PayloadAction<{ reason: string; endpoint: string }>
+    ) {
       const { reason, endpoint } = action.payload
       state.fallbackUsage.totalFallbacks += 1
       state.fallbackUsage.lastFallbackTime = Date.now()
-      
+
       // Keep only last 50 fallback reasons
       state.fallbackUsage.fallbackReasons = [
         { timestamp: Date.now(), reason, endpoint },
@@ -271,16 +300,23 @@ export const {
 } = graphqlSlice.actions
 
 // Selectors
-export const selectGraphQLConnection = (state: AppState) => state.graphql.connection
-export const selectGraphQLQueryCache = (state: AppState) => state.graphql.queryCache
+export const selectGraphQLConnection = (state: AppState) =>
+  state.graphql.connection
+export const selectGraphQLQueryCache = (state: AppState) =>
+  state.graphql.queryCache
 export const selectGraphQLErrors = (state: AppState) => state.graphql.errors
-export const selectGraphQLPerformance = (state: AppState) => state.graphql.performance
-export const selectDataSourcePriority = (state: AppState) => state.graphql.dataSourcePriority
-export const selectFallbackUsage = (state: AppState) => state.graphql.fallbackUsage
+export const selectGraphQLPerformance = (state: AppState) =>
+  state.graphql.performance
+export const selectDataSourcePriority = (state: AppState) =>
+  state.graphql.dataSourcePriority
+export const selectFallbackUsage = (state: AppState) =>
+  state.graphql.fallbackUsage
 
 // Derived selectors
-export const selectIsGraphQLConnected = (state: AppState) => state.graphql.connection.isConnected
-export const selectCurrentGraphQLEndpoint = (state: AppState) => state.graphql.connection.currentEndpoint
+export const selectIsGraphQLConnected = (state: AppState) =>
+  state.graphql.connection.isConnected
+export const selectCurrentGraphQLEndpoint = (state: AppState) =>
+  state.graphql.connection.currentEndpoint
 export const selectGraphQLHealthStatus = (state: AppState) => {
   const { lastHealthCheck, isConnected } = state.graphql.connection
   const timeSinceLastCheck = Date.now() - lastHealthCheck
@@ -294,9 +330,11 @@ export const selectGraphQLHealthStatus = (state: AppState) => {
 export const selectQueryCacheStats = (state: AppState) => {
   const cache = state.graphql.queryCache
   const totalCached = Object.keys(cache).length
-  const activeQueries = Object.values(cache).filter(q => q.loading).length
-  const recentQueries = Object.values(cache).filter(q => Date.now() - q.lastFetched < 300000).length // Last 5 minutes
-  
+  const activeQueries = Object.values(cache).filter((q) => q.loading).length
+  const recentQueries = Object.values(cache).filter(
+    (q) => Date.now() - q.lastFetched < 300000
+  ).length // Last 5 minutes
+
   return {
     totalCached,
     activeQueries,

@@ -172,7 +172,7 @@ export async function queryProposalVotes(
         const votesResponse = await axios.get(
           `${baseEndpoint}/cosmos/gov/v1/proposals/${proposalId}/votes`
         )
-        
+
         if (votesResponse.data?.votes) {
           const votes = votesResponse.data.votes
           let yesCount = 0
@@ -207,14 +207,18 @@ export async function queryProposalVotes(
           noWithVeto = (noWithVetoCount * 1_000_000).toString()
         }
       } catch (votesError) {
-        console.warn('Failed to fetch individual votes, using final_tally_result:', votesError)
+        console.warn(
+          'Failed to fetch individual votes, using final_tally_result:',
+          votesError
+        )
         // Fall back to final_tally_result if votes endpoint fails
         const tallyResult = proposal.final_tally_result
         if (tallyResult) {
           yes = tallyResult.yes_count || tallyResult.yes || '0'
           no = tallyResult.no_count || tallyResult.no || '0'
           abstain = tallyResult.abstain_count || tallyResult.abstain || '0'
-          noWithVeto = tallyResult.no_with_veto_count || tallyResult.no_with_veto || '0'
+          noWithVeto =
+            tallyResult.no_with_veto_count || tallyResult.no_with_veto || '0'
         }
       }
     } else {
@@ -224,11 +228,13 @@ export async function queryProposalVotes(
         yes = tallyResult.yes_count || tallyResult.yes || '0'
         no = tallyResult.no_count || tallyResult.no || '0'
         abstain = tallyResult.abstain_count || tallyResult.abstain || '0'
-        noWithVeto = tallyResult.no_with_veto_count || tallyResult.no_with_veto || '0'
+        noWithVeto =
+          tallyResult.no_with_veto_count || tallyResult.no_with_veto || '0'
       }
     }
 
-    const totalPower = Number(yes) + Number(no) + Number(abstain) + Number(noWithVeto)
+    const totalPower =
+      Number(yes) + Number(no) + Number(abstain) + Number(noWithVeto)
 
     const formatVote = (vote: string) => {
       const voteNumber = Number(vote) / 1_000_000

@@ -33,7 +33,7 @@ export class GraphQLClientManager {
 
   private readonly MAX_FAILURES = 5
   private readonly CIRCUIT_RESET_TIME = 60000
-  private readonly HEALTH_CHECK_INTERVAL = DATA_SOURCE_CONFIG.HEALTH_CHECK_INTERVAL
+  private readonly HEALTH_CHECK_INTERVAL = 120000 // 2 minutes
   private readonly MAX_BACKOFF = 32000 // 32 seconds
   private readonly REQUEST_TIMEOUT = DATA_SOURCE_CONFIG.GRAPHQL_TIMEOUT
 
@@ -45,7 +45,8 @@ export class GraphQLClientManager {
       this.state.isCircuitOpen[endpoint] = false
     })
 
-    this.startHealthChecks()
+    // Temporarily disable health checks to debug Apollo Client issues
+    // this.startHealthChecks()
   }
 
   public static getInstance(): GraphQLClientManager {
@@ -55,8 +56,23 @@ export class GraphQLClientManager {
     return GraphQLClientManager.instance
   }
 
-  private async checkEndpointHealth(endpoint: string): Promise<boolean> {
+  private async checkEndpointHealth(endpoint: string): Promise<{ healthy: boolean; error?: string }> {
     try {
+      // Only run on client side
+      if (typeof window === 'undefined') {
+        return { healthy: false, error: 'Health check can only be performed on the client side' }
+      }
+
+      console.log(`[HealthCheck] Checking endpoint: ${endpoint}`)
+      
+      // Create a timeout signal that's compatible with older Node.js versions
+      const controller = new AbortController()
+      const timeoutId = setTimeout(
+        () => controller.abort(),
+        this.REQUEST_TIMEOUT
+      )
+
+      const startTime = Date.now()
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -65,11 +81,49 @@ export class GraphQLClientManager {
         body: JSON.stringify({
           query: '{ __schema { types { name } } }',
         }),
-        signal: AbortSignal.timeout(this.REQUEST_TIMEOUT),
+        signal: controller.signal,
       })
-      return response.ok
-    } catch {
-      return false
+
+      clearTimeout(timeoutId)
+      const responseTime = Date.now() - startTime
+      
+      console.log(`[HealthCheck] Endpoint ${endpoint} response:`, {
+        status: response.status,
+        ok: response.ok,
+        responseTime: `${responseTime}ms`
+      })
+
+      if (!response.ok) {
+        return { 
+          healthy: false, 
+          error: `HTTP ${response.status}: ${response.statusText}` 
+        }
+      }
+
+      // Parse response to ensure it's valid GraphQL
+      try {
+        const data = await response.json()
+        if (data.errors) {
+          return { 
+            healthy: false, 
+            error: `GraphQL errors: ${JSON.stringify(data.errors)}` 
+          }
+        }
+      } catch (parseError) {
+        return { 
+          healthy: false, 
+          error: `Invalid JSON response: ${parseError}` 
+        }
+      }
+
+      return { healthy: true }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error(`[HealthCheck] Endpoint ${endpoint} failed:`, errorMessage)
+      return { 
+        healthy: false, 
+        error: errorMessage 
+      }
     }
   }
 
@@ -84,11 +138,15 @@ export class GraphQLClientManager {
       if (!this.state.isConnected) {
         const currentEndpoint = await this.getCurrentEndpoint()
         if (this.state.isCircuitOpen[currentEndpoint]) {
-          const timeSinceLastAttempt = Date.now() - this.state.lastAttempt[currentEndpoint]
+          const timeSinceLastAttempt =
+            Date.now() - this.state.lastAttempt[currentEndpoint]
           if (timeSinceLastAttempt >= this.CIRCUIT_RESET_TIME) {
-            const isHealthy = await this.checkEndpointHealth(currentEndpoint)
-            if (isHealthy) {
+            const healthResult = await this.checkEndpointHealth(currentEndpoint)
+            if (healthResult.healthy) {
+              console.log(`[HealthCheck] Endpoint ${currentEndpoint} is healthy, resetting circuit breaker`)
               this.resetEndpointState(currentEndpoint)
+            } else {
+              console.log(`[HealthCheck] Endpoint ${currentEndpoint} still unhealthy: ${healthResult.error}`)
             }
           }
         }
@@ -102,17 +160,17 @@ export class GraphQLClientManager {
     this.state.isCircuitOpen[endpoint] = false
   }
 
-  private reportFailure(endpoint: string) {
+  public reportFailure(endpoint: string) {
     this.state.failures[endpoint] = (this.state.failures[endpoint] || 0) + 1
     this.state.lastAttempt[endpoint] = Date.now()
-    
+
     if (this.state.failures[endpoint] >= this.MAX_FAILURES) {
       this.state.isCircuitOpen[endpoint] = true
       console.warn(`Circuit breaker opened for endpoint: ${endpoint}`)
     }
   }
 
-  private reportSuccess(endpoint: string) {
+  public reportSuccess(endpoint: string) {
     this.state.failures[endpoint] = 0
     this.state.isCircuitOpen[endpoint] = false
     this.state.isConnected = true
@@ -120,17 +178,23 @@ export class GraphQLClientManager {
 
   public async getCurrentEndpoint(): Promise<string> {
     if (this.customEndpoint) {
+      console.log('Using custom endpoint:', this.customEndpoint)
       return this.customEndpoint
     }
 
     // Find the first available endpoint
     for (const endpoint of GRAPHQL_ENDPOINTS) {
       if (!this.state.isCircuitOpen[endpoint]) {
+        console.log('Using available endpoint:', endpoint)
         return endpoint
       }
     }
 
     // If all endpoints are in circuit open state, try the first one
+    console.log(
+      'All endpoints in circuit open state, using first endpoint:',
+      GRAPHQL_ENDPOINTS[0]
+    )
     return GRAPHQL_ENDPOINTS[0]
   }
 
@@ -143,28 +207,56 @@ export class GraphQLClientManager {
   }
 
   public async createClient(): Promise<ApolloClient> {
-    const endpoint = await this.getCurrentEndpoint()
-    
-    // Create HTTP link with the current endpoint
-    const httpLink = new HttpLink({
-      uri: endpoint,
-    })
+    try {
+      // Only run on client side
+      if (typeof window === 'undefined') {
+        throw new Error('Apollo Client can only be created on the client side')
+      }
+
+      // Check if client already exists
+      if (this.client) {
+        console.log('[Apollo] Client already exists, returning existing client')
+        return this.client
+      }
+
+      const endpoint = await this.getCurrentEndpoint()
+      console.log('[Apollo] Creating Apollo Client with endpoint:', endpoint)
+      
+      // Perform health check before creating client
+      console.log('[Apollo] Performing health check before client creation...')
+      const healthResult = await this.checkEndpointHealth(endpoint)
+      if (!healthResult.healthy) {
+        throw new Error(`Endpoint health check failed: ${healthResult.error}`)
+      }
+      console.log('[Apollo] Health check passed, proceeding with client creation')
+
+      // Create HTTP link with the current endpoint
+      const httpLink = new HttpLink({
+        uri: endpoint,
+      })
 
     // Error handling link
-    const errorLink = onError(({ graphQLErrors, networkError, operation, forward }) => {
-      if (graphQLErrors) {
-        graphQLErrors.forEach(({ message, locations, path }) => {
-          console.error(
-            `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
-          )
-        })
+    const errorLink = onError(
+      ({ graphQLErrors, networkError, operation, forward }) => {
+        if (graphQLErrors) {
+          graphQLErrors.forEach(({ message, locations, path, extensions }) => {
+            console.error(
+              `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}, Extensions: ${JSON.stringify(
+                extensions
+              )}`
+            )
+          })
+        }
+        if (networkError) {
+          console.error(`[Network error]: ${networkError}`)
+          // Report failure to the manager
+          this.reportFailure(endpoint)
+        }
+
+        // Forward the operation to continue processing
+        return forward(operation)
       }
-      if (networkError) {
-        console.error(`[Network error]: ${networkError}`)
-        // Report failure to the manager
-        this.reportFailure(endpoint)
-      }
-    })
+    )
 
     // Retry link with exponential backoff
     const retryLink = new RetryLink({
@@ -177,12 +269,15 @@ export class GraphQLClientManager {
         max: DATA_SOURCE_CONFIG.GRAPHQL_MAX_RETRIES,
         retryIf: (error: any, _operation: any) => {
           // Retry on network errors or specific GraphQL errors
-          return !!error && (
-            error.networkError !== undefined ||
-            (error.graphQLErrors && error.graphQLErrors.some((e: any) => 
-              e.extensions?.code === 'UNAUTHENTICATED' ||
-              e.extensions?.code === 'FORBIDDEN'
-            ))
+          return (
+            !!error &&
+            (error.networkError !== undefined ||
+              (error.graphQLErrors &&
+                error.graphQLErrors.some(
+                  (e: any) =>
+                    e.extensions?.code === 'UNAUTHENTICATED' ||
+                    e.extensions?.code === 'FORBIDDEN'
+                )))
           )
         },
       },
@@ -194,7 +289,7 @@ export class GraphQLClientManager {
         headers: {
           'Content-Type': 'application/json',
           ...context.headers,
-        }
+        },
       }
     })
 
@@ -233,9 +328,15 @@ export class GraphQLClientManager {
           errorPolicy: 'all',
         },
       },
+      // Remove any deprecated options
+      assumeImmutableResults: true,
     })
 
     return this.client
+    } catch (error) {
+      console.error('Failed to create Apollo Client:', error)
+      throw error
+    }
   }
 
   public getClient(): ApolloClient | null {
@@ -247,6 +348,32 @@ export class GraphQLClientManager {
       return await this.createClient()
     }
     return this.client
+  }
+
+  public async createClientWithFallback(): Promise<ApolloClient | null> {
+    try {
+      return await this.createClient()
+    } catch (error) {
+      console.error('[Apollo] Primary client creation failed, attempting fallback...')
+      
+      // Try fallback endpoints
+      for (const endpoint of GRAPHQL_ENDPOINTS) {
+        if (endpoint !== await this.getCurrentEndpoint()) {
+          try {
+            console.log(`[Apollo] Trying fallback endpoint: ${endpoint}`)
+            this.customEndpoint = endpoint
+            this.client = null // Reset client to allow new creation
+            return await this.createClient()
+          } catch (fallbackError) {
+            console.error(`[Apollo] Fallback endpoint ${endpoint} also failed:`, fallbackError)
+            continue
+          }
+        }
+      }
+      
+      console.error('[Apollo] All endpoints failed, returning null for RPC-only mode')
+      return null
+    }
   }
 
   public async switchEndpoint(newEndpoint: string): Promise<void> {
@@ -276,7 +403,11 @@ export const graphqlClientManager = GraphQLClientManager.getInstance()
 
 // Export a default Apollo Client instance
 export const createApolloClient = async (): Promise<ApolloClient> => {
-  return await graphqlClientManager.getOrCreateClient()
+  const client = await graphqlClientManager.createClientWithFallback()
+  if (!client) {
+    throw new Error('All GraphQL endpoints failed, unable to create Apollo Client')
+  }
+  return client
 }
 
 // Export a function to get the current client

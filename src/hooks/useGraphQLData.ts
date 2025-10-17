@@ -1,10 +1,22 @@
-import { useQuery, ApolloQueryResult, DocumentNode, NetworkStatus, ApolloError } from '@apollo/client'
+import {
+  useQuery,
+  ApolloQueryResult,
+  DocumentNode,
+  NetworkStatus,
+  ApolloError,
+  useApolloClient,
+} from '@apollo/client'
 
 interface UseGraphQLDataOptions {
   skip?: boolean
   pollInterval?: number
   errorPolicy?: 'none' | 'ignore' | 'all'
-  fetchPolicy?: 'cache-first' | 'cache-and-network' | 'network-only' | 'cache-only' | 'no-cache'
+  fetchPolicy?:
+    | 'cache-first'
+    | 'cache-and-network'
+    | 'network-only'
+    | 'cache-only'
+    | 'no-cache'
   notifyOnNetworkStatusChange?: boolean
 }
 
@@ -33,6 +45,27 @@ export function useGraphQLData<T = any>(
     notifyOnNetworkStatusChange = false,
   } = options
 
+  // Check if Apollo Client is available
+  const apolloClient = useApolloClient()
+
+  // If Apollo Client is not available, return safe defaults
+  if (!apolloClient) {
+    console.warn('Apollo Client not available, returning safe defaults')
+    return {
+      data: undefined,
+      loading: true,
+      error: new ApolloError({
+        errorMessage: 'Apollo Client not initialized',
+        graphQLErrors: [],
+        networkError: null,
+      }),
+      refetch: async () => {
+        throw new Error('Apollo Client not initialized')
+      },
+      networkStatus: NetworkStatus.loading,
+    }
+  }
+
   const { data, loading, error, refetch, networkStatus } = useQuery(query, {
     variables,
     skip,
@@ -40,6 +73,14 @@ export function useGraphQLData<T = any>(
     errorPolicy,
     fetchPolicy,
     notifyOnNetworkStatusChange,
+    onError: (error) => {
+      console.error('GraphQL Query Error:', {
+        message: error.message,
+        graphQLErrors: error.graphQLErrors,
+        networkError: error.networkError,
+        extraInfo: error.extraInfo,
+      })
+    },
   })
 
   return {

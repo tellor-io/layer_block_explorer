@@ -1,11 +1,15 @@
 import { ApolloClient } from '@apollo/client'
 import { graphqlClientManager } from './graphqlClient'
 import { rpcManager } from './rpcManager'
-import { DATA_SOURCE_CONFIG, GRAPHQL_ENDPOINTS, RPC_ENDPOINTS } from './constant'
+import {
+  DATA_SOURCE_CONFIG,
+  GRAPHQL_ENDPOINTS,
+  RPC_ENDPOINTS,
+} from './constant'
 
 export enum DataSourceType {
   GRAPHQL = 'graphql',
-  RPC = 'rpc'
+  RPC = 'rpc',
 }
 
 export interface DataSourceStatus {
@@ -56,7 +60,7 @@ export class DataSourceManager {
       healthCheckInterval: DATA_SOURCE_CONFIG.HEALTH_CHECK_INTERVAL,
       maxFailures: 5,
       circuitResetTime: 60000,
-      requestTimeout: 10000
+      requestTimeout: 10000,
     }
 
     // Initialize status for both data sources
@@ -65,7 +69,7 @@ export class DataSourceManager {
       isHealthy: true,
       isAvailable: true,
       lastCheck: Date.now(),
-      failureCount: 0
+      failureCount: 0,
     })
 
     this.status.set(DataSourceType.RPC, {
@@ -73,10 +77,34 @@ export class DataSourceManager {
       isHealthy: true,
       isAvailable: true,
       lastCheck: Date.now(),
-      failureCount: 0
+      failureCount: 0,
     })
 
     this.startHealthChecks()
+  }
+
+  /**
+   * Create a timeout signal for fetch requests
+   * Compatible with older Node.js versions
+   */
+  private createTimeoutSignal(timeout: number): AbortSignal {
+    // Use AbortSignal.timeout if available (Node.js 16.14.0+)
+    if (typeof AbortSignal.timeout === 'function') {
+      return AbortSignal.timeout(timeout)
+    }
+
+    // Fallback for older Node.js versions
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => {
+      controller.abort()
+    }, timeout)
+
+    // Clean up timeout when signal is aborted
+    controller.signal.addEventListener('abort', () => {
+      clearTimeout(timeoutId)
+    })
+
+    return controller.signal
   }
 
   public static getInstance(): DataSourceManager {
@@ -97,7 +125,7 @@ export class DataSourceManager {
       timeout = this.config.requestTimeout,
       retries = 3,
       forceSource,
-      fallbackOnError = this.config.autoFallback
+      fallbackOnError = this.config.autoFallback,
     } = options
 
     const startTime = Date.now()
@@ -120,7 +148,7 @@ export class DataSourceManager {
           )
 
           const responseTime = Date.now() - startTime
-          
+
           // Report success
           this.reportSuccess(source, responseTime)
 
@@ -129,7 +157,7 @@ export class DataSourceManager {
             source,
             responseTime,
             cached: false, // TODO: Implement caching
-            fallbackUsed: source !== this.config.primary
+            fallbackUsed: source !== this.config.primary && !forceSource,
           }
         } catch (error) {
           lastError = error as Error
@@ -152,7 +180,9 @@ export class DataSourceManager {
 
     // All sources failed
     throw new Error(
-      `All data sources failed. Last error: ${lastError?.message || 'Unknown error'}`
+      `All data sources failed. Last error: ${
+        lastError?.message || 'Unknown error'
+      }`
     )
   }
 
@@ -261,7 +291,7 @@ export class DataSourceManager {
   private async performHealthChecks(): Promise<void> {
     const healthCheckPromises = [
       this.checkGraphQLHealth(),
-      this.checkRPCHealth()
+      this.checkRPCHealth(),
     ]
 
     await Promise.allSettled(healthCheckPromises)
@@ -271,10 +301,16 @@ export class DataSourceManager {
    * Check GraphQL endpoint health
    */
   private async checkGraphQLHealth(): Promise<void> {
+    // Skip GraphQL health checks on server side
+    if (typeof window === 'undefined') {
+      this.reportFailure(DataSourceType.GRAPHQL)
+      return
+    }
+
     try {
       const client = await graphqlClientManager.getOrCreateClient()
       const startTime = Date.now()
-      
+
       // Simple introspection query to check health
       const response = await fetch(GRAPHQL_ENDPOINTS[0], {
         method: 'POST',
@@ -284,14 +320,16 @@ export class DataSourceManager {
         body: JSON.stringify({
           query: '{ __schema { types { name } } }',
         }),
-        signal: AbortSignal.timeout(this.config.requestTimeout),
+        signal: this.createTimeoutSignal(this.config.requestTimeout),
       })
 
       if (response.ok) {
         const responseTime = Date.now() - startTime
         this.reportSuccess(DataSourceType.GRAPHQL, responseTime)
       } else {
-        throw new Error(`GraphQL health check failed with status ${response.status}`)
+        throw new Error(
+          `GraphQL health check failed with status ${response.status}`
+        )
       }
     } catch (error) {
       console.warn('GraphQL health check failed:', error)
@@ -306,17 +344,19 @@ export class DataSourceManager {
     try {
       const endpoint = await rpcManager.getCurrentEndpoint()
       const startTime = Date.now()
-      
+
       const response = await fetch(`${endpoint}/status`, {
         method: 'GET',
-        signal: AbortSignal.timeout(this.config.requestTimeout)
+        signal: this.createTimeoutSignal(this.config.requestTimeout),
       })
 
       if (response.ok) {
         const responseTime = Date.now() - startTime
         this.reportSuccess(DataSourceType.RPC, responseTime)
       } else {
-        throw new Error(`RPC health check failed with status ${response.status}`)
+        throw new Error(
+          `RPC health check failed with status ${response.status}`
+        )
       }
     } catch (error) {
       console.warn('RPC health check failed:', error)
@@ -343,7 +383,7 @@ export class DataSourceManager {
    */
   public updateConfig(config: Partial<DataSourceConfig>): void {
     this.config = { ...this.config, ...config }
-    
+
     // Restart health checks if interval changed
     if (config.healthCheckInterval) {
       this.startHealthChecks()
@@ -384,9 +424,48 @@ export class DataSourceManager {
     endpoint: string | null
   ): Promise<void> {
     if (source === DataSourceType.GRAPHQL) {
-      await graphqlClientManager.setCustomEndpoint(endpoint)
+      if (endpoint) {
+        await graphqlClientManager.setCustomEndpoint(endpoint)
+      }
     } else if (source === DataSourceType.RPC) {
-      await rpcManager.setCustomEndpoint(endpoint)
+      if (endpoint) {
+        await rpcManager.setCustomEndpoint(endpoint)
+      }
+    }
+  }
+
+  /**
+   * Get current data source status
+   */
+  public getDataSourceStatus(): {
+    graphql: DataSourceStatus & {
+      circuitBreakerOpen?: boolean
+      circuitBreakerHalfOpen?: boolean
+    }
+    rpc: DataSourceStatus & {
+      circuitBreakerOpen?: boolean
+      circuitBreakerHalfOpen?: boolean
+    }
+  } {
+    const graphqlStatus = this.status.get(DataSourceType.GRAPHQL)!
+    const rpcStatus = this.status.get(DataSourceType.RPC)!
+
+    return {
+      graphql: {
+        ...graphqlStatus,
+        circuitBreakerOpen:
+          graphqlStatus.failureCount >= this.config.maxFailures,
+        circuitBreakerHalfOpen:
+          graphqlStatus.failureCount > 0 &&
+          graphqlStatus.failureCount < this.config.maxFailures,
+      },
+      rpc: {
+        ...rpcStatus,
+        circuitBreakerOpen: rpcStatus.failureCount >= this.config.maxFailures,
+        circuitBreakerHalfOpen:
+          rpcStatus.failureCount > 0 &&
+          rpcStatus.failureCount < this.config.maxFailures,
+      },
     }
   }
 
@@ -394,7 +473,7 @@ export class DataSourceManager {
    * Utility function for delays
    */
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms))
+    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
   /**
@@ -419,7 +498,10 @@ export const fetchWithFallback = <T>(
   return dataSourceManager.fetchData(fetchFunction, options)
 }
 
-export const getDataSourceStatus = (): Map<DataSourceType, DataSourceStatus> => {
+export const getDataSourceStatus = (): Map<
+  DataSourceType,
+  DataSourceStatus
+> => {
   return dataSourceManager.getStatus()
 }
 

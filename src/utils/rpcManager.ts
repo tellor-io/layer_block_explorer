@@ -24,7 +24,7 @@ export class RPCManager {
 
   private readonly MAX_FAILURES = 5
   private readonly CIRCUIT_RESET_TIME = 60000
-  private readonly HEALTH_CHECK_INTERVAL = 10000 // 10 seconds
+  private readonly HEALTH_CHECK_INTERVAL = 120000 // 2 minutes
   private readonly MAX_BACKOFF = 32000 // 32 seconds
   private readonly REQUEST_TIMEOUT = 10000 // Increase to 10 seconds
 
@@ -210,6 +210,54 @@ export class RPCManager {
       endpoints.unshift(this.customEndpoint)
     }
     return endpoints.filter((endpoint) => !this.state.isCircuitOpen[endpoint])
+  }
+
+  /**
+   * Get latest blocks from RPC
+   */
+  public static async getLatestBlocks(
+    limit: number = 20
+  ): Promise<{ blocks: any[] }> {
+    const instance = RPCManager.getInstance()
+    const endpoint = await instance.getCurrentEndpoint()
+
+    try {
+      const response = await axios.get(`${endpoint}/blockchain`, {
+        timeout: instance.REQUEST_TIMEOUT,
+        params: { limit },
+      })
+
+      return { blocks: response.data.blocks || [] }
+    } catch (error) {
+      await instance.reportFailure(endpoint)
+      throw error
+    }
+  }
+
+  /**
+   * Get latest transactions from RPC
+   */
+  public static async getLatestTransactions(
+    limit: number = 20
+  ): Promise<{ transactions: any[] }> {
+    const instance = RPCManager.getInstance()
+    const endpoint = await instance.getCurrentEndpoint()
+
+    try {
+      const response = await axios.get(`${endpoint}/tx_search`, {
+        timeout: instance.REQUEST_TIMEOUT,
+        params: {
+          query: 'tx.height>0',
+          per_page: limit,
+          page: 1,
+        },
+      })
+
+      return { transactions: response.data.txs || [] }
+    } catch (error) {
+      await instance.reportFailure(endpoint)
+      throw error
+    }
   }
 }
 

@@ -1,7 +1,5 @@
-import axios from 'axios'
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { getReporters } from '../../services/graphqlService'
-import { rpcManager } from '../../utils/rpcManager'
+import { getReporters } from '../../rpc/query'
 
 export default async function handler(
   req: NextApiRequest,
@@ -59,7 +57,10 @@ export const getReporters = async (endpoint: string) => {
     })
     return response.data
   } catch (error) {
-    console.error('Failed to fetch reporters:', error)
-    throw error
+    console.error('RPC failed:', error)
+    return res.status(500).json({
+      error: 'Failed to fetch reporters',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    })
   }
 }

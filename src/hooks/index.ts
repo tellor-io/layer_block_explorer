@@ -1,6 +1,10 @@
 // Export all custom hooks
 export { useRealTimeBlocks } from './useRealTimeBlocks'
+export { useRealTimeTransactions } from './useRealTimeTransactions'
+export { useRealTimeValidators } from './useRealTimeValidators'
+export { useRealTimeReporters } from './useRealTimeReporters'
+export { useRealTimeData } from './useRealTimeData'
+export { useSubscriptionManager } from './useSubscriptionManager'
 export { useGraphQLData } from './useGraphQLData'
 export { useDataWithFallback } from './useDataWithFallback'
-export { useRealTimeData } from './useRealTimeData'
 export { useGraphQLStore } from './useGraphQLStore'

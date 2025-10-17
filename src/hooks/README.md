@@ -5,6 +5,7 @@ This directory contains custom React hooks for data fetching with GraphQL as the
 ## Package Compatibility
 
 **Current Version**: Apollo Client 3.14.0 (latest stable)
+
 - **Enhanced TypeScript Support**: Better type safety and IntelliSense
 - **Modern React Support**: Full compatibility with React 18
 - **Performance Improvements**: Better caching and optimization
@@ -22,19 +23,20 @@ import { GET_BLOCKS } from '../graphql/queries/blocks'
 
 function MyComponent() {
   const { data, loading, error, refetch, networkStatus } = useGraphQLData(
-    GET_BLOCKS, 
+    GET_BLOCKS,
     { limit: 20, offset: 0 },
     { fetchPolicy: 'network-only' }
   )
 
   if (loading) return <div>Loading...</div>
   if (error) return <div>Error: {error.message}</div>
-  
+
   return <div>Blocks: {data?.blocks?.length || 0}</div>
 }
 ```
 
 **Options:**
+
 - `skip`: Skip the query execution
 - `pollInterval`: Polling interval in milliseconds
 - `errorPolicy`: Error handling policy ('none', 'ignore', 'all')
@@ -42,6 +44,7 @@ function MyComponent() {
 - `notifyOnNetworkStatusChange`: Notify on network status changes
 
 **Return Values:**
+
 - `data`: Query result data
 - `loading`: Loading state
 - `error`: ApolloError object with detailed error information
@@ -57,21 +60,15 @@ import { useDataWithFallback } from '../hooks'
 import { GET_BLOCKS } from '../graphql/queries/blocks'
 
 function MyComponent() {
-  const { 
-    data, 
-    loading, 
-    error, 
-    dataSource, 
-    fallbackUsed,
-    isFallbackLoading 
-  } = useDataWithFallback(
-    GET_BLOCKS, 
-    { limit: 20, offset: 0 },
-    { 
-      enableFallback: true,
-      fallbackTimeout: 5000 
-    }
-  )
+  const { data, loading, error, dataSource, fallbackUsed, isFallbackLoading } =
+    useDataWithFallback(
+      GET_BLOCKS,
+      { limit: 20, offset: 0 },
+      {
+        enableFallback: true,
+        fallbackTimeout: 5000,
+      }
+    )
 
   return (
     <div>
@@ -84,11 +81,13 @@ function MyComponent() {
 ```
 
 **Options:**
+
 - All `useGraphQLData` options
 - `enableFallback`: Enable RPC fallback (default: true)
 - `fallbackTimeout`: Timeout before attempting fallback (default: 10000ms)
 
 **Return Values:**
+
 - `dataSource`: 'graphql' | 'rpc' | null
 - `fallbackUsed`: boolean indicating if fallback was used
 - `isFallbackLoading`: boolean indicating fallback loading state
@@ -103,22 +102,12 @@ import { useRealTimeData } from '../hooks'
 import { SUBSCRIBE_TO_NEW_BLOCKS } from '../graphql/subscriptions/blocks'
 
 function MyComponent() {
-  const { 
-    data, 
-    loading, 
-    error, 
-    isSubscribed, 
-    lastUpdate, 
-    subscriptionCount 
-  } = useRealTimeData(
-    SUBSCRIBE_TO_NEW_BLOCKS,
-    undefined,
-    {
+  const { data, loading, error, isSubscribed, lastUpdate, subscriptionCount } =
+    useRealTimeData(SUBSCRIBE_TO_NEW_BLOCKS, undefined, {
       enableSubscription: true,
       onData: (data) => console.log('New data:', data),
-      onError: (error) => console.warn('Subscription error:', error)
-    }
-  )
+      onError: (error) => console.warn('Subscription error:', error),
+    })
 
   return (
     <div>
@@ -131,6 +120,7 @@ function MyComponent() {
 ```
 
 **Options:**
+
 - `skip`: Skip the subscription
 - `onData`: Callback when new data arrives
 - `onError`: Callback when subscription errors occur
@@ -142,6 +132,7 @@ function MyComponent() {
 ### From Direct API Calls
 
 **Before:**
+
 ```typescript
 const [blocks, setBlocks] = useState([])
 const [loading, setLoading] = useState(false)
@@ -164,11 +155,12 @@ useEffect(() => {
 ```
 
 **After:**
+
 ```typescript
-const { data, loading, error } = useDataWithFallback(
-  GET_BLOCKS, 
-  { limit: 20, offset: 0 }
-)
+const { data, loading, error } = useDataWithFallback(GET_BLOCKS, {
+  limit: 20,
+  offset: 0,
+})
 
 // data.blocks contains the blocks
 // loading and error are automatically handled
@@ -177,6 +169,7 @@ const { data, loading, error } = useDataWithFallback(
 ### From RPC Calls
 
 **Before:**
+
 ```typescript
 const [block, setBlock] = useState(null)
 
@@ -195,11 +188,11 @@ useEffect(() => {
 ```
 
 **After:**
+
 ```typescript
-const { data, loading, error } = useDataWithFallback(
-  GET_BLOCK_BY_HEIGHT, 
-  { height }
-)
+const { data, loading, error } = useDataWithFallback(GET_BLOCK_BY_HEIGHT, {
+  height,
+})
 
 // Automatically falls back to RPC if GraphQL fails
 // data.block contains the block data
@@ -234,7 +227,11 @@ if (error) {
     return <div>Network error: {error.networkError.message}</div>
   }
   if (error.graphQLErrors) {
-    return <div>GraphQL errors: {error.graphQLErrors.map(e => e.message).join(', ')}</div>
+    return (
+      <div>
+        GraphQL errors: {error.graphQLErrors.map((e) => e.message).join(', ')}
+      </div>
+    )
   }
   return <div>Error: {error.message}</div>
 }
@@ -261,16 +258,19 @@ if (error) {
 ## New Features in Apollo Client 3.14.0
 
 ### Enhanced TypeScript Support
+
 - Better type inference for query results
 - Improved error typing with `ApolloError`
 - Network status enumeration with `NetworkStatus`
 
 ### Improved Error Handling
+
 - Detailed error information with `graphQLErrors` and `networkError`
 - Better error categorization and handling
 - Enhanced error recovery mechanisms
 
 ### Performance Improvements
+
 - Better cache management and optimization
 - Improved network request handling
 - Enhanced subscription management
@@ -302,9 +302,13 @@ Monitor Apollo Client performance:
 
 ```typescript
 // Track query performance
-const { data, loading, error, networkStatus } = useGraphQLData(query, variables, {
-  notifyOnNetworkStatusChange: true
-})
+const { data, loading, error, networkStatus } = useGraphQLData(
+  query,
+  variables,
+  {
+    notifyOnNetworkStatusChange: true,
+  }
+)
 
 // networkStatus values:
 // 1: loading, 2: setVariables, 3: fetchMore, 4: refetch, 5: poll, 6: ready, 7: error

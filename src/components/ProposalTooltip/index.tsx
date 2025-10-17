@@ -167,7 +167,7 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
     setError(null)
 
     try {
-      const url = rpcAddress 
+      const url = rpcAddress
         ? `/api/proposals/${proposalId}?rpc=${encodeURIComponent(rpcAddress)}`
         : `/api/proposals/${proposalId}`
       const response = await fetch(url)

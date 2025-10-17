@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useSubscription } from '@apollo/client'
+import { useSubscription, useApolloClient } from '@apollo/client'
 import { SUBSCRIBE_TO_NEW_BLOCKS } from '../graphql/subscriptions/blocks'
 import { GraphQLService, GraphQLBlock } from '../services/graphqlService'
 
@@ -29,12 +29,15 @@ export function useRealTimeBlocks({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Check if Apollo Client is available
+  const apolloClient = useApolloClient()
+
   // Fetch initial blocks using the existing GraphQL service
   const fetchBlocks = useCallback(async () => {
     try {
       setIsLoading(true)
       setError(null)
-      
+
       // Use the existing GraphQL service method
       const result = await GraphQLService.getBlocks(limit, offset)
       setBlocks(result)
@@ -51,11 +54,11 @@ export function useRealTimeBlocks({
     fetchBlocks()
   }, [fetchBlocks])
 
-  // Subscribe to new blocks in real-time
+  // Subscribe to new blocks in real-time (only if Apollo Client is available)
   const { data: subscriptionData, error: subscriptionError } = useSubscription(
     SUBSCRIBE_TO_NEW_BLOCKS,
     {
-      skip: !enableSubscription,
+      skip: !enableSubscription || !apolloClient,
       onError: (error) => {
         console.warn('Block subscription error:', error)
         // Don't set error state for subscription failures, just log them
@@ -65,22 +68,27 @@ export function useRealTimeBlocks({
 
   // Handle new blocks from subscription
   useEffect(() => {
-    if (subscriptionData?.newBlock && enableSubscription) {
-      const newBlock = subscriptionData.newBlock
-      
-      setBlocks((prevBlocks) => {
-        // Check if this block already exists
-        const exists = prevBlocks.some(
-          (block) => block.blockHeight === newBlock.blockHeight
-        )
+    if (subscriptionData?.blocks && enableSubscription) {
+      const blockPayload = subscriptionData.blocks
 
-        if (!exists) {
-          // Add new block to the beginning and maintain the limit
-          return [newBlock, ...prevBlocks.slice(0, limit - 1)]
-        }
+      // Only process if it's a new block (mutation_type: 'INSERT')
+      if (blockPayload.mutation_type === 'INSERT' && blockPayload._entity) {
+        const newBlock = blockPayload._entity
 
-        return prevBlocks
-      })
+        setBlocks((prevBlocks) => {
+          // Check if this block already exists
+          const exists = prevBlocks.some(
+            (block) => block.blockHeight === newBlock.blockHeight
+          )
+
+          if (!exists) {
+            // Add new block to the beginning and maintain the limit
+            return [newBlock, ...prevBlocks.slice(0, limit - 1)]
+          }
+
+          return prevBlocks
+        })
+      }
     }
   }, [subscriptionData, enableSubscription, limit])
 

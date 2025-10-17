@@ -68,23 +68,23 @@ export const CommonQueries = {
   GET_LATEST_BLOCK: BlockQueries.GET_LATEST_BLOCK,
   GET_BLOCK_BY_HEIGHT: BlockQueries.GET_BLOCK_BY_HEIGHT,
   GET_BLOCKS: BlockQueries.GET_BLOCKS,
-  
+
   // Transaction queries
   GET_TRANSACTION_BY_HASH: TransactionQueries.GET_TRANSACTION_BY_HASH,
   GET_TRANSACTIONS: TransactionQueries.GET_TRANSACTIONS,
-  
+
   // Validator queries
   GET_VALIDATORS: ValidatorQueries.GET_VALIDATORS,
   GET_VALIDATOR_BY_ADDRESS: ValidatorQueries.GET_VALIDATOR_BY_ADDRESS,
-  
+
   // Reporter queries
   GET_REPORTERS: ReporterQueries.GET_REPORTERS,
   GET_REPORTER_BY_ADDRESS: ReporterQueries.GET_REPORTER_BY_ADDRESS,
-  
+
   // Bridge queries
   GET_BRIDGE_DEPOSITS: BridgeQueries.GET_BRIDGE_DEPOSITS,
   GET_WITHDRAWS: BridgeQueries.GET_WITHDRAWS,
-  
+
   // Oracle queries
   GET_AGGREGATE_REPORTS: OracleQueries.GET_AGGREGATE_REPORTS,
   GET_MICRO_REPORTS: OracleQueries.GET_MICRO_REPORTS,

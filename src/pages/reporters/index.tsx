@@ -11,19 +11,30 @@ import {
   useToast,
   IconButton,
   Tooltip,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  VStack,
+  Badge,
+  Spinner,
+  Alert,
+  AlertIcon,
 } from '@chakra-ui/react'
 import { useEffect, useState } from 'react'
 import { SortingState } from '@tanstack/react-table'
 import NextLink from 'next/link'
-import { FiChevronRight, FiHome, FiCopy } from 'react-icons/fi'
+import { FiChevronRight, FiHome, FiCopy, FiSearch } from 'react-icons/fi'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
-import { getReporterSelectors } from '@/rpc/query'
 import { stripAddressPrefix } from '@/utils/helper'
-import { useSelector } from 'react-redux'
-import { selectRPCAddress } from '@/store/connectSlice'
+import { useGraphQLData } from '@/hooks/useGraphQLData'
+import {
+  GET_REPORTERS_PAGINATED,
+  SEARCH_REPORTERS,
+} from '@/graphql/queries/reporters'
+import { GraphQLReporter } from '@/services/graphqlService'
 
-// Update the type to match the new data structure
+// Update the type to match the GraphQL data structure
 type ReporterData = {
   address: string
   displayName: string
@@ -35,17 +46,9 @@ type ReporterData = {
   power: string
 }
 
-// Add this type definition
-type APIReporter = {
-  address: string
-  metadata: {
-    min_tokens_required: string
-    commission_rate: string
-    jailed: boolean
-    jailed_until: string
-  }
-  power: string
-  selectors: number
+// GraphQL response type
+interface GraphQLReportersResponse {
+  reporters: GraphQLReporter[]
 }
 
 const columnHelper = createColumnHelper<ReporterData>()
@@ -196,214 +199,94 @@ export default function Reporters() {
   const [perPage, setPerPage] = useState(10)
   const [total, setTotal] = useState(0)
   const [data, setData] = useState<ReporterData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [sorting, setSorting] = useState<SortingState>([])
+  const [searchTerm, setSearchTerm] = useState('')
   const toast = useToast()
-  const rpcAddress = useSelector(selectRPCAddress)
 
-  // Force re-render when RPC address changes
-  const [refreshKey, setRefreshKey] = useState(0)
+  // GraphQL data fetching
+  const {
+    data: graphqlData,
+    loading: isLoading,
+    error: graphqlError,
+    refetch,
+  } = useGraphQLData<GraphQLReportersResponse>(
+    searchTerm ? SEARCH_REPORTERS : GET_REPORTERS_PAGINATED,
+    searchTerm
+      ? { searchTerm, limit: 100, offset: 0 }
+      : { limit: perPage, offset: page * perPage },
+    {
+      fetchPolicy: 'cache-and-network',
+      errorPolicy: 'all',
+    }
+  )
 
-  // Update refresh key when RPC address changes
+  // Process GraphQL data when it changes
   useEffect(() => {
-    setRefreshKey((prev) => prev + 1)
-  }, [rpcAddress])
+    if (graphqlData?.reporters) {
+      const formattedData = graphqlData.reporters.map(
+        (reporter: GraphQLReporter) => {
+          return {
+            address: reporter.id,
+            displayName: reporter.moniker || truncateAddress(reporter.id),
+            min_tokens_required: reporter.minTokensRequired,
+            commission_rate: reporter.commissionRate,
+            jailed: reporter.jailed ? 'Yes' : 'No',
+            jailed_until: reporter.jailedUntil,
+            selectors: 0, // TODO: Implement selector fetching from GraphQL
+            power: '0', // TODO: Implement power calculation from GraphQL
+          }
+        }
+      )
 
-  useEffect(() => {
-    console.log('Reporters page: RPC address changed to:', rpcAddress)
-    setIsLoading(true)
-    const url = '/api/reporters'
+      // Apply client-side sorting if needed
+      const isClientSideSorting =
+        sorting.length > 0 &&
+        (sorting[0].id === 'displayName' || sorting[0].id === 'selectors')
 
-    // Build query parameters
-    const params = new URLSearchParams({
-      rpc: rpcAddress,
-    })
-
-    // For client-side sorting, we need all data. For server-side sorting, use pagination
-    const isClientSideSorting =
-      sorting.length > 0 &&
-      (sorting[0].id === 'displayName' || sorting[0].id === 'selectors')
-
-    if (!isClientSideSorting) {
-      params.append('page', page.toString())
-      params.append('perPage', perPage.toString())
-
-      // Add sorting parameters if any
-      if (sorting.length > 0) {
+      if (isClientSideSorting) {
         const sort = sorting[0]
-        params.append('sortBy', sort.id)
-        params.append('sortOrder', sort.desc ? 'desc' : 'asc')
+        formattedData.sort((a: ReporterData, b: ReporterData) => {
+          let aValue, bValue
+          if (sort.id === 'displayName') {
+            aValue = a.displayName
+            bValue = b.displayName
+            const result = aValue.localeCompare(bValue)
+            return sort.desc ? -result : result
+          } else if (sort.id === 'selectors') {
+            aValue = a.selectors
+            bValue = b.selectors
+            const result = aValue - bValue
+            return sort.desc ? -result : result
+          }
+          return 0
+        })
+
+        // Apply pagination for client-side sorting
+        const start = page * perPage
+        const end = start + perPage
+        const paginatedData = formattedData.slice(start, end)
+        setData(paginatedData)
+        setTotal(formattedData.length)
+      } else {
+        setData(formattedData)
+        setTotal(formattedData.length)
       }
     }
+  }, [graphqlData, page, perPage, sorting])
 
-    // Add a small delay to ensure RPC manager has updated when switching endpoints
-    const timer = setTimeout(() => {
-      // Add timeout promise
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), 10000)
+  // Handle GraphQL errors
+  useEffect(() => {
+    if (graphqlError) {
+      console.error('GraphQL error:', graphqlError)
+      toast({
+        title: 'Failed to fetch reporters data',
+        description: graphqlError.message,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
       })
-
-      // First fetch validators with cache busting and RPC address
-      Promise.race([
-        fetch(
-          `/api/validators?t=${Date.now()}&rpc=${encodeURIComponent(
-            rpcAddress
-          )}`,
-          {
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              Pragma: 'no-cache',
-              Expires: '0',
-            },
-          }
-        ),
-        timeoutPromise,
-      ])
-        .then((response: unknown) => {
-          if (!(response instanceof Response)) {
-            throw new Error('Expected Response object')
-          }
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-          }
-          return response.json()
-        })
-        .then((validatorData) => {
-          const validatorMap = new Map()
-          if (validatorData.validators) {
-            validatorData.validators.forEach((validator: any) => {
-              const strippedValAddress = stripAddressPrefix(
-                validator.operator_address
-              )
-              // Store using first 33 characters of the stripped address
-              const addressKey = strippedValAddress.substring(0, 33)
-              validatorMap.set(addressKey, validator.description?.moniker)
-            })
-          }
-
-          // Then fetch reporters with cache busting and RPC address
-          // For client-side sorting, don't add pagination params to get all data
-          const reportersUrl = isClientSideSorting
-            ? `${url}?t=${Date.now()}&rpc=${encodeURIComponent(rpcAddress)}`
-            : `${url}?t=${Date.now()}&${params.toString()}`
-
-          return fetch(reportersUrl, {
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              Pragma: 'no-cache',
-              Expires: '0',
-            },
-          })
-            .then((response) => {
-              if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`)
-              }
-              return response.json()
-            })
-            .then((responseData) => {
-              if (
-                responseData.reporters &&
-                Array.isArray(responseData.reporters)
-              ) {
-                setTotal(
-                  parseInt(responseData.pagination?.total) ||
-                    responseData.reporters.length
-                )
-                const reporterAddresses = responseData.reporters.map(
-                  (reporter: APIReporter) => reporter.address
-                )
-
-                // Fetch selectors for all reporters
-                return Promise.all(
-                  reporterAddresses.map((address: string) =>
-                    getReporterSelectors(address, rpcAddress)
-                  )
-                ).then((selectorsData) => {
-                  const formattedData = responseData.reporters.map(
-                    (reporter: APIReporter, index: number) => {
-                      const strippedReporterAddress = stripAddressPrefix(
-                        reporter.address
-                      )
-                      // Use first 33 characters for lookup, matching the validator map logic
-                      const lookupKey = strippedReporterAddress.substring(0, 33)
-                      const validatorMoniker = validatorMap.get(lookupKey)
-
-                      return {
-                        address: reporter.address,
-                        displayName:
-                          validatorMoniker || truncateAddress(reporter.address),
-                        min_tokens_required:
-                          reporter.metadata.min_tokens_required,
-                        commission_rate: reporter.metadata.commission_rate,
-                        jailed: reporter.metadata.jailed ? 'Yes' : 'No',
-                        jailed_until: reporter.metadata.jailed_until,
-                        selectors: selectorsData[index] ?? 0,
-                        power: reporter.power || '0',
-                      }
-                    }
-                  )
-
-                  // Apply client-side sorting if needed
-                  if (isClientSideSorting) {
-                    const sort = sorting[0]
-                    formattedData.sort((a: ReporterData, b: ReporterData) => {
-                      let aValue, bValue
-                      if (sort.id === 'displayName') {
-                        aValue = a.displayName
-                        bValue = b.displayName
-                        const result = aValue.localeCompare(bValue)
-                        return sort.desc ? -result : result
-                      } else if (sort.id === 'selectors') {
-                        aValue = a.selectors
-                        bValue = b.selectors
-                        const result = aValue - bValue
-                        return sort.desc ? -result : result
-                      }
-                      return 0
-                    })
-                  }
-
-                  // Apply pagination for client-side sorting
-                  if (isClientSideSorting) {
-                    const start = page * perPage
-                    const end = start + perPage
-                    const paginatedData = formattedData.slice(start, end)
-                    setData(paginatedData)
-                    setTotal(formattedData.length)
-                  } else {
-                    setData(formattedData)
-                    setTotal(
-                      parseInt(responseData.pagination?.total) ||
-                        responseData.reporters.length
-                    )
-                  }
-                  setIsLoading(false) // Success case
-                })
-              } else {
-                throw new Error('Unexpected data structure')
-              }
-            })
-        })
-        .catch((error) => {
-          console.error('Error fetching data:', error)
-          toast({
-            title: 'Failed to fetch data',
-            description: error.message,
-            status: 'error',
-            duration: 5000,
-            isClosable: true,
-          })
-          setData([]) // Clear data on error
-          setIsLoading(false) // Make sure to clear loading state on error
-        })
-    }, 500) // 500ms delay to ensure RPC manager cache clearing is complete
-
-    // Cleanup function
-    return () => {
-      clearTimeout(timer)
-      setIsLoading(false)
     }
-  }, [page, perPage, toast, rpcAddress, refreshKey, sorting])
+  }, [graphqlError, toast])
 
   const onChangePagination = (value: {
     pageIndex: number
@@ -418,6 +301,15 @@ export default function Reporters() {
     setPage(0) // Reset to first page when sorting changes
   }
 
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value)
+    setPage(0) // Reset to first page when searching
+  }
+
+  const handleRefresh = () => {
+    refetch()
+  }
+
   return (
     <>
       <Head>
@@ -427,26 +319,69 @@ export default function Reporters() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main>
-        <HStack h="24px">
-          <Heading size={'md'}>Reporters</Heading>
-          <Divider borderColor={'gray'} size="10px" orientation="vertical" />
-          <Link
-            as={NextLink}
-            href={'/'}
-            style={{ textDecoration: 'none' }}
-            _focus={{ boxShadow: 'none' }}
-            display="flex"
-            justifyContent="center"
-          >
-            <Icon
-              fontSize="16"
-              color={useColorModeValue('light-theme', 'dark-theme')}
-              as={FiHome}
-            />
-          </Link>
-          <Icon fontSize="16" as={FiChevronRight} />
-          <Text>Reporters</Text>
-        </HStack>
+        <VStack spacing={4} align="stretch">
+          <HStack h="24px">
+            <Heading size={'md'}>Reporters</Heading>
+            <Divider borderColor={'gray'} size="10px" orientation="vertical" />
+            <Link
+              as={NextLink}
+              href={'/'}
+              style={{ textDecoration: 'none' }}
+              _focus={{ boxShadow: 'none' }}
+              display="flex"
+              justifyContent="center"
+            >
+              <Icon
+                fontSize="16"
+                color={useColorModeValue('light-theme', 'dark-theme')}
+                as={FiHome}
+              />
+            </Link>
+            <Icon fontSize="16" as={FiChevronRight} />
+            <Text>Reporters</Text>
+          </HStack>
+
+          {/* Search and Controls */}
+          <HStack spacing={4} justify="space-between" wrap="wrap">
+            <InputGroup maxW="400px">
+              <InputLeftElement pointerEvents="none">
+                <Icon as={FiSearch} color="gray.300" />
+              </InputLeftElement>
+              <Input
+                placeholder="Search reporters by moniker or address..."
+                value={searchTerm}
+                onChange={handleSearchChange}
+                bg={useColorModeValue('white', 'gray.700')}
+              />
+            </InputGroup>
+
+            <HStack spacing={2}>
+              <Badge
+                colorScheme={isLoading ? 'blue' : 'green'}
+                variant="subtle"
+              >
+                {isLoading ? 'Loading...' : 'GraphQL'}
+              </Badge>
+              <IconButton
+                aria-label="Refresh data"
+                icon={<Icon as={FiChevronRight} />}
+                size="sm"
+                variant="ghost"
+                onClick={handleRefresh}
+                isLoading={isLoading}
+              />
+            </HStack>
+          </HStack>
+
+          {/* Error Display */}
+          {graphqlError && (
+            <Alert status="error">
+              <AlertIcon />
+              <Text fontSize="sm">GraphQL Error: {graphqlError.message}</Text>
+            </Alert>
+          )}
+        </VStack>
+
         <Box
           mt={8}
           bg={useColorModeValue('light-container', 'dark-container')}

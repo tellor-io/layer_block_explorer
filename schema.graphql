@@ -271,3 +271,821 @@ type ReporterParams @entity {
   maxSelectors: String!
   maxNumOfDelegations: String!
 }
+
+# Additional entity types found in the indexer
+type NoStakeReport @entity {
+  id: ID!
+  queryId: String!
+  queryIdHeight: String! @index
+  metaId: String! @index
+  height: BigInt!
+  reporter: String!
+  power: BigInt!
+  cycleList: Boolean!
+}
+
+type Tip @entity {
+  id: ID!
+  queryId: String! @index
+  amount: BigInt!
+  timestamp: Date! @index
+  reporter: String! @index
+}
+
+type TotalTip @entity {
+  id: ID!
+  queryId: String! @index
+  totalAmount: BigInt!
+  timestamp: Date! @index
+}
+
+type ValidatorSet @entity {
+  id: ID!
+  blockHeight: BigInt! @index
+  validators: [String!]!
+  timestamp: Date! @index
+}
+
+type _Global @entity {
+  id: ID!
+  chainId: String!
+  rewindTimestamp: Date
+}
+
+# Query type
+type Query {
+  query: String!
+  nodeId: ID!
+  node(id: ID!): Node
+  _globals(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: _GlobalFilter
+    orderBy: [_GlobalOrderBy!]
+  ): _GlobalsConnection
+  aggregateReports(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: AggregateReportFilter
+    orderBy: [AggregateReportOrderBy!]
+  ): AggregateReportsConnection
+  blocks(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: BlockFilter
+    orderBy: [BlockOrderBy!]
+  ): BlocksConnection
+  bridgeDeposits(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: BridgeDepositFilter
+    orderBy: [BridgeDepositOrderBy!]
+  ): BridgeDepositsConnection
+  delegations(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: DelegationFilter
+    orderBy: [DelegationOrderBy!]
+  ): DelegationsConnection
+  disputeParams(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: DisputeParamFilter
+    orderBy: [DisputeParamOrderBy!]
+  ): DisputeParamsConnection
+  distributionParams(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: DistributionParamFilter
+    orderBy: [DistributionParamOrderBy!]
+  ): DistributionParamsConnection
+  evmAddresses(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: EvmAddressFilter
+    orderBy: [EvmAddressOrderBy!]
+  ): EvmAddressesConnection
+  finalizedEvents(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: FinalizedEventFilter
+    orderBy: [FinalizedEventOrderBy!]
+  ): FinalizedEventsConnection
+  govParams(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: GovParamFilter
+    orderBy: [GovParamOrderBy!]
+  ): GovParamsConnection
+  govProposals(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: GovProposalFilter
+    orderBy: [GovProposalOrderBy!]
+  ): GovProposalsConnection
+  metaIdAggregates(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: MetaIdAggregateFilter
+    orderBy: [MetaIdAggregateOrderBy!]
+  ): MetaIdAggregatesConnection
+  microReports(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: MicroReportFilter
+    orderBy: [MicroReportOrderBy!]
+  ): MicroReportsConnection
+  noStakeReports(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: NoStakeReportFilter
+    orderBy: [NoStakeReportOrderBy!]
+  ): NoStakeReportsConnection
+  oracleParams(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: OracleParamFilter
+    orderBy: [OracleParamOrderBy!]
+  ): OracleParamsConnection
+  registryParams(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: RegistryParamFilter
+    orderBy: [RegistryParamOrderBy!]
+  ): RegistryParamsConnection
+  reporterParams(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: ReporterParamFilter
+    orderBy: [ReporterParamOrderBy!]
+  ): ReporterParamsConnection
+  reporters(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: ReporterFilter
+    orderBy: [ReporterOrderBy!]
+  ): ReportersConnection
+  selectors(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: SelectorFilter
+    orderBy: [SelectorOrderBy!]
+  ): SelectorsConnection
+  slashingParams(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: SlashingParamFilter
+    orderBy: [SlashingParamOrderBy!]
+  ): SlashingParamsConnection
+  stakingParams(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: StakingParamFilter
+    orderBy: [StakingParamOrderBy!]
+  ): StakingParamsConnection
+  tips(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: TipFilter
+    orderBy: [TipOrderBy!]
+  ): TipsConnection
+  totalTips(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: TotalTipFilter
+    orderBy: [TotalTipOrderBy!]
+  ): TotalTipsConnection
+  transactions(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: TransactionFilter
+    orderBy: [TransactionOrderBy!]
+  ): TransactionsConnection
+  validatorSets(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: ValidatorSetFilter
+    orderBy: [ValidatorSetOrderBy!]
+  ): ValidatorSetsConnection
+  validators(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: ValidatorFilter
+    orderBy: [ValidatorOrderBy!]
+  ): ValidatorsConnection
+  votes(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: VoteFilter
+    orderBy: [VoteOrderBy!]
+  ): VotesConnection
+  withdraws(
+    first: Int
+    after: String
+    last: Int
+    before: String
+    filter: WithdrawFilter
+    orderBy: [WithdrawOrderBy!]
+  ): WithdrawsConnection
+}
+
+# Subscription type
+type Subscription {
+  _globals(filter: _GlobalSubscriptionFilter): _GlobalPayload
+  aggregateReports(filter: AggregateReportSubscriptionFilter): AggregateReportPayload
+  blocks(filter: BlockSubscriptionFilter): BlockPayload
+  bridgeDeposits(filter: BridgeDepositSubscriptionFilter): BridgeDepositPayload
+  delegations(filter: DelegationSubscriptionFilter): DelegationPayload
+  disputeParams(filter: DisputeParamSubscriptionFilter): DisputeParamPayload
+  distributionParams(filter: DistributionParamSubscriptionFilter): DistributionParamPayload
+  evmAddresses(filter: EvmAddressSubscriptionFilter): EvmAddressPayload
+  finalizedEvents(filter: FinalizedEventSubscriptionFilter): FinalizedEventPayload
+  govParams(filter: GovParamSubscriptionFilter): GovParamPayload
+  govProposals(filter: GovProposalSubscriptionFilter): GovProposalPayload
+  metaIdAggregates(filter: MetaIdAggregateSubscriptionFilter): MetaIdAggregatePayload
+  microReports(filter: MicroReportSubscriptionFilter): MicroReportPayload
+  noStakeReports(filter: NoStakeReportSubscriptionFilter): NoStakeReportPayload
+  oracleParams(filter: OracleParamSubscriptionFilter): OracleParamPayload
+  registryParams(filter: RegistryParamSubscriptionFilter): RegistryParamPayload
+  reporterParams(filter: ReporterParamSubscriptionFilter): ReporterParamPayload
+  reporters(filter: ReporterSubscriptionFilter): ReporterPayload
+  selectors(filter: SelectorSubscriptionFilter): SelectorPayload
+  slashingParams(filter: SlashingParamSubscriptionFilter): SlashingParamPayload
+  stakingParams(filter: StakingParamSubscriptionFilter): StakingParamPayload
+  tips(filter: TipSubscriptionFilter): TipPayload
+  totalTips(filter: TotalTipSubscriptionFilter): TotalTipPayload
+  transactions(filter: TransactionSubscriptionFilter): TransactionPayload
+  validatorSets(filter: ValidatorSetSubscriptionFilter): ValidatorSetPayload
+  validators(filter: ValidatorSubscriptionFilter): ValidatorPayload
+  votes(filter: VoteSubscriptionFilter): VotePayload
+  withdraws(filter: WithdrawSubscriptionFilter): WithdrawPayload
+}
+
+# Connection types for pagination
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type BlockEdge {
+  node: Block!
+  cursor: String!
+}
+
+type BlocksConnection {
+  nodes: [Block!]!
+  edges: [BlockEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type TransactionEdge {
+  node: Transaction!
+  cursor: String!
+}
+
+type TransactionsConnection {
+  nodes: [Transaction!]!
+  edges: [TransactionEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type AggregateReportEdge {
+  node: AggregateReport!
+  cursor: String!
+}
+
+type AggregateReportsConnection {
+  nodes: [AggregateReport!]!
+  edges: [AggregateReportEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type BridgeDepositEdge {
+  node: BridgeDeposit!
+  cursor: String!
+}
+
+type BridgeDepositsConnection {
+  nodes: [BridgeDeposit!]!
+  edges: [BridgeDepositEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type DelegationEdge {
+  node: Delegation!
+  cursor: String!
+}
+
+type DelegationsConnection {
+  nodes: [Delegation!]!
+  edges: [DelegationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ValidatorEdge {
+  node: Validator!
+  cursor: String!
+}
+
+type ValidatorsConnection {
+  nodes: [Validator!]!
+  edges: [ValidatorEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ReporterEdge {
+  node: Reporter!
+  cursor: String!
+}
+
+type ReportersConnection {
+  nodes: [Reporter!]!
+  edges: [ReporterEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type GovProposalEdge {
+  node: GovProposal!
+  cursor: String!
+}
+
+type GovProposalsConnection {
+  nodes: [GovProposal!]!
+  edges: [GovProposalEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type VoteEdge {
+  node: Vote!
+  cursor: String!
+}
+
+type VotesConnection {
+  nodes: [Vote!]!
+  edges: [VoteEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type WithdrawEdge {
+  node: Withdraw!
+  cursor: String!
+}
+
+type WithdrawsConnection {
+  nodes: [Withdraw!]!
+  edges: [WithdrawEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type MicroReportEdge {
+  node: MicroReport!
+  cursor: String!
+}
+
+type MicroReportsConnection {
+  nodes: [MicroReport!]!
+  edges: [MicroReportEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type MetaIdAggregateEdge {
+  node: MetaIdAggregate!
+  cursor: String!
+}
+
+type MetaIdAggregatesConnection {
+  nodes: [MetaIdAggregate!]!
+  edges: [MetaIdAggregateEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type NoStakeReportEdge {
+  node: NoStakeReport!
+  cursor: String!
+}
+
+type NoStakeReportsConnection {
+  nodes: [NoStakeReport!]!
+  edges: [NoStakeReportEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type TipEdge {
+  node: Tip!
+  cursor: String!
+}
+
+type TipsConnection {
+  nodes: [Tip!]!
+  edges: [TipEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type TotalTipEdge {
+  node: TotalTip!
+  cursor: String!
+}
+
+type TotalTipsConnection {
+  nodes: [TotalTip!]!
+  edges: [TotalTipEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ValidatorSetEdge {
+  node: ValidatorSet!
+  cursor: String!
+}
+
+type ValidatorSetsConnection {
+  nodes: [ValidatorSet!]!
+  edges: [ValidatorSetEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type FinalizedEventEdge {
+  node: FinalizedEvents!
+  cursor: String!
+}
+
+type FinalizedEventsConnection {
+  nodes: [FinalizedEvents!]!
+  edges: [FinalizedEventEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type EvmAddressEdge {
+  node: EvmAddress!
+  cursor: String!
+}
+
+type EvmAddressesConnection {
+  nodes: [EvmAddress!]!
+  edges: [EvmAddressEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type SelectorEdge {
+  node: Selector!
+  cursor: String!
+}
+
+type SelectorsConnection {
+  nodes: [Selector!]!
+  edges: [SelectorEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# Parameter connection types
+type StakingParamEdge {
+  node: StakingParams!
+  cursor: String!
+}
+
+type StakingParamsConnection {
+  nodes: [StakingParams!]!
+  edges: [StakingParamEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type GovParamEdge {
+  node: GovParams!
+  cursor: String!
+}
+
+type GovParamsConnection {
+  nodes: [GovParams!]!
+  edges: [GovParamEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type DistributionParamEdge {
+  node: DistributionParams!
+  cursor: String!
+}
+
+type DistributionParamsConnection {
+  nodes: [DistributionParams!]!
+  edges: [DistributionParamEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type SlashingParamEdge {
+  node: SlashingParams!
+  cursor: String!
+}
+
+type SlashingParamsConnection {
+  nodes: [SlashingParams!]!
+  edges: [SlashingParamEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type OracleParamEdge {
+  node: OracleParams!
+  cursor: String!
+}
+
+type OracleParamsConnection {
+  nodes: [OracleParams!]!
+  edges: [OracleParamEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type RegistryParamEdge {
+  node: RegistryParams!
+  cursor: String!
+}
+
+type RegistryParamsConnection {
+  nodes: [RegistryParams!]!
+  edges: [RegistryParamEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type DisputeParamEdge {
+  node: DisputeParams!
+  cursor: String!
+}
+
+type DisputeParamsConnection {
+  nodes: [DisputeParams!]!
+  edges: [DisputeParamEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type ReporterParamEdge {
+  node: ReporterParams!
+  cursor: String!
+}
+
+type ReporterParamsConnection {
+  nodes: [ReporterParams!]!
+  edges: [ReporterParamEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# Global connection type
+type _GlobalEdge {
+  node: _Global!
+  cursor: String!
+}
+
+type _GlobalsConnection {
+  nodes: [_Global!]!
+  edges: [_GlobalEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+# Payload types for subscriptions
+type BlockPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: Block
+}
+
+type TransactionPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: Transaction
+}
+
+type AggregateReportPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: AggregateReport
+}
+
+type BridgeDepositPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: BridgeDeposit
+}
+
+type DelegationPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: Delegation
+}
+
+type ValidatorPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: Validator
+}
+
+type ReporterPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: Reporter
+}
+
+type GovProposalPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: GovProposal
+}
+
+type VotePayload {
+  id: ID!
+  mutation_type: String!
+  _entity: Vote
+}
+
+type WithdrawPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: Withdraw
+}
+
+type MicroReportPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: MicroReport
+}
+
+type MetaIdAggregatePayload {
+  id: ID!
+  mutation_type: String!
+  _entity: MetaIdAggregate
+}
+
+type NoStakeReportPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: NoStakeReport
+}
+
+type TipPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: Tip
+}
+
+type TotalTipPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: TotalTip
+}
+
+type ValidatorSetPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: ValidatorSet
+}
+
+type FinalizedEventPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: FinalizedEvents
+}
+
+type EvmAddressPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: EvmAddress
+}
+
+type SelectorPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: Selector
+}
+
+type StakingParamPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: StakingParams
+}
+
+type GovParamPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: GovParams
+}
+
+type DistributionParamPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: DistributionParams
+}
+
+type SlashingParamPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: SlashingParams
+}
+
+type OracleParamPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: OracleParams
+}
+
+type RegistryParamPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: RegistryParams
+}
+
+type DisputeParamPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: DisputeParams
+}
+
+type ReporterParamPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: ReporterParams
+}
+
+type _GlobalPayload {
+  id: ID!
+  mutation_type: String!
+  _entity: _Global
+}

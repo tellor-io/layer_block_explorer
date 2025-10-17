@@ -24,12 +24,11 @@ export default async function handler(
     // Remove /rpc from the endpoint for API calls
     const baseEndpoint = endpoint.replace('/rpc', '')
 
-
     // Retry logic with exponential backoff
     const maxRetries = 3
     const baseDelay = 1000 // 1 second
     let lastError: any = null
-    
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const response = await fetch(
@@ -45,21 +44,20 @@ export default async function handler(
         // If not the last attempt, wait and retry
         if (attempt < maxRetries) {
           const delay = baseDelay * Math.pow(2, attempt) // Exponential backoff: 1s, 2s, 4s
-          await new Promise(resolve => setTimeout(resolve, delay))
+          await new Promise((resolve) => setTimeout(resolve, delay))
           continue
         }
 
         // Last attempt failed
         const errorText = await response.text()
         lastError = { status: response.status, text: errorText }
-        
       } catch (error) {
         lastError = error
-        
+
         // If not the last attempt, wait and retry
         if (attempt < maxRetries) {
           const delay = baseDelay * Math.pow(2, attempt)
-          await new Promise(resolve => setTimeout(resolve, delay))
+          await new Promise((resolve) => setTimeout(resolve, delay))
           continue
         }
       }
@@ -71,7 +69,9 @@ export default async function handler(
     // Return empty delegations if all retries fail
     return res.status(200).json({
       delegation_responses: [],
-      error: `RPC request failed after ${maxRetries + 1} attempts: ${lastError?.status || 'Network error'} - ${lastError?.text || lastError?.message || 'Unknown error'}`,
+      error: `RPC request failed after ${maxRetries + 1} attempts: ${
+        lastError?.status || 'Network error'
+      } - ${lastError?.text || lastError?.message || 'Unknown error'}`,
     })
   } catch (error) {
     console.error('Error fetching validator delegations:', error)
@@ -87,7 +87,9 @@ export default async function handler(
     // Return empty delegations instead of error for better UX
     return res.status(200).json({
       delegation_responses: [],
-      error: `Exception: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      error: `Exception: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`,
     })
   }
 }

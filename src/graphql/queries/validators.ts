@@ -9,10 +9,29 @@ import { VALIDATOR_FIELDS, VALIDATOR_BASIC_FIELDS } from './fragments'
  * Get all validators with full details
  */
 export const GET_VALIDATORS = gql`
-  ${VALIDATOR_FIELDS}
   query GetValidators {
     validators {
-      ...ValidatorFields
+      edges {
+        node {
+          id
+          operatorAddress
+          consensusPubkey
+          consensusAddress
+          delegatorAddress
+          jailed
+          bondStatus
+          tokens
+          delegatorShares
+          description
+          unbondingHeight
+          unbondingTime
+          commission
+          minSelfDelegation
+          unbondingOnHoldRefCount
+          unbondingIds
+          missedBlocks
+        }
+      }
     }
   }
 `
@@ -21,15 +40,25 @@ export const GET_VALIDATORS = gql`
  * Get validators with pagination and basic fields
  */
 export const GET_VALIDATORS_BASIC = gql`
-  ${VALIDATOR_BASIC_FIELDS}
-  query GetValidatorsBasic($limit: Int!, $offset: Int!) {
+  query GetValidatorsBasic($limit: Int!) {
     validators(
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: tokens
       orderDirection: desc
     ) {
-      ...ValidatorBasicFields
+      edges {
+        node {
+          id
+          operatorAddress
+          consensusAddress
+          jailed
+          bondStatus
+          tokens
+          description
+          commission
+        }
+      }
     }
   }
 `
@@ -38,15 +67,34 @@ export const GET_VALIDATORS_BASIC = gql`
  * Get validators with pagination and full details
  */
 export const GET_VALIDATORS_PAGINATED = gql`
-  ${VALIDATOR_FIELDS}
-  query GetValidatorsPaginated($limit: Int!, $offset: Int!) {
+  query GetValidatorsPaginated($limit: Int!) {
     validators(
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: tokens
       orderDirection: desc
     ) {
-      ...ValidatorFields
+      edges {
+        node {
+          id
+          operatorAddress
+          consensusPubkey
+          consensusAddress
+          delegatorAddress
+          jailed
+          bondStatus
+          tokens
+          delegatorShares
+          description
+          unbondingHeight
+          unbondingTime
+          commission
+          minSelfDelegation
+          unbondingOnHoldRefCount
+          unbondingIds
+          missedBlocks
+        }
+      }
     }
   }
 `
@@ -55,10 +103,25 @@ export const GET_VALIDATORS_PAGINATED = gql`
  * Get a specific validator by address
  */
 export const GET_VALIDATOR_BY_ADDRESS = gql`
-  ${VALIDATOR_FIELDS}
   query GetValidatorByAddress($address: String!) {
     validator(id: $address) {
-      ...ValidatorFields
+      id
+      operatorAddress
+      consensusPubkey
+      consensusAddress
+      delegatorAddress
+      jailed
+      bondStatus
+      tokens
+      delegatorShares
+      description
+      unbondingHeight
+      unbondingTime
+      commission
+      minSelfDelegation
+      unbondingOnHoldRefCount
+      unbondingIds
+      missedBlocks
     }
   }
 `
@@ -80,11 +143,11 @@ export const GET_VALIDATOR_BY_CONSENSUS_ADDRESS = gql`
  */
 export const GET_ACTIVE_VALIDATORS = gql`
   ${VALIDATOR_BASIC_FIELDS}
-  query GetActiveValidators($limit: Int!, $offset: Int!) {
+  query GetActiveValidators($limit: Int!) {
     validators(
       where: { bondStatus_eq: "BOND_STATUS_BONDED" }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: tokens
       orderDirection: desc
     ) {
@@ -98,11 +161,11 @@ export const GET_ACTIVE_VALIDATORS = gql`
  */
 export const GET_JAILED_VALIDATORS = gql`
   ${VALIDATOR_BASIC_FIELDS}
-  query GetJailedValidators($limit: Int!, $offset: Int!) {
+  query GetJailedValidators($limit: Int!) {
     validators(
       where: { jailed_eq: true }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: tokens
       orderDirection: desc
     ) {
@@ -116,11 +179,14 @@ export const GET_JAILED_VALIDATORS = gql`
  */
 export const GET_VALIDATORS_BY_BOND_STATUS = gql`
   ${VALIDATOR_BASIC_FIELDS}
-  query GetValidatorsByBondStatus($bondStatus: String!, $limit: Int!, $offset: Int!) {
+  query GetValidatorsByBondStatus(
+    $bondStatus: String!
+    $limit: Int!
+  ) {
     validators(
       where: { bondStatus_eq: $bondStatus }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: tokens
       orderDirection: desc
     ) {
@@ -134,11 +200,14 @@ export const GET_VALIDATORS_BY_BOND_STATUS = gql`
  */
 export const GET_VALIDATORS_WITH_MIN_STAKE = gql`
   ${VALIDATOR_BASIC_FIELDS}
-  query GetValidatorsWithMinStake($minStake: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetValidatorsWithMinStake(
+    $minStake: BigInt!
+    $limit: Int!
+  ) {
     validators(
       where: { tokens_gte: $minStake }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: tokens
       orderDirection: desc
     ) {
@@ -151,21 +220,25 @@ export const GET_VALIDATORS_WITH_MIN_STAKE = gql`
  * Get validators by commission rate range
  */
 export const GET_VALIDATORS_BY_COMMISSION_RANGE = gql`
-  ${VALIDATOR_BASIC_FIELDS}
-  query GetValidatorsByCommissionRange($minCommission: String!, $maxCommission: String!, $limit: Int!, $offset: Int!) {
+  query GetValidatorsByCommissionRange(
+    $minCommission: String!
+    $maxCommission: String!
+    $limit: Int!
+  ) {
     validators(
-      where: {
-        and: [
-          { commission: { commissionRates: { rate_gte: $minCommission } } }
-          { commission: { commissionRates: { rate_lte: $maxCommission } } }
-        ]
-      }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: tokens
       orderDirection: desc
     ) {
-      ...ValidatorBasicFields
+      id
+      operatorAddress
+      consensusAddress
+      jailed
+      bondStatus
+      tokens
+      description
+      commission
     }
   }
 `
@@ -174,22 +247,22 @@ export const GET_VALIDATORS_BY_COMMISSION_RANGE = gql`
  * Search validators by moniker or identity
  */
 export const SEARCH_VALIDATORS = gql`
-  ${VALIDATOR_BASIC_FIELDS}
-  query SearchValidators($searchTerm: String!, $limit: Int!, $offset: Int!) {
+  query SearchValidators($searchTerm: String!, $limit: Int!) {
     validators(
-      where: {
-        or: [
-          { description: { moniker_containsInsensitive: $searchTerm } }
-          { description: { identity_containsInsensitive: $searchTerm } }
-          { operatorAddress_containsInsensitive: $searchTerm }
-        ]
-      }
+      where: { operatorAddress_containsInsensitive: $searchTerm }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: tokens
       orderDirection: desc
     ) {
-      ...ValidatorBasicFields
+      id
+      operatorAddress
+      consensusAddress
+      jailed
+      bondStatus
+      tokens
+      description
+      commission
     }
   }
 `
@@ -231,11 +304,7 @@ export const GET_VALIDATOR_STATS = gql`
 export const GET_TOP_VALIDATORS = gql`
   ${VALIDATOR_BASIC_FIELDS}
   query GetTopValidators($limit: Int!) {
-    validators(
-      first: $limit
-      orderBy: tokens
-      orderDirection: desc
-    ) {
+    validators(first: $limit, orderBy: tokens, orderDirection: desc) {
       ...ValidatorBasicFields
     }
   }
@@ -246,10 +315,10 @@ export const GET_TOP_VALIDATORS = gql`
  */
 export const GET_VALIDATORS_WITH_DELEGATIONS = gql`
   ${VALIDATOR_FIELDS}
-  query GetValidatorsWithDelegations($limit: Int!, $offset: Int!) {
+  query GetValidatorsWithDelegations($limit: Int!) {
     validators(
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: tokens
       orderDirection: desc
     ) {
@@ -267,11 +336,14 @@ export const GET_VALIDATORS_WITH_DELEGATIONS = gql`
  * Get delegations for a specific validator
  */
 export const GET_DELEGATIONS_BY_VALIDATOR = gql`
-  query GetDelegationsByValidator($validatorAddress: String!, $limit: Int!, $offset: Int!) {
+  query GetDelegationsByValidator(
+    $validatorAddress: String!
+    $limit: Int!
+  ) {
     delegations(
       where: { validatorAddress: { id_eq: $validatorAddress } }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: shares
       orderDirection: desc
     ) {
@@ -293,11 +365,14 @@ export const GET_DELEGATIONS_BY_VALIDATOR = gql`
  * Get delegations by delegator address
  */
 export const GET_DELEGATIONS_BY_DELEGATOR = gql`
-  query GetDelegationsByDelegator($delegatorAddress: String!, $limit: Int!, $offset: Int!) {
+  query GetDelegationsByDelegator(
+    $delegatorAddress: String!
+    $limit: Int!
+  ) {
     delegations(
       where: { delegatorAddress_eq: $delegatorAddress }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: shares
       orderDirection: desc
     ) {

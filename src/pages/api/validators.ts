@@ -1,15 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { getValidators } from '../../services/graphqlService'
-import { rpcManager } from '../../utils/rpcManager'
-
-// Add a simple in-memory cache for validators
-const cache = new Map<string, { data: any; timestamp: number }>()
-const CACHE_DURATION = 5000 // 5 seconds cache
-
-// Function to clear cache
-export const clearValidatorsCache = () => {
-  cache.clear()
-}
+import { getValidators } from '../../rpc/query'
 
 export default async function handler(
   req: NextApiRequest,

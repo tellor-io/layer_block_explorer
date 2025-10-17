@@ -34,6 +34,11 @@ import NextLink from 'next/link'
 import { FiHome, FiChevronRight, FiCopy } from 'react-icons/fi'
 import { ethers } from 'ethers'
 import { RPCManager } from '@/utils/rpcManager'
+import { useGraphQLData } from '@/hooks/useGraphQLData'
+import {
+  GET_BRIDGE_DEPOSITS_PAGINATED,
+  GET_WITHDRAWS_PAGINATED,
+} from '@/graphql/queries/bridge'
 
 interface ReportStatus {
   isReported: boolean
@@ -75,17 +80,46 @@ interface APIDeposit {
 }
 
 export default function BridgeDeposits() {
-  const [deposits, setDeposits] = useState<Deposit[]>([])
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
   const [reportStatuses, setReportStatuses] = useState<
     Record<number, ReportStatus>
   >({})
   const [claimStatuses, setClaimStatuses] = useState<
     Record<number, ClaimStatus>
   >({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const toast = useToast()
+
+  // GraphQL data fetching for deposits
+  const {
+    data: depositsData,
+    loading: depositsLoading,
+    error: depositsError,
+    refetch: refetchDeposits,
+  } = useGraphQLData(GET_BRIDGE_DEPOSITS_PAGINATED, {
+    limit: 100,
+    offset: 0,
+  })
+
+  // State for RPC-based withdrawal data
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
+  const [withdrawalsLoading, setWithdrawalsLoading] = useState(false)
+  const [withdrawalsError, setWithdrawalsError] = useState<string | null>(null)
+
+  // Transform GraphQL data to match existing interface
+  const deposits: Deposit[] =
+    depositsData?.bridgeDeposits?.map((deposit: any) => ({
+      id: deposit.depositId,
+      sender: deposit.sender,
+      recipient: deposit.recipient,
+      amount: BigInt(deposit.amount),
+      tip: BigInt(deposit.tip || '0'),
+      blockHeight: BigInt(deposit.blockHeight || '0'),
+      blockTimestamp: deposit.timestamp
+        ? new Date(Number(deposit.timestamp) * 1000)
+        : undefined,
+    })) || []
+
+  const loading = depositsLoading || withdrawalsLoading
+  const error = depositsError || withdrawalsError
 
   // Function to fetch report status for a deposit
   const fetchReportStatus = async (depositId: number) => {
@@ -100,6 +134,9 @@ export default function BridgeDeposits() {
       )
 
       if (!response.ok) {
+        console.warn(
+          `Failed to fetch report status for deposit ${depositId}: ${response.status}`
+        )
         return { isReported: false }
       }
 
@@ -188,9 +225,10 @@ export default function BridgeDeposits() {
         )}`
       )
       if (!response.ok) {
-        throw new Error(
-          `External API responded with status: ${response.status}`
+        console.warn(
+          `Failed to fetch withdrawal claim status for ID ${withdrawalId}: ${response.status}`
         )
+        return { claimed: false }
       }
       const data = await response.json()
       return { claimed: data.claimed }
@@ -203,9 +241,12 @@ export default function BridgeDeposits() {
     }
   }
 
-  // Function to fetch withdrawals
+  // Function to fetch withdrawals using RPC (for timestamps and report data)
   const fetchWithdrawals = async () => {
     try {
+      setWithdrawalsLoading(true)
+      setWithdrawalsError(null)
+
       const rpcManager = RPCManager.getInstance()
       const endpoint = await rpcManager.getCurrentEndpoint()
       const baseEndpoint = endpoint.replace('/rpc', '')
@@ -246,10 +287,13 @@ export default function BridgeDeposits() {
       setWithdrawals(combinedWithdrawals)
     } catch (error) {
       console.error('Error fetching withdrawals:', error)
+      setWithdrawalsError('Failed to fetch withdrawal data')
+    } finally {
+      setWithdrawalsLoading(false)
     }
   }
 
-  // Function to fetch individual withdrawal data
+  // Function to fetch individual withdrawal data with full RPC details
   const fetchWithdrawalData = async (withdrawalId: number) => {
     try {
       const rpcManager = RPCManager.getInstance()
@@ -302,77 +346,39 @@ export default function BridgeDeposits() {
     }
   }
 
+  // Fetch report statuses and claim statuses when deposits change
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchStatuses = async () => {
+      if (deposits.length === 0) return
+
       try {
-        setError(null)
-
-        // Fetch deposits using new API endpoint with current endpoint
-        const rpcManager = RPCManager.getInstance()
-        const currentEndpoint = await rpcManager.getCurrentEndpoint()
-        const response = await fetch(
-          `/api/ethereum/bridge?method=deposits&endpoint=${encodeURIComponent(
-            currentEndpoint
-          )}`
-        )
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
-        const { deposits } = await response.json()
-        if (!Array.isArray(deposits)) {
-          throw new Error('Expected deposits to be an array')
-        }
-
-        const formattedDeposits: Deposit[] = deposits.map(
-          (deposit: APIDeposit) => ({
-            ...deposit,
-            amount: BigInt(deposit.amount),
-            tip: BigInt(deposit.tip),
-            blockHeight: BigInt(deposit.blockHeight),
-            blockTimestamp: deposit.blockTimestamp
-              ? new Date(deposit.blockTimestamp)
-              : undefined,
-          })
-        )
-
-        setDeposits(formattedDeposits)
-
         // Fetch report statuses and claim statuses for all deposits
         const [statuses, claims] = await Promise.all([
-          Promise.all(
-            formattedDeposits.map((deposit) => fetchReportStatus(deposit.id))
-          ),
-          Promise.all(
-            formattedDeposits.map((deposit) => fetchClaimStatus(deposit.id))
-          ),
+          Promise.all(deposits.map((deposit) => fetchReportStatus(deposit.id))),
+          Promise.all(deposits.map((deposit) => fetchClaimStatus(deposit.id))),
         ])
 
         const statusMap: Record<number, ReportStatus> = {}
         const claimMap: Record<number, ClaimStatus> = {}
 
-        formattedDeposits.forEach((deposit, index) => {
+        deposits.forEach((deposit, index) => {
           statusMap[deposit.id] = statuses[index]
           claimMap[deposit.id] = claims[index]
         })
 
         setReportStatuses(statusMap)
         setClaimStatuses(claimMap)
-
-        // Fetch withdrawals
-        await fetchWithdrawals()
-
-        setLoading(false)
       } catch (error) {
-        console.error('Error fetching data:', error)
-        setError(
-          'Failed to fetch data. Please check your network connection and try again.'
-        )
-        setLoading(false)
+        console.error('Error fetching statuses:', error)
       }
     }
 
-    fetchData()
+    fetchStatuses()
+  }, [deposits])
+
+  // Fetch withdrawals on component mount
+  useEffect(() => {
+    fetchWithdrawals()
   }, [])
 
   // Helper function to format the date
@@ -460,12 +466,17 @@ export default function BridgeDeposits() {
           ) : error ? (
             <Alert status="error" borderRadius="md">
               <AlertIcon />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>
+                Failed to fetch bridge data.{' '}
+                {typeof error === 'string'
+                  ? error
+                  : error?.message || 'Please try again later.'}
+              </AlertDescription>
             </Alert>
-          ) : deposits.length === 0 ? (
+          ) : deposits.length === 0 && withdrawals.length === 0 ? (
             <Alert status="info" borderRadius="md">
               <AlertIcon />
-              <AlertDescription>No deposits found.</AlertDescription>
+              <AlertDescription>No bridge transactions found.</AlertDescription>
             </Alert>
           ) : (
             <Box overflowX="auto" maxW="100%" width="100%">

@@ -49,38 +49,36 @@ export const useGraphQLStore = () => {
   // Actions
   const actions = {
     // Connection management
-    setConnectionStatus: (status: Partial<typeof connection>) => 
+    setConnectionStatus: (status: Partial<typeof connection>) =>
       dispatch(setConnectionStatus(status)),
-    setEndpointStatus: (endpoint: string, isOpen: boolean) => 
+    setEndpointStatus: (endpoint: string, isOpen: boolean) =>
       dispatch(setEndpointStatus({ endpoint, isOpen })),
-    updateHealthCheck: (timestamp: number) => 
+    updateHealthCheck: (timestamp: number) =>
       dispatch(updateHealthCheck(timestamp)),
 
     // Query cache management
-    setQueryCache: (key: string, data: any, error?: string) => 
+    setQueryCache: (key: string, data: any, error?: string) =>
       dispatch(setQueryCache({ key, data, error })),
-    setQueryLoading: (key: string, loading: boolean) => 
+    setQueryLoading: (key: string, loading: boolean) =>
       dispatch(setQueryLoading({ key, loading })),
-    clearQueryCache: (key?: string) => 
-      dispatch(clearQueryCache(key)),
+    clearQueryCache: (key?: string) => dispatch(clearQueryCache(key)),
 
     // Error handling
-    setGraphQLError: (error: string, query: string, endpoint: string) => 
+    setGraphQLError: (error: string, query: string, endpoint: string) =>
       dispatch(setGraphQLError({ error, query, endpoint })),
     clearErrors: () => dispatch(clearErrors()),
 
     // Performance tracking
-    recordQueryTime: (queryTime: number, query: string) => 
+    recordQueryTime: (queryTime: number, query: string) =>
       dispatch(recordQueryTime({ queryTime, query })),
-    recordQueryFailure: (query: string) => 
+    recordQueryFailure: (query: string) =>
       dispatch(recordQueryFailure({ query })),
-    updateCacheHitRate: (rate: number) => 
-      dispatch(updateCacheHitRate(rate)),
+    updateCacheHitRate: (rate: number) => dispatch(updateCacheHitRate(rate)),
 
     // Data source management
-    setDataSourcePriority: (priority: 'graphql' | 'rpc') => 
+    setDataSourcePriority: (priority: 'graphql' | 'rpc') =>
       dispatch(setDataSourcePriority(priority)),
-    recordFallback: (reason: string, endpoint: string) => 
+    recordFallback: (reason: string, endpoint: string) =>
       dispatch(recordFallback({ reason, endpoint })),
 
     // Reset

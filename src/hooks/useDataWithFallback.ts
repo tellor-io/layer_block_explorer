@@ -1,12 +1,23 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useQuery, ApolloQueryResult, DocumentNode, NetworkStatus, ApolloError } from '@apollo/client'
+import {
+  useQuery,
+  ApolloQueryResult,
+  DocumentNode,
+  NetworkStatus,
+  ApolloError,
+} from '@apollo/client'
 import { GraphQLService } from '../services/graphqlService'
 
 interface UseDataWithFallbackOptions {
   skip?: boolean
   pollInterval?: number
   errorPolicy?: 'none' | 'ignore' | 'all'
-  fetchPolicy?: 'cache-first' | 'cache-and-network' | 'network-only' | 'cache-only' | 'no-cache'
+  fetchPolicy?:
+    | 'cache-first'
+    | 'cache-and-network'
+    | 'network-only'
+    | 'cache-only'
+    | 'no-cache'
   notifyOnNetworkStatusChange?: boolean
   enableFallback?: boolean
   fallbackTimeout?: number
@@ -44,7 +55,9 @@ export function useDataWithFallback<T = any>(
   } = options
 
   const [fallbackData, setFallbackData] = useState<T | undefined>(undefined)
-  const [fallbackError, setFallbackError] = useState<ApolloError | undefined>(undefined)
+  const [fallbackError, setFallbackError] = useState<ApolloError | undefined>(
+    undefined
+  )
   const [isFallbackLoading, setIsFallbackLoading] = useState(false)
   const [dataSource, setDataSource] = useState<'graphql' | 'rpc' | null>(null)
   const [fallbackUsed, setFallbackUsed] = useState(false)
@@ -80,10 +93,15 @@ export function useDataWithFallback<T = any>(
 
       switch (queryName) {
         case 'GetBlocks':
-          fallbackResult = await GraphQLService.getBlocks(variables?.limit || 20, variables?.offset || 0)
+          fallbackResult = await GraphQLService.getBlocks(
+            variables?.limit || 20,
+            variables?.offset || 0
+          )
           break
         case 'GetBlockByHeight':
-          fallbackResult = await GraphQLService.getBlockByHeight(variables?.height || 0)
+          fallbackResult = await GraphQLService.getBlockByHeight(
+            variables?.height || 0
+          )
           break
         case 'GetValidators':
           fallbackResult = await GraphQLService.getValidators()
@@ -95,7 +113,9 @@ export function useDataWithFallback<T = any>(
           fallbackResult = await GraphQLService.getLatestBlock()
           break
         default:
-          console.warn('Unknown query type for fallback, using generic approach')
+          console.warn(
+            'Unknown query type for fallback, using generic approach'
+          )
           return
       }
 
@@ -106,8 +126,11 @@ export function useDataWithFallback<T = any>(
     } catch (fallbackErr) {
       console.error('Fallback failed:', fallbackErr)
       const apolloError = new ApolloError({
-        networkError: fallbackErr instanceof Error ? fallbackErr : new Error('Fallback failed'),
-        errorMessage: 'Fallback data source failed'
+        networkError:
+          fallbackErr instanceof Error
+            ? fallbackErr
+            : new Error('Fallback failed'),
+        errorMessage: 'Fallback data source failed',
       })
       setFallbackError(apolloError)
       setDataSource(null)
@@ -122,7 +145,14 @@ export function useDataWithFallback<T = any>(
       const timeoutId = setTimeout(attemptFallback, fallbackTimeout)
       return () => clearTimeout(timeoutId)
     }
-  }, [error, enableFallback, fallbackData, isFallbackLoading, attemptFallback, fallbackTimeout])
+  }, [
+    error,
+    enableFallback,
+    fallbackData,
+    isFallbackLoading,
+    attemptFallback,
+    fallbackTimeout,
+  ])
 
   // Set data source when GraphQL succeeds
   useEffect(() => {

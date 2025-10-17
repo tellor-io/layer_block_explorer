@@ -93,17 +93,26 @@ export default async function handler(
       console.log(`Fetching live vote results for proposal ${proposalIdNum}`)
       const tmClient = await Tendermint37Client.connect(endpoint)
       const voteResults = await queryProposalVotes(tmClient, proposalIdNum)
-      
+
       if (voteResults.hasVotes && voteResults.voteDistribution) {
         tallyResult = {
           yes: (voteResults.voteDistribution.yes.value * 1_000_000).toString(),
           no: (voteResults.voteDistribution.no.value * 1_000_000).toString(),
-          abstain: (voteResults.voteDistribution.abstain.value * 1_000_000).toString(),
-          noWithVeto: (voteResults.voteDistribution.veto.value * 1_000_000).toString(),
+          abstain: (
+            voteResults.voteDistribution.abstain.value * 1_000_000
+          ).toString(),
+          noWithVeto: (
+            voteResults.voteDistribution.veto.value * 1_000_000
+          ).toString(),
         }
-        console.log(`Live vote results for proposal ${proposalIdNum}:`, tallyResult)
+        console.log(
+          `Live vote results for proposal ${proposalIdNum}:`,
+          tallyResult
+        )
       } else {
-        console.log(`No live votes found for proposal ${proposalIdNum}, using final_tally_result`)
+        console.log(
+          `No live votes found for proposal ${proposalIdNum}, using final_tally_result`
+        )
         // Fall back to final_tally_result if no live votes
         if (proposal.final_tally_result) {
           tallyResult = {

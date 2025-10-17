@@ -9,7 +9,17 @@
     "prepare": "NODE_ENV=production || husky install",
     "lint": "next lint",
     "format": "prettier --check .",
-    "format:fix": "prettier --write ."
+    "format:fix": "prettier --write .",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --coverage --watchAll=false",
+    "test:data-consistency": "jest tests/data-consistency.test.ts",
+    "test:fallback": "jest tests/fallback-behavior.test.ts",
+    "test:integration": "jest tests/integration.test.ts",
+    "test:performance": "jest tests/performance.test.ts",
+    "test:error-scenarios": "jest tests/error-scenarios.test.ts",
+    "test:phase8": "jest tests/ --testNamePattern='Phase 8'"
   },
   "dependencies": {
     "@apollo/client": "^3.14.0",
@@ -32,6 +42,7 @@
     "axios": "^1.7.5",
     "bech32": "^2.0.0",
     "cosmjs-types": "^0.7.2",
+    "critters": "^0.0.23",
     "dayjs": "^1.11.7",
     "eslint": "8.37.0",
     "eslint-config-next": "13.2.4",
@@ -51,14 +62,22 @@
     "xstream": "^11.14.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^30.0.0",
     "@types/lodash": "^4.17.15",
     "@types/node": "22.8.1",
     "@types/react": "18.3.3",
     "eslint-config-prettier": "^8.8.0",
     "eslint-plugin-prettier": "^4.2.1",
     "husky": "^8.0.3",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
     "lint-staged": "^13.2.2",
     "prettier": "^2.8.7",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.5",
     "typescript": "5.6.3"
   },
   "repository": {

@@ -12,7 +12,11 @@ export const GET_REPORTERS = gql`
   ${REPORTER_FIELDS}
   query GetReporters {
     reporters {
-      ...ReporterFields
+      edges {
+        node {
+          ...ReporterFields
+        }
+      }
     }
   }
 `
@@ -22,14 +26,18 @@ export const GET_REPORTERS = gql`
  */
 export const GET_REPORTERS_PAGINATED = gql`
   ${REPORTER_FIELDS}
-  query GetReportersPaginated($limit: Int!, $offset: Int!) {
+  query GetReportersPaginated($limit: Int!) {
     reporters(
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: creationHeight
       orderDirection: desc
     ) {
-      ...ReporterFields
+      edges {
+        node {
+          ...ReporterFields
+        }
+      }
     }
   }
 `
@@ -51,15 +59,19 @@ export const GET_REPORTER_BY_ADDRESS = gql`
  */
 export const GET_ACTIVE_REPORTERS = gql`
   ${REPORTER_FIELDS}
-  query GetActiveReporters($limit: Int!, $offset: Int!) {
+  query GetActiveReporters($limit: Int!) {
     reporters(
       where: { jailed_eq: false }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: creationHeight
       orderDirection: desc
     ) {
-      ...ReporterFields
+      edges {
+        node {
+          ...ReporterFields
+        }
+      }
     }
   }
 `
@@ -69,15 +81,19 @@ export const GET_ACTIVE_REPORTERS = gql`
  */
 export const GET_JAILED_REPORTERS = gql`
   ${REPORTER_FIELDS}
-  query GetJailedReporters($limit: Int!, $offset: Int!) {
+  query GetJailedReporters($limit: Int!) {
     reporters(
       where: { jailed_eq: true }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: creationHeight
       orderDirection: desc
     ) {
-      ...ReporterFields
+      edges {
+        node {
+          ...ReporterFields
+        }
+      }
     }
   }
 `
@@ -87,7 +103,11 @@ export const GET_JAILED_REPORTERS = gql`
  */
 export const GET_REPORTERS_BY_COMMISSION_RANGE = gql`
   ${REPORTER_FIELDS}
-  query GetReportersByCommissionRange($minCommission: BigInt!, $maxCommission: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetReportersByCommissionRange(
+    $minCommission: BigInt!
+    $maxCommission: BigInt!
+    $limit: Int!
+  ) {
     reporters(
       where: {
         and: [
@@ -96,11 +116,15 @@ export const GET_REPORTERS_BY_COMMISSION_RANGE = gql`
         ]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: creationHeight
       orderDirection: desc
     ) {
-      ...ReporterFields
+      edges {
+        node {
+          ...ReporterFields
+        }
+      }
     }
   }
 `
@@ -110,15 +134,22 @@ export const GET_REPORTERS_BY_COMMISSION_RANGE = gql`
  */
 export const GET_REPORTERS_WITH_MIN_TOKENS = gql`
   ${REPORTER_FIELDS}
-  query GetReportersWithMinTokens($minTokens: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetReportersWithMinTokens(
+    $minTokens: BigInt!
+    $limit: Int!
+  ) {
     reporters(
       where: { minTokensRequired_gte: $minTokens }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: creationHeight
       orderDirection: desc
     ) {
-      ...ReporterFields
+      edges {
+        node {
+          ...ReporterFields
+        }
+      }
     }
   }
 `
@@ -128,7 +159,7 @@ export const GET_REPORTERS_WITH_MIN_TOKENS = gql`
  */
 export const SEARCH_REPORTERS = gql`
   ${REPORTER_FIELDS}
-  query SearchReporters($searchTerm: String!, $limit: Int!, $offset: Int!) {
+  query SearchReporters($searchTerm: String!, $limit: Int!) {
     reporters(
       where: {
         or: [
@@ -137,11 +168,15 @@ export const SEARCH_REPORTERS = gql`
         ]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: creationHeight
       orderDirection: desc
     ) {
-      ...ReporterFields
+      edges {
+        node {
+          ...ReporterFields
+        }
+      }
     }
   }
 `
@@ -182,7 +217,11 @@ export const GET_REPORTER_STATS = gql`
  */
 export const GET_REPORTERS_BY_CREATION_HEIGHT = gql`
   ${REPORTER_FIELDS}
-  query GetReportersByCreationHeight($minHeight: BigInt!, $maxHeight: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetReportersByCreationHeight(
+    $minHeight: BigInt!
+    $maxHeight: BigInt!
+    $limit: Int!
+  ) {
     reporters(
       where: {
         and: [
@@ -191,11 +230,15 @@ export const GET_REPORTERS_BY_CREATION_HEIGHT = gql`
         ]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: creationHeight
       orderDirection: desc
     ) {
-      ...ReporterFields
+      edges {
+        node {
+          ...ReporterFields
+        }
+      }
     }
   }
 `
@@ -205,20 +248,25 @@ export const GET_REPORTERS_BY_CREATION_HEIGHT = gql`
  */
 export const GET_REPORTERS_BY_LAST_UPDATED = gql`
   ${REPORTER_FIELDS}
-  query GetReportersByLastUpdated($startTime: DateTime!, $endTime: DateTime!, $limit: Int!, $offset: Int!) {
+  query GetReportersByLastUpdated(
+    $startTime: DateTime!
+    $endTime: DateTime!
+    $limit: Int!
+  ) {
     reporters(
       where: {
-        and: [
-          { LastUpdated_gte: $startTime }
-          { LastUpdated_lte: $endTime }
-        ]
+        and: [{ lastUpdated_gte: $startTime }, { lastUpdated_lte: $endTime }]
       }
       first: $limit
-      skip: $offset
-      orderBy: LastUpdated
+      # skip: $offset  # Not supported by schema
+      orderBy: lastUpdated
       orderDirection: desc
     ) {
-      ...ReporterFields
+      edges {
+        node {
+          ...ReporterFields
+        }
+      }
     }
   }
 `
@@ -228,17 +276,21 @@ export const GET_REPORTERS_BY_LAST_UPDATED = gql`
  */
 export const GET_REPORTERS_WITH_SELECTORS = gql`
   ${REPORTER_FIELDS}
-  query GetReportersWithSelectors($limit: Int!, $offset: Int!) {
+  query GetReportersWithSelectors($limit: Int!) {
     reporters(
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: creationHeight
       orderDirection: desc
     ) {
-      ...ReporterFields
-      selectors {
-        id
-        lockedUntilTime
+      edges {
+        node {
+          ...ReporterFields
+          selectors {
+            id
+            lockedUntilTime
+          }
+        }
       }
     }
   }
@@ -248,11 +300,14 @@ export const GET_REPORTERS_WITH_SELECTORS = gql`
  * Get selectors for a specific reporter
  */
 export const GET_SELECTORS_BY_REPORTER = gql`
-  query GetSelectorsByReporter($reporterAddress: String!, $limit: Int!, $offset: Int!) {
+  query GetSelectorsByReporter(
+    $reporterAddress: String!
+    $limit: Int!
+  ) {
     selectors(
       where: { reporterAddress_eq: $reporterAddress }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: lockedUntilTime
       orderDirection: desc
     ) {
@@ -267,7 +322,11 @@ export const GET_SELECTORS_BY_REPORTER = gql`
  * Get selectors by lock time range
  */
 export const GET_SELECTORS_BY_LOCK_TIME = gql`
-  query GetSelectorsByLockTime($startTime: DateTime!, $endTime: DateTime!, $limit: Int!, $offset: Int!) {
+  query GetSelectorsByLockTime(
+    $startTime: DateTime!
+    $endTime: DateTime!
+    $limit: Int!
+  ) {
     selectors(
       where: {
         and: [
@@ -276,7 +335,7 @@ export const GET_SELECTORS_BY_LOCK_TIME = gql`
         ]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: lockedUntilTime
       orderDirection: desc
     ) {
@@ -291,11 +350,14 @@ export const GET_SELECTORS_BY_LOCK_TIME = gql`
  * Get active selectors (not expired)
  */
 export const GET_ACTIVE_SELECTORS = gql`
-  query GetActiveSelectors($currentTime: DateTime!, $limit: Int!, $offset: Int!) {
+  query GetActiveSelectors(
+    $currentTime: DateTime!
+    $limit: Int!
+  ) {
     selectors(
       where: { lockedUntilTime_gt: $currentTime }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: lockedUntilTime
       orderDirection: desc
     ) {
@@ -310,11 +372,14 @@ export const GET_ACTIVE_SELECTORS = gql`
  * Get expired selectors
  */
 export const GET_EXPIRED_SELECTORS = gql`
-  query GetExpiredSelectors($currentTime: DateTime!, $limit: Int!, $offset: Int!) {
+  query GetExpiredSelectors(
+    $currentTime: DateTime!
+    $limit: Int!
+  ) {
     selectors(
       where: { lockedUntilTime_lte: $currentTime }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: lockedUntilTime
       orderDirection: desc
     ) {

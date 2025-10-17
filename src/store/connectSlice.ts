@@ -50,7 +50,7 @@ export const connectSlice = createSlice({
       state.connectState = false
       // Keep the rpcAddress as it will be set by setRPCAddress
     },
-    
+
     // GraphQL client actions
     setGraphQLClient(state, action) {
       state.graphqlClient = action.payload
@@ -75,10 +75,10 @@ export const connectSlice = createSlice({
   },
 })
 
-export const { 
-  setRPCAddress, 
-  setConnectState, 
-  setTmClient, 
+export const {
+  setRPCAddress,
+  setConnectState,
+  setTmClient,
   resetState,
   setGraphQLClient,
   setGraphQLEndpoint,
@@ -89,7 +89,9 @@ export const selectRPCAddress = (state: AppState) => state.connect.rpcAddress
 export const selectConnectState = (state: AppState) =>
   state.connect.connectState
 export const selectTmClient = (state: AppState) => state.connect.tmClient
-export const selectGraphQLClient = (state: AppState) => state.connect.graphqlClient
-export const selectGraphQLEndpoint = (state: AppState) => state.connect.graphqlEndpoint
+export const selectGraphQLClient = (state: AppState) =>
+  state.connect.graphqlClient
+export const selectGraphQLEndpoint = (state: AppState) =>
+  state.connect.graphqlEndpoint
 
 export default connectSlice.reducer

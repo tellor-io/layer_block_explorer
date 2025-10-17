@@ -9,24 +9,28 @@ The `DataSourceManager` provides a unified interface for fetching data from both
 ## Key Features
 
 ### 1. Automatic Fallback
+
 - Primary data source: GraphQL
 - Fallback data source: RPC
 - Automatic switching when primary source fails
 - Configurable fallback behavior
 
 ### 2. Circuit Breaker Pattern
+
 - Prevents cascading failures
 - Automatic circuit opening after configurable failure threshold
 - Circuit reset after configurable timeout
 - Health checks to restore circuits
 
 ### 3. Health Monitoring
+
 - Continuous health checks for both data sources
 - Response time tracking
 - Failure count monitoring
 - Real-time status reporting
 
 ### 4. Unified Interface
+
 - Single API for all data fetching operations
 - Consistent error handling
 - Performance metrics
@@ -63,7 +67,7 @@ const result = await fetchWithFallback(
   {
     timeout: 10000,
     retries: 3,
-    fallbackOnError: true
+    fallbackOnError: true,
   }
 )
 
@@ -80,19 +84,19 @@ import { UnifiedDataService } from './unifiedDataService'
 // Fetch latest block
 const latestBlock = await UnifiedDataService.getLatestBlock({
   timeout: 10000,
-  retries: 2
+  retries: 2,
 })
 
 // Fetch block by height
 const block = await UnifiedDataService.getBlockByHeight(12345, {
   timeout: 10000,
-  retries: 2
+  retries: 2,
 })
 
 // Fetch validators
 const validators = await UnifiedDataService.getValidators({
   timeout: 15000,
-  retries: 3
+  retries: 3,
 })
 ```
 
@@ -105,20 +109,20 @@ import { UnifiedDataService } from '../../../utils/unifiedDataService'
 export default async function handler(req, res) {
   try {
     const { height } = req.query
-    
+
     const result = await UnifiedDataService.getBlockByHeight(Number(height), {
       timeout: 10000,
       retries: 2,
-      fallbackOnError: true
+      fallbackOnError: true,
     })
-    
+
     return res.status(200).json({
       data: result.data,
       metadata: {
         source: result.source,
         responseTime: result.responseTime,
-        fallbackUsed: result.fallbackUsed
-      }
+        fallbackUsed: result.fallbackUsed,
+      },
     })
   } catch (error) {
     return res.status(500).json({ error: error.message })
@@ -137,7 +141,7 @@ export const DATA_SOURCE_CONFIG = {
   FALLBACK: 'rpc',
   AUTO_FALLBACK: true,
   HEALTH_CHECK_INTERVAL: 30000, // 30 seconds
-  GRAPHQL_TIMEOUT: 10000,       // 10 seconds
+  GRAPHQL_TIMEOUT: 10000, // 10 seconds
   GRAPHQL_MAX_RETRIES: 3,
 }
 ```
@@ -151,7 +155,7 @@ import { dataSourceManager } from './dataSourceManager'
 dataSourceManager.updateConfig({
   healthCheckInterval: 60000, // 1 minute
   maxFailures: 3,
-  circuitResetTime: 120000 // 2 minutes
+  circuitResetTime: 120000, // 2 minutes
 })
 ```
 
@@ -170,7 +174,7 @@ console.log('GraphQL Status:', {
   isHealthy: graphqlStatus.isHealthy,
   isAvailable: graphqlStatus.isAvailable,
   failureCount: graphqlStatus.failureCount,
-  responseTime: graphqlStatus.responseTime
+  responseTime: graphqlStatus.responseTime,
 })
 ```
 
@@ -262,16 +266,14 @@ import { DataSourceManager } from './dataSourceManager'
 describe('DataSourceManager', () => {
   it('should fallback to RPC when GraphQL fails', async () => {
     const manager = DataSourceManager.getInstance()
-    
-    const result = await manager.fetchData(
-      async (source) => {
-        if (source === DataSourceType.GRAPHQL) {
-          throw new Error('GraphQL failed')
-        }
-        return { data: 'from RPC' }
+
+    const result = await manager.fetchData(async (source) => {
+      if (source === DataSourceType.GRAPHQL) {
+        throw new Error('GraphQL failed')
       }
-    )
-    
+      return { data: 'from RPC' }
+    })
+
     expect(result.source).toBe(DataSourceType.RPC)
     expect(result.fallbackUsed).toBe(true)
   })
@@ -293,21 +295,25 @@ expect(data.data).toBeDefined()
 ## Migration Strategy
 
 ### Phase 1: Infrastructure (Complete)
+
 - ✅ GraphQL client setup
 - ✅ Data source manager
 - ✅ Unified interface
 
 ### Phase 2: Implementation
+
 - [ ] Replace API routes with unified service
 - [ ] Update components to use new interface
 - [ ] Implement GraphQL queries
 
 ### Phase 3: Testing
+
 - [ ] Data consistency validation
 - [ ] Performance testing
 - [ ] Error scenario testing
 
 ### Phase 4: Deployment
+
 - [ ] Gradual rollout with feature flags
 - [ ] Monitoring and alerting
 - [ ] Documentation updates
@@ -317,11 +323,13 @@ expect(data.data).toBeDefined()
 ### Common Issues
 
 1. **GraphQL Connection Failed**
+
    - Check GraphQL endpoint availability
    - Verify network connectivity
    - Check authentication if required
 
 2. **RPC Fallback Not Working**
+
    - Verify RPC endpoint configuration
    - Check circuit breaker status
    - Review failure logs
@@ -342,10 +350,9 @@ console.log('Data Source Status:', status)
 dataSourceManager.resetCircuitBreaker(DataSourceType.GRAPHQL)
 
 // Force specific data source
-const result = await fetchWithFallback(
-  fetchFunction,
-  { forceSource: DataSourceType.RPC }
-)
+const result = await fetchWithFallback(fetchFunction, {
+  forceSource: DataSourceType.RPC,
+})
 ```
 
 ## Future Enhancements

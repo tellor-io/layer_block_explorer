@@ -22,10 +22,10 @@ export const GET_AGGREGATE_REPORTS = gql`
  */
 export const GET_AGGREGATE_REPORTS_PAGINATED = gql`
   ${AGGREGATE_REPORT_FIELDS}
-  query GetAggregateReportsPaginated($limit: Int!, $offset: Int!) {
+  query GetAggregateReportsPaginated($limit: Int!) {
     aggregateReports(
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -39,11 +39,14 @@ export const GET_AGGREGATE_REPORTS_PAGINATED = gql`
  */
 export const GET_AGGREGATE_REPORTS_BY_QUERY_ID = gql`
   ${AGGREGATE_REPORT_FIELDS}
-  query GetAggregateReportsByQueryId($queryId: String!, $limit: Int!, $offset: Int!) {
+  query GetAggregateReportsByQueryId(
+    $queryId: String!
+    $limit: Int!
+  ) {
     aggregateReports(
       where: { queryId_eq: $queryId }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -57,16 +60,17 @@ export const GET_AGGREGATE_REPORTS_BY_QUERY_ID = gql`
  */
 export const GET_AGGREGATE_REPORTS_BY_TIME_RANGE = gql`
   ${AGGREGATE_REPORT_FIELDS}
-  query GetAggregateReportsByTimeRange($startTime: DateTime!, $endTime: DateTime!, $limit: Int!, $offset: Int!) {
+  query GetAggregateReportsByTimeRange(
+    $startTime: DateTime!
+    $endTime: DateTime!
+    $limit: Int!
+  ) {
     aggregateReports(
       where: {
-        and: [
-          { timestamp_gte: $startTime }
-          { timestamp_lte: $endTime }
-        ]
+        and: [{ timestamp_gte: $startTime }, { timestamp_lte: $endTime }]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -80,16 +84,17 @@ export const GET_AGGREGATE_REPORTS_BY_TIME_RANGE = gql`
  */
 export const GET_AGGREGATE_REPORTS_BY_BLOCK_RANGE = gql`
   ${AGGREGATE_REPORT_FIELDS}
-  query GetAggregateReportsByBlockRange($minBlock: BigInt!, $maxBlock: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetAggregateReportsByBlockRange(
+    $minBlock: BigInt!
+    $maxBlock: BigInt!
+    $limit: Int!
+  ) {
     aggregateReports(
       where: {
-        and: [
-          { blockHeight_gte: $minBlock }
-          { blockHeight_lte: $maxBlock }
-        ]
+        and: [{ blockHeight_gte: $minBlock }, { blockHeight_lte: $maxBlock }]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -103,11 +108,11 @@ export const GET_AGGREGATE_REPORTS_BY_BLOCK_RANGE = gql`
  */
 export const GET_FLAGGED_AGGREGATE_REPORTS = gql`
   ${AGGREGATE_REPORT_FIELDS}
-  query GetFlaggedAggregateReports($limit: Int!, $offset: Int!) {
+  query GetFlaggedAggregateReports($limit: Int!) {
     aggregateReports(
       where: { flagged_eq: true }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -121,11 +126,11 @@ export const GET_FLAGGED_AGGREGATE_REPORTS = gql`
  */
 export const GET_NON_FLAGGED_AGGREGATE_REPORTS = gql`
   ${AGGREGATE_REPORT_FIELDS}
-  query GetNonFlaggedAggregateReports($limit: Int!, $offset: Int!) {
+  query GetNonFlaggedAggregateReports($limit: Int!) {
     aggregateReports(
       where: { flagged_eq: false }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -139,11 +144,11 @@ export const GET_NON_FLAGGED_AGGREGATE_REPORTS = gql`
  */
 export const GET_CYCLIST_AGGREGATE_REPORTS = gql`
   ${AGGREGATE_REPORT_FIELDS}
-  query GetCyclistAggregateReports($limit: Int!, $offset: Int!) {
+  query GetCyclistAggregateReports($limit: Int!) {
     aggregateReports(
       where: { cyclist_eq: true }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -157,7 +162,11 @@ export const GET_CYCLIST_AGGREGATE_REPORTS = gql`
  */
 export const GET_AGGREGATE_REPORTS_BY_REPORTER_COUNT = gql`
   ${AGGREGATE_REPORT_FIELDS}
-  query GetAggregateReportsByReporterCount($minReporters: Int!, $maxReporters: Int!, $limit: Int!, $offset: Int!) {
+  query GetAggregateReportsByReporterCount(
+    $minReporters: Int!
+    $maxReporters: Int!
+    $limit: Int!
+  ) {
     aggregateReports(
       where: {
         and: [
@@ -166,7 +175,7 @@ export const GET_AGGREGATE_REPORTS_BY_REPORTER_COUNT = gql`
         ]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -180,16 +189,17 @@ export const GET_AGGREGATE_REPORTS_BY_REPORTER_COUNT = gql`
  */
 export const GET_AGGREGATE_REPORTS_BY_POWER_RANGE = gql`
   ${AGGREGATE_REPORT_FIELDS}
-  query GetAggregateReportsByPowerRange($minPower: BigInt!, $maxPower: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetAggregateReportsByPowerRange(
+    $minPower: BigInt!
+    $maxPower: BigInt!
+    $limit: Int!
+  ) {
     aggregateReports(
       where: {
-        and: [
-          { totalPower_gte: $minPower }
-          { totalPower_lte: $maxPower }
-        ]
+        and: [{ totalPower_gte: $minPower }, { totalPower_lte: $maxPower }]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -203,7 +213,10 @@ export const GET_AGGREGATE_REPORTS_BY_POWER_RANGE = gql`
  */
 export const SEARCH_AGGREGATE_REPORTS = gql`
   ${AGGREGATE_REPORT_FIELDS}
-  query SearchAggregateReports($searchTerm: String!, $limit: Int!, $offset: Int!) {
+  query SearchAggregateReports(
+    $searchTerm: String!
+    $limit: Int!
+  ) {
     aggregateReports(
       where: {
         or: [
@@ -213,7 +226,7 @@ export const SEARCH_AGGREGATE_REPORTS = gql`
         ]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -282,10 +295,10 @@ export const GET_MICRO_REPORTS = gql`
  * Get micro reports with pagination
  */
 export const GET_MICRO_REPORTS_PAGINATED = gql`
-  query GetMicroReportsPaginated($limit: Int!, $offset: Int!) {
+  query GetMicroReportsPaginated($limit: Int!) {
     microReports(
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: height
       orderDirection: desc
     ) {
@@ -305,11 +318,14 @@ export const GET_MICRO_REPORTS_PAGINATED = gql`
  * Get micro reports by query ID
  */
 export const GET_MICRO_REPORTS_BY_QUERY_ID = gql`
-  query GetMicroReportsByQueryId($queryId: String!, $limit: Int!, $offset: Int!) {
+  query GetMicroReportsByQueryId(
+    $queryId: String!
+    $limit: Int!
+  ) {
     microReports(
       where: { queryId_eq: $queryId }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: height
       orderDirection: desc
     ) {
@@ -329,11 +345,14 @@ export const GET_MICRO_REPORTS_BY_QUERY_ID = gql`
  * Get micro reports by reporter address
  */
 export const GET_MICRO_REPORTS_BY_REPORTER = gql`
-  query GetMicroReportsByReporter($reporter: String!, $limit: Int!, $offset: Int!) {
+  query GetMicroReportsByReporter(
+    $reporter: String!
+    $limit: Int!
+  ) {
     microReports(
       where: { reporter_eq: $reporter }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: height
       orderDirection: desc
     ) {
@@ -353,11 +372,11 @@ export const GET_MICRO_REPORTS_BY_REPORTER = gql`
  * Get micro reports by meta ID
  */
 export const GET_MICRO_REPORTS_BY_META_ID = gql`
-  query GetMicroReportsByMetaId($metaId: String!, $limit: Int!, $offset: Int!) {
+  query GetMicroReportsByMetaId($metaId: String!, $limit: Int!) {
     microReports(
       where: { metaId_eq: $metaId }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: height
       orderDirection: desc
     ) {
@@ -377,16 +396,15 @@ export const GET_MICRO_REPORTS_BY_META_ID = gql`
  * Get micro reports by block height range
  */
 export const GET_MICRO_REPORTS_BY_BLOCK_RANGE = gql`
-  query GetMicroReportsByBlockRange($minBlock: BigInt!, $maxBlock: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetMicroReportsByBlockRange(
+    $minBlock: BigInt!
+    $maxBlock: BigInt!
+    $limit: Int!
+  ) {
     microReports(
-      where: {
-        and: [
-          { height_gte: $minBlock }
-          { height_lte: $maxBlock }
-        ]
-      }
+      where: { and: [{ height_gte: $minBlock }, { height_lte: $maxBlock }] }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: height
       orderDirection: desc
     ) {
@@ -406,16 +424,15 @@ export const GET_MICRO_REPORTS_BY_BLOCK_RANGE = gql`
  * Get micro reports by power range
  */
 export const GET_MICRO_REPORTS_BY_POWER_RANGE = gql`
-  query GetMicroReportsByPowerRange($minPower: BigInt!, $maxPower: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetMicroReportsByPowerRange(
+    $minPower: BigInt!
+    $maxPower: BigInt!
+    $limit: Int!
+  ) {
     microReports(
-      where: {
-        and: [
-          { power_gte: $minPower }
-          { power_lte: $maxPower }
-        ]
-      }
+      where: { and: [{ power_gte: $minPower }, { power_lte: $maxPower }] }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: height
       orderDirection: desc
     ) {
@@ -435,11 +452,11 @@ export const GET_MICRO_REPORTS_BY_POWER_RANGE = gql`
  * Get cycle list micro reports
  */
 export const GET_CYCLE_LIST_MICRO_REPORTS = gql`
-  query GetCycleListMicroReports($limit: Int!, $offset: Int!) {
+  query GetCycleListMicroReports($limit: Int!) {
     microReports(
       where: { cycleList_eq: true }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: height
       orderDirection: desc
     ) {
@@ -507,10 +524,10 @@ export const GET_META_ID_AGGREGATES = gql`
  * Get meta ID aggregates with pagination
  */
 export const GET_META_ID_AGGREGATES_PAGINATED = gql`
-  query GetMetaIdAggregatesPaginated($limit: Int!, $offset: Int!) {
+  query GetMetaIdAggregatesPaginated($limit: Int!) {
     metaIdAggregates(
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: totalPower
       orderDirection: desc
     ) {
@@ -538,16 +555,17 @@ export const GET_META_ID_AGGREGATE_BY_ID = gql`
  * Get meta ID aggregates by total power range
  */
 export const GET_META_ID_AGGREGATES_BY_POWER_RANGE = gql`
-  query GetMetaIdAggregatesByPowerRange($minPower: BigInt!, $maxPower: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetMetaIdAggregatesByPowerRange(
+    $minPower: BigInt!
+    $maxPower: BigInt!
+    $limit: Int!
+  ) {
     metaIdAggregates(
       where: {
-        and: [
-          { totalPower_gte: $minPower }
-          { totalPower_lte: $maxPower }
-        ]
+        and: [{ totalPower_gte: $minPower }, { totalPower_lte: $maxPower }]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: totalPower
       orderDirection: desc
     ) {
@@ -562,7 +580,11 @@ export const GET_META_ID_AGGREGATES_BY_POWER_RANGE = gql`
  * Get meta ID aggregates by reporter count range
  */
 export const GET_META_ID_AGGREGATES_BY_REPORTER_COUNT = gql`
-  query GetMetaIdAggregatesByReporterCount($minCount: Int!, $maxCount: Int!, $limit: Int!, $offset: Int!) {
+  query GetMetaIdAggregatesByReporterCount(
+    $minCount: Int!
+    $maxCount: Int!
+    $limit: Int!
+  ) {
     metaIdAggregates(
       where: {
         and: [
@@ -571,7 +593,7 @@ export const GET_META_ID_AGGREGATES_BY_REPORTER_COUNT = gql`
         ]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: totalPower
       orderDirection: desc
     ) {
@@ -602,11 +624,11 @@ export const GET_META_ID_AGGREGATE_COUNT = gql`
  */
 export const GET_ORACLE_DATA_BY_QUERY_ID = gql`
   ${AGGREGATE_REPORT_FIELDS}
-  query GetOracleDataByQueryId($queryId: String!, $limit: Int!, $offset: Int!) {
+  query GetOracleDataByQueryId($queryId: String!, $limit: Int!) {
     aggregateReports(
       where: { queryId_eq: $queryId }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -615,7 +637,7 @@ export const GET_ORACLE_DATA_BY_QUERY_ID = gql`
     microReports(
       where: { queryId_eq: $queryId }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: height
       orderDirection: desc
     ) {
@@ -636,11 +658,14 @@ export const GET_ORACLE_DATA_BY_QUERY_ID = gql`
  */
 export const GET_ORACLE_ACTIVITY_BY_REPORTER = gql`
   ${AGGREGATE_REPORT_FIELDS}
-  query GetOracleActivityByReporter($reporter: String!, $limit: Int!, $offset: Int!) {
+  query GetOracleActivityByReporter(
+    $reporter: String!
+    $limit: Int!
+  ) {
     microReports(
       where: { reporter_eq: $reporter }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: height
       orderDirection: desc
     ) {
@@ -661,7 +686,7 @@ export const GET_ORACLE_ACTIVITY_BY_REPORTER = gql`
  */
 export const SEARCH_ORACLE_DATA = gql`
   ${AGGREGATE_REPORT_FIELDS}
-  query SearchOracleData($searchTerm: String!, $limit: Int!, $offset: Int!) {
+  query SearchOracleData($searchTerm: String!, $limit: Int!) {
     aggregateReports(
       where: {
         or: [
@@ -670,7 +695,7 @@ export const SEARCH_ORACLE_DATA = gql`
         ]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -684,7 +709,7 @@ export const SEARCH_ORACLE_DATA = gql`
         ]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: height
       orderDirection: desc
     ) {

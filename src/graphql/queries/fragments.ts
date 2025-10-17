@@ -62,23 +62,10 @@ export const VALIDATOR_FIELDS = gql`
     bondStatus
     tokens
     delegatorShares
-    description {
-      moniker
-      identity
-      website
-      securityContact
-      details
-    }
+    description
     unbondingHeight
     unbondingTime
-    commission {
-      commissionRates {
-        rate
-        maxRate
-        maxChangeRate
-      }
-      updateTime
-    }
+    commission
     minSelfDelegation
     unbondingOnHoldRefCount
     unbondingIds
@@ -94,15 +81,8 @@ export const VALIDATOR_BASIC_FIELDS = gql`
     jailed
     bondStatus
     tokens
-    description {
-      moniker
-      identity
-    }
-    commission {
-      commissionRates {
-        rate
-      }
-    }
+    description
+    commission
   }
 `
 
@@ -115,7 +95,7 @@ export const REPORTER_FIELDS = gql`
     id
     creationHeight
     commissionRate
-    LastUpdated
+    lastUpdated
     minTokensRequired
     moniker
     jailed

@@ -340,9 +340,7 @@ export function decodeQueryData(queryId: string, queryData?: string): any {
 
 export const getValidators = async (endpoint: string): Promise<any> => {
   try {
-    const response = await axios.get('/api/validators', {
-      params: { endpoint },
-    })
+    const response = await axios.get(`${endpoint}/validators`)
 
     const data = response.data
 
@@ -375,9 +373,7 @@ export async function getTotalReporterCount(): Promise<number> {
 
 export const getLatestBlock = async (endpoint: string) => {
   try {
-    const response = await axios.get('/api/latest-block', {
-      params: { endpoint },
-    })
+    const response = await axios.get(`${endpoint}/block`)
     return response.data
   } catch (error) {
     return undefined
@@ -386,9 +382,7 @@ export const getLatestBlock = async (endpoint: string) => {
 
 export const getEvmValidators = async (endpoint: string) => {
   try {
-    const response = await axios.get('/api/evm-validators', {
-      params: { endpoint },
-    })
+    const response = await axios.get(`${endpoint}/tellor-io/layer/evm/validators`)
     return response.data
   } catch (error) {
     return undefined
@@ -397,9 +391,7 @@ export const getEvmValidators = async (endpoint: string) => {
 
 export const getReporters = async (endpoint: string) => {
   try {
-    const response = await axios.get('/api/reporters', {
-      params: { endpoint },
-    })
+    const response = await axios.get(`${endpoint}/tellor-io/layer/reporter/reporters`)
     return response.data
   } catch (error) {
     console.error('Error in getReporters:', error)

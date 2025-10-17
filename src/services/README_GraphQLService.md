@@ -7,16 +7,19 @@ The GraphQL Service Layer (`src/services/graphqlService.ts`) is a comprehensive 
 ## Architecture
 
 ### Primary Data Source: GraphQL
+
 - Uses Apollo Client for GraphQL operations
 - Implements proper error handling and retry logic
 - Supports all major data types: blocks, transactions, validators, reporters, bridge data, and oracle data
 
 ### Fallback Data Sources
+
 - **RPC Fallback**: For blockchain data (blocks, transactions) using Tendermint RPC
 - **Swagger API Fallback**: For validator and reporter data using REST endpoints
 - **Automatic Fallback**: Seamless switching when GraphQL fails
 
 ### Circuit Breaker Pattern
+
 - Integrated with the Data Source Manager for health monitoring
 - Automatic failover between data sources
 - Health checks and performance monitoring
@@ -24,7 +27,9 @@ The GraphQL Service Layer (`src/services/graphqlService.ts`) is a comprehensive 
 ## Key Features
 
 ### 1. Unified Interface
+
 All data fetching methods follow the same pattern:
+
 ```typescript
 // Primary GraphQL call with automatic fallback
 const data = await GraphQLService.getLatestBlock()
@@ -34,12 +39,14 @@ const data = await GraphQLService.getValidators() // Will try GraphQL first, the
 ```
 
 ### 2. Error Handling
+
 - Comprehensive error handling for GraphQL failures
 - Automatic fallback to alternative data sources
 - Detailed error logging and reporting
 - Graceful degradation when all sources fail
 
 ### 3. Performance Optimization
+
 - Network-only fetch policy for real-time data
 - Proper caching strategies
 - Request timeout handling
@@ -48,6 +55,7 @@ const data = await GraphQLService.getValidators() // Will try GraphQL first, the
 ## Available Methods
 
 ### Block Operations
+
 ```typescript
 // Get latest block with RPC fallback
 const block = await GraphQLService.getLatestBlock()
@@ -63,6 +71,7 @@ const block = await GraphQLService.getBlockByHash('0x123...')
 ```
 
 ### Transaction Operations
+
 ```typescript
 // Get transaction by hash with RPC fallback
 const tx = await GraphQLService.getTransactionByHash('0xabc...')
@@ -72,6 +81,7 @@ const txs = await GraphQLService.getTransactions(20, 0)
 ```
 
 ### Validator Operations
+
 ```typescript
 // Get all validators with Swagger API fallback
 const validators = await GraphQLService.getValidators()
@@ -81,6 +91,7 @@ const validator = await GraphQLService.getValidatorByAddress('cosmos1...')
 ```
 
 ### Reporter Operations
+
 ```typescript
 // Get all reporters with Swagger API fallback
 const reporters = await GraphQLService.getReporters()
@@ -90,6 +101,7 @@ const reporter = await GraphQLService.getReporterByAddress('cosmos1...')
 ```
 
 ### Bridge Operations
+
 ```typescript
 // Get bridge deposits (GraphQL only - no fallback)
 const deposits = await GraphQLService.getBridgeDeposits()
@@ -99,6 +111,7 @@ const deposit = await GraphQLService.getBridgeDepositById(123)
 ```
 
 ### Oracle Operations
+
 ```typescript
 // Get aggregate reports (GraphQL only - no fallback)
 const reports = await GraphQLService.getAggregateReports()
@@ -110,6 +123,7 @@ const oracleData = await GraphQLService.getOracleData('query123')
 ## Fallback Implementation
 
 ### RPC Fallback for Blockchain Data
+
 When GraphQL fails for block/transaction data, the service automatically falls back to Tendermint RPC:
 
 ```typescript
@@ -117,9 +131,9 @@ private static async getLatestBlockRPC(): Promise<GraphQLBlock> {
   const endpoint = await rpcManager.getCurrentEndpoint()
   const tmClient = await Tendermint37Client.connect(endpoint)
   const client = await StargateClient.create(tmClient)
-  
+
   const block = await client.getBlock()
-  
+
   // Transform RPC response to unified GraphQL format
   return {
     id: block.header.height.toString(),
@@ -131,15 +145,16 @@ private static async getLatestBlockRPC(): Promise<GraphQLBlock> {
 ```
 
 ### Swagger API Fallback for Validators/Reporters
+
 When GraphQL fails for validator/reporter data, the service falls back to REST endpoints:
 
 ```typescript
 private static async getValidatorsSwagger(): Promise<GraphQLValidator[]> {
   const endpoint = await rpcManager.getCurrentEndpoint()
   const baseEndpoint = endpoint.replace('/rpc', '')
-  
+
   const response = await fetch(`${baseEndpoint}/cosmos/staking/v1beta1/validators`)
-  
+
   // Transform Swagger response to unified GraphQL format
   return data.validators.map(validator => ({
     id: validator.address,
@@ -152,6 +167,7 @@ private static async getValidatorsSwagger(): Promise<GraphQLValidator[]> {
 ## Data Transformation
 
 ### Unified Data Types
+
 All methods return data in a consistent format regardless of the data source:
 
 ```typescript
@@ -174,6 +190,7 @@ export interface GraphQLBlock {
 ```
 
 ### Response Format
+
 All successful responses include metadata about the data source:
 
 ```typescript
@@ -189,16 +206,19 @@ interface FetchResult<T> {
 ## Error Handling
 
 ### GraphQL Errors
+
 - Syntax errors, validation errors, and execution errors are caught
 - Network errors trigger automatic fallback
 - Detailed error logging for debugging
 
 ### Fallback Errors
+
 - If both GraphQL and fallback fail, comprehensive error information is provided
 - Error messages include details from both sources
 - Circuit breaker pattern prevents cascading failures
 
 ### Timeout Handling
+
 - Configurable request timeouts
 - Automatic retry with exponential backoff
 - Graceful degradation under high load
@@ -206,6 +226,7 @@ interface FetchResult<T> {
 ## Configuration
 
 ### Environment Variables
+
 The service uses configuration from `src/utils/constant.ts`:
 
 ```typescript
@@ -225,19 +246,27 @@ export const DATA_SOURCE_CONFIG = {
 ```
 
 ### Custom Endpoints
+
 Support for custom GraphQL and RPC endpoints:
 
 ```typescript
 // Set custom GraphQL endpoint
-await dataSourceManager.setCustomEndpoint(DataSourceType.GRAPHQL, 'https://custom.com/graphql')
+await dataSourceManager.setCustomEndpoint(
+  DataSourceType.GRAPHQL,
+  'https://custom.com/graphql'
+)
 
 // Set custom RPC endpoint
-await dataSourceManager.setCustomEndpoint(DataSourceType.RPC, 'https://custom.com/rpc')
+await dataSourceManager.setCustomEndpoint(
+  DataSourceType.RPC,
+  'https://custom.com/rpc'
+)
 ```
 
 ## Testing
 
 ### Test API Route
+
 Use the test endpoint to verify service functionality:
 
 ```bash
@@ -258,6 +287,7 @@ GET /api/test-graphql-service?test=aggregate-reports
 ```
 
 ### Manual Testing
+
 ```typescript
 import { GraphQLService } from '../services/graphqlService'
 
@@ -273,16 +303,19 @@ try {
 ## Performance Considerations
 
 ### Caching Strategy
+
 - Network-only fetch policy for real-time data
 - Cache-first policy for static data
 - Automatic cache invalidation on endpoint switches
 
 ### Request Optimization
+
 - Batch GraphQL queries where possible
 - Efficient pagination with cursor-based navigation
 - Minimal data transfer with field selection
 
 ### Monitoring
+
 - Response time tracking for all data sources
 - Error rate monitoring
 - Automatic health checks
@@ -291,6 +324,7 @@ try {
 ## Integration with Existing Code
 
 ### API Routes
+
 The service can be easily integrated into existing API routes:
 
 ```typescript
@@ -313,6 +347,7 @@ export default async function handler(req, res) {
 ```
 
 ### Components
+
 Components can use the service directly or through custom hooks:
 
 ```typescript
@@ -320,9 +355,7 @@ Components can use the service directly or through custom hooks:
 const [block, setBlock] = useState(null)
 
 useEffect(() => {
-  GraphQLService.getLatestBlock()
-    .then(setBlock)
-    .catch(console.error)
+  GraphQLService.getLatestBlock().then(setBlock).catch(console.error)
 }, [])
 
 // Hook-based usage (future implementation)
@@ -332,21 +365,25 @@ const { data: block, loading, error } = useGraphQLData(GET_LATEST_BLOCK)
 ## Future Enhancements
 
 ### 1. Real-time Subscriptions
+
 - GraphQL subscriptions for live data updates
 - WebSocket fallback when subscriptions fail
 - Event-driven architecture for real-time components
 
 ### 2. Advanced Caching
+
 - Redis integration for distributed caching
 - Cache warming strategies
 - Intelligent cache invalidation
 
 ### 3. Query Optimization
+
 - Query batching and deduplication
 - Field-level caching
 - Query performance monitoring
 
 ### 4. Enhanced Monitoring
+
 - Prometheus metrics integration
 - Distributed tracing
 - Performance analytics dashboard
@@ -356,6 +393,7 @@ const { data: block, loading, error } = useGraphQLData(GET_LATEST_BLOCK)
 ### Common Issues
 
 #### 1. GraphQL Connection Failures
+
 ```typescript
 // Check endpoint health
 const status = dataSourceManager.getSourceStatus(DataSourceType.GRAPHQL)
@@ -366,6 +404,7 @@ dataSourceManager.resetCircuitBreaker(DataSourceType.GRAPHQL)
 ```
 
 #### 2. Fallback Not Working
+
 ```typescript
 // Verify RPC endpoint availability
 const rpcEndpoint = await dataSourceManager.getRPCEndpoint()
@@ -377,16 +416,18 @@ console.log('RPC status:', rpcStatus)
 ```
 
 #### 3. Data Transformation Errors
+
 - Verify GraphQL schema matches expected types
 - Check RPC response format compatibility
 - Validate data transformation logic
 
 ### Debug Mode
+
 Enable detailed logging for troubleshooting:
 
 ```typescript
 // Set debug mode in environment
-DEBUG_GRAPHQL_SERVICE=true
+DEBUG_GRAPHQL_SERVICE = true
 
 // Or programmatically
 console.log('GraphQL Service Debug Mode Enabled')

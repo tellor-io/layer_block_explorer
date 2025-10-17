@@ -20,49 +20,38 @@ import {
   Code,
   useToast,
   TableContainer,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  Spinner,
+  Alert,
+  AlertIcon,
+  Button,
+  Flex,
+  Badge,
 } from '@chakra-ui/react'
-import { NewBlockEvent, TxEvent } from '@cosmjs/tendermint-rpc'
 import NextLink from 'next/link'
-import { FiChevronRight, FiHome } from 'react-icons/fi'
-import { useSelector } from 'react-redux'
-import { selectTmClient } from '@/store/connectSlice'
-import { selectNewBlock } from '@/store/streamSlice'
-import { timeFromNow } from '@/utils/helper'
+import { FiChevronRight, FiHome, FiSearch, FiRefreshCw } from 'react-icons/fi'
 import { ExternalLinkIcon } from '@chakra-ui/icons'
-import axios from 'axios'
-import { getReporterCount, decodeQueryData } from '@/rpc/query'
-import { rpcManager } from '@/utils/rpcManager'
-
-interface ReportAttribute {
-  key: string
-  value: string
-  displayValue?: string
-}
+import { useGraphQLData } from '@/hooks/useGraphQLData'
+import {
+  GET_AGGREGATE_REPORTS_PAGINATED,
+  SEARCH_AGGREGATE_REPORTS,
+} from '@/graphql/queries/oracle'
 
 interface OracleReport {
-  type: string
+  id: string
   queryId: string
-  decodedQuery?: string
+  queryData?: string
   value: string
-  numberOfReporters: string
+  totalReporters: number
   microReportHeight: string
   blockHeight: number
-  timestamp: Date
-  attributes?: ReportAttribute[]
-  aggregateMethod?: string
-  cycleList?: boolean
-  queryType?: string
-  totalPower?: number
-}
-
-interface EventAttribute {
-  key: string
-  value: string
-}
-
-interface AggregateReportEvent {
-  type: string
-  attributes: EventAttribute[]
+  timestamp: string
+  flagged: boolean
+  totalPower: string
+  cyclist: boolean
+  aggregatePower?: string
 }
 
 const getQueryPairName = (queryId: string): string => {
@@ -87,215 +76,62 @@ const getQueryPairName = (queryId: string): string => {
   return queryId
 }
 
-const fetchReporterData = async (block: NewBlockEvent, attributes: any[]) => {
-  try {
-    const queryIdAttr = attributes.find((attr) => attr.key === 'query_id')
-    const queryId = queryIdAttr?.value
-
-    if (!queryId) {
-      console.warn('No queryId found in attributes')
-      return null
-    }
-
-    const timestamp = block.header.time.getTime().toString()
-    const reporterData = await getReporterCount(queryId, timestamp)
-
-    const valueAttr = attributes.find((attr) => attr.key === 'value')
-    // ... rest of the function
-  } catch (error) {
-    console.error('Error fetching reporter data:', error)
-    return null
-  }
-}
-
 export default function DataFeed() {
-  const tmClient = useSelector(selectTmClient)
-  const newBlock = useSelector(selectNewBlock)
-  const [aggregateReports, setAggregateReports] = useState<OracleReport[]>([])
-  const processedBlocksRef = useRef(new Set<number>())
+  const [searchTerm, setSearchTerm] = useState('')
+  const [currentPage, setCurrentPage] = useState(0)
+  const [isSearching, setIsSearching] = useState(false)
   const toast = useToast()
 
-  const processBlock = useCallback(
-    async (block: NewBlockEvent): Promise<void> => {
-      const blockHeight = block.header.height
+  const limit = 20
+  const offset = currentPage * limit
 
-      // More robust duplicate check
-      if (
-        processedBlocksRef.current.has(blockHeight) ||
-        aggregateReports.some((report) => report.blockHeight === blockHeight)
-      ) {
-        return
-      }
-
-      let endpoint
-      try {
-        endpoint = await rpcManager.getCurrentEndpoint()
-        const baseEndpoint = endpoint
-
-        const response = await axios.get(
-          `${baseEndpoint}/block_results?height=${blockHeight}`,
-          {
-            timeout: 10000,
-          }
-        )
-
-        const blockResults = response.data.result
-        const finalizeEvents = blockResults.finalize_block_events || []
-        let hasNewReports = false
-
-        for (const aggregateEvent of finalizeEvents) {
-          if (aggregateEvent.type === 'aggregate_report') {
-            try {
-              const attributes: ReportAttribute[] =
-                aggregateEvent.attributes.map(
-                  (attr: { key: string; value: string; index?: boolean }) => {
-                    let decodedValue = attr.value
-                    if (
-                      attr.key === 'value' &&
-                      attr.value.match(/^[0-9a-fA-F]+$/)
-                    ) {
-                      try {
-                        const valueInWei = BigInt(`0x${attr.value}`)
-                        const valueInEth = Number(valueInWei) / 1e18
-                        decodedValue = valueInEth.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
-                      } catch (error) {
-                        console.debug('Error decoding hex value:', error)
-                      }
-                    }
-                    return {
-                      key: attr.key,
-                      value: decodedValue,
-                    }
-                  }
-                )
-
-              const queryId = attributes.find(
-                (attr) => attr.key === 'query_id'
-              )?.value
-
-              if (!queryId) {
-                console.warn('No queryId found in attributes')
-                continue
-              }
-
-              // Use the API endpoint for reporter data
-              const timestamp = block.header.time.getTime().toString()
-              const reporterData = await getReporterCount(queryId, timestamp)
-
-              if (!reporterData) {
-                console.warn('No reporter data found for queryId:', queryId)
-                continue
-              }
-
-              const valueAttr = attributes.find((attr) => attr.key === 'value')
-
-              const newReport: OracleReport = {
-                type: aggregateEvent.type,
-                queryId: queryId || 'Unknown',
-                value: valueAttr?.value || 'Unknown',
-                numberOfReporters: reporterData.count.toString(),
-                microReportHeight:
-                  attributes.find((attr) => attr.key === 'micro_report_height')
-                    ?.value || '0',
-                blockHeight: Number(blockHeight),
-                timestamp: new Date(block.header.time.toISOString()),
-                attributes,
-                queryType: reporterData.queryType || 'N/A',
-                aggregateMethod: reporterData.aggregateMethod || 'N/A',
-                cycleList: reporterData.cycleList || false,
-                totalPower: reporterData.totalPower,
-              }
-
-              setAggregateReports((prev) => {
-                // Check if we already have this report
-                const exists = prev.some(
-                  (r) =>
-                    r.blockHeight === newReport.blockHeight &&
-                    r.queryId === newReport.queryId
-                )
-
-                if (exists) {
-                  return prev
-                }
-
-                hasNewReports = true
-                return [newReport, ...prev].slice(0, 100)
-              })
-            } catch (error) {
-              console.error('Error processing aggregate event:', error)
-            }
-          }
-        }
-
-        // Only mark the block as processed if we actually processed it
-        if (hasNewReports) {
-          processedBlocksRef.current.add(blockHeight)
-        }
-      } catch (error) {
-        console.error('Error in processBlock:', error)
-        if (axios.isAxiosError(error) && endpoint) {
-          await rpcManager.reportFailure(endpoint)
-
-          if (error.message === 'Network Error') {
-            toast({
-              title: 'Network Error',
-              description:
-                'Failed to fetch block data. Retrying with different endpoint...',
-              status: 'warning',
-              duration: 5000,
-              isClosable: true,
-            })
-          }
-        }
-      }
-    },
-    [aggregateReports, toast]
+  // GraphQL query for aggregate reports
+  const {
+    data: aggregateReportsData,
+    loading: isLoading,
+    error: graphqlError,
+    refetch,
+  } = useGraphQLData(
+    searchTerm ? SEARCH_AGGREGATE_REPORTS : GET_AGGREGATE_REPORTS_PAGINATED,
+    searchTerm ? { searchTerm, limit, offset } : { limit, offset }
   )
 
-  // Clean up old processed blocks periodically
-  useEffect(() => {
-    const cleanup = setInterval(() => {
-      const oldestAllowedBlock =
-        Math.max(...Array.from(processedBlocksRef.current)) - 100
-      processedBlocksRef.current = new Set(
-        Array.from(processedBlocksRef.current).filter(
-          (height) => height > oldestAllowedBlock
-        )
-      )
-    }, 60000) // Run every minute
+  const aggregateReports = aggregateReportsData?.aggregateReports || []
 
-    return () => clearInterval(cleanup)
+  // Handle search functionality
+  const handleSearch = useCallback((value: string) => {
+    setSearchTerm(value)
+    setCurrentPage(0) // Reset to first page when searching
+    setIsSearching(value.length > 0)
   }, [])
 
-  useEffect(() => {
-    if (newBlock) {
-      processBlock(newBlock)
-    }
-  }, [newBlock, processBlock])
+  // Handle refresh
+  const handleRefresh = useCallback(() => {
+    refetch()
+    toast({
+      title: 'Data Refreshed',
+      description: 'Aggregate reports data has been refreshed',
+      status: 'success',
+      duration: 3000,
+      isClosable: true,
+    })
+  }, [refetch, toast])
 
-  // Remove or comment out this useEffect
-  /*
+  // Handle pagination
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page)
+  }, [])
+
+  // Auto-refresh data every 30 seconds for real-time updates
   useEffect(() => {
-    if (tmClient) {
-      const subscribeToOracle = async () => {
-        try {
-          const subscription = await tmClient.subscribe(
-            "tm.event = 'Tx' AND oracle.report.exists = 'true'"
-          )
-          console.log('Subscribed to oracle events')
-          return subscription
-        } catch (error) {
-          console.error('Failed to subscribe to oracle events:', error)
-        }
+    const interval = setInterval(() => {
+      if (!isLoading) {
+        refetch()
       }
-      
-      subscribeToOracle()
-    }
-  }, [tmClient])
-  */
+    }, 30000) // Refresh every 30 seconds
+
+    return () => clearInterval(interval)
+  }, [isLoading, refetch])
 
   return (
     <>
@@ -339,9 +175,52 @@ export default function DataFeed() {
         </Box>
 
         <Box shadow={'base'} borderRadius={4} p={4}>
-          <Text fontSize="2xl" mb={4}>
-            Aggregate Reports
-          </Text>
+          <Flex justify="space-between" align="center" mb={4}>
+            <Text fontSize="2xl">Aggregate Reports</Text>
+            <Flex gap={2}>
+              <Button
+                leftIcon={<FiRefreshCw />}
+                onClick={handleRefresh}
+                isLoading={isLoading}
+                size="sm"
+                variant="outline"
+              >
+                Refresh
+              </Button>
+            </Flex>
+          </Flex>
+
+          {/* Search Input */}
+          <InputGroup mb={4}>
+            <InputLeftElement pointerEvents="none">
+              <Icon as={FiSearch} color="gray.300" />
+            </InputLeftElement>
+            <Input
+              placeholder="Search by query ID or value..."
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+            />
+          </InputGroup>
+
+          {/* Error Display */}
+          {graphqlError && (
+            <Alert status="error" mb={4}>
+              <AlertIcon />
+              <Box>
+                <Text fontWeight="bold">GraphQL Error:</Text>
+                <Text>{graphqlError.message}</Text>
+              </Box>
+            </Alert>
+          )}
+
+          {/* Loading State */}
+          {isLoading && (
+            <Flex justify="center" align="center" py={8}>
+              <Spinner size="lg" />
+              <Text ml={2}>Loading aggregate reports...</Text>
+            </Flex>
+          )}
+
           <TableContainer>
             <Table variant="simple" size="sm">
               <Thead>
@@ -349,58 +228,66 @@ export default function DataFeed() {
                   <Th>Name</Th>
                   <Th isNumeric>Value</Th>
                   <Th isNumeric># Reporters</Th>
-                  <Th isNumeric>TOTAL Reprtr Pwr</Th>
-                  <Th>Query Type</Th>
-                  <Th>Aggregate Method</Th>
-                  <Th>Cycle List</Th>
+                  <Th isNumeric>Total Power</Th>
+                  <Th>Status</Th>
+                  <Th>Cyclist</Th>
                   <Th isNumeric>Block Height</Th>
                   <Th isNumeric>Micro Report Height</Th>
                   <Th>Timestamp</Th>
                 </Tr>
               </Thead>
               <Tbody>
-                {aggregateReports.map((report, index) => (
-                  <Tr key={index}>
+                {aggregateReports.map((report: OracleReport, index: number) => (
+                  <Tr key={report.id || index}>
                     <Td>
                       <Text isTruncated maxW="200px" title={report.queryId}>
                         {getQueryPairName(report.queryId)}
                       </Text>
                     </Td>
                     <Td isNumeric>
-                      {report.queryType === 'SpotPrice'
-                        ? report.value.startsWith('$')
-                          ? report.value
-                          : `$${report.value}`
-                        : report.value}
+                      {report.value.startsWith('$')
+                        ? report.value
+                        : `$${report.value}`}
                     </Td>
-                    <Td isNumeric>{report.numberOfReporters}</Td>
+                    <Td isNumeric>{report.totalReporters}</Td>
                     <Td isNumeric>
-                      {report.totalPower?.toLocaleString() + ' TRB' || '0 TRB'}
+                      {report.totalPower
+                        ? `${Number(report.totalPower).toLocaleString()} TRB`
+                        : '0 TRB'}
                     </Td>
-                    <Td>{report.queryType || 'N/A'}</Td>
-                    <Td>{report.aggregateMethod || 'N/A'}</Td>
-                    <Td>{report.cycleList ? 'Yes' : 'No'}</Td>
+                    <Td>
+                      <Badge colorScheme={report.flagged ? 'red' : 'green'}>
+                        {report.flagged ? 'Flagged' : 'Valid'}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      <Badge colorScheme={report.cyclist ? 'blue' : 'gray'}>
+                        {report.cyclist ? 'Yes' : 'No'}
+                      </Badge>
+                    </Td>
                     <Td isNumeric>
                       <Link
                         href={`/blocks/${report.blockHeight}`}
                         color="blue.500"
                         isExternal
                       >
-                        {report.blockHeight.toLocaleString()}
+                        {Number(report.blockHeight).toLocaleString()}
                         <ExternalLinkIcon mx="2px" />
                       </Link>
                     </Td>
                     <Td isNumeric>{report.microReportHeight}</Td>
-                    <Td>{report.timestamp.toLocaleString()}</Td>
+                    <Td>{new Date(report.timestamp).toLocaleString()}</Td>
                   </Tr>
                 ))}
               </Tbody>
             </Table>
           </TableContainer>
 
-          {aggregateReports.length === 0 && (
+          {!isLoading && aggregateReports.length === 0 && (
             <Text textAlign="center" py={4} color="gray.500">
-              Waiting for aggregate report events...
+              {isSearching
+                ? `No aggregate reports found for "${searchTerm}"`
+                : 'No aggregate reports available'}
             </Text>
           )}
         </Box>

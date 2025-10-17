@@ -31,7 +31,8 @@ import {
   FiMail,
 } from 'react-icons/fi'
 import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
-import { queryAllValidators } from '@/rpc/abci'
+import { useGraphQLData } from '@/hooks/useGraphQLData'
+import { GET_VALIDATORS_PAGINATED } from '@/graphql/queries/validators'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
 import {
@@ -69,7 +70,7 @@ const fetchDelegatorCount = async (
 type ValidatorData = {
   operatorAddress: string
   validator: string
-  status: number
+  status: string
   votingPower: number
   votingPowerPercentage: string
   commission: string
@@ -410,7 +411,6 @@ export default function Validators() {
   const [perPage, setPerPage] = useState(50)
   const [total, setTotal] = useState(0)
   const [allValidators, setAllValidators] = useState<ValidatorData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [totalVotingPower, setTotalVotingPower] = useState(0)
   const [sorting, setSorting] = useState<SortingState>([])
   const highlightBgColor = useColorModeValue('gray.100', 'gray.700')
@@ -418,6 +418,85 @@ export default function Validators() {
   const tmClient = useSelector(selectTmClient)
   const rpcAddress = useSelector(selectRPCAddress)
   const toast = useToast()
+
+  // GraphQL query variables
+  const queryVariables = useMemo(
+    () => ({
+      limit: perPage,
+      offset: page * perPage,
+    }),
+    [page, perPage]
+  )
+
+  // Use GraphQL data hook
+  const {
+    data: graphqlData,
+    loading: graphqlLoading,
+    error: graphqlError,
+    refetch: refetchGraphQL,
+  } = useGraphQLData(GET_VALIDATORS_PAGINATED, queryVariables, {
+    fetchPolicy: 'cache-and-network',
+    errorPolicy: 'all',
+  })
+
+  // Process GraphQL data
+  useEffect(() => {
+    if (!graphqlData?.validators) return
+
+    const processValidators = async () => {
+      try {
+        // Fetch delegator counts for all validators
+        const validatorsWithDelegatorCounts = await Promise.all(
+          graphqlData.validators.map(async (validator: any) => {
+            const delegatorCount = await fetchDelegatorCount(
+              validator.operatorAddress,
+              rpcAddress
+            )
+            return {
+              operatorAddress: validator.operatorAddress,
+              validator:
+                validator.description?.moniker || validator.operatorAddress,
+              identity: validator.description?.identity || '',
+              website: validator.description?.website || '',
+              details: validator.description?.details || '',
+              securityContact: validator.description?.securityContact || '',
+              votingPower: parseInt(validator.tokens || '0'),
+              votingPowerPercentage: '0%', // Will be calculated below
+              commission: convertRateToPercent(
+                validator.commission?.commissionRates?.rate || '0'
+              ),
+              delegatorCount,
+              status: validator.bondStatus,
+              jailed: validator.jailed || false,
+            }
+          })
+        )
+
+        // Calculate total voting power
+        const totalPower = validatorsWithDelegatorCounts.reduce(
+          (sum, validator) => sum + validator.votingPower,
+          0
+        )
+        setTotalVotingPower(totalPower)
+
+        setAllValidators(validatorsWithDelegatorCounts)
+        setTotal(validatorsWithDelegatorCounts.length)
+      } catch (error) {
+        console.error('Error processing validators:', error)
+        toast({
+          title: 'Error',
+          description: 'Failed to process validator data',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        })
+      } finally {
+        // Processing complete
+      }
+    }
+
+    processValidators()
+  }, [graphqlData, rpcAddress, toast])
 
   const validatorDataWithPercentage = useMemo(() => {
     if (totalVotingPower === 0) return allValidators
@@ -429,120 +508,6 @@ export default function Validators() {
       ).toFixed(2)}%`,
     }))
   }, [allValidators, totalVotingPower])
-
-  useEffect(() => {
-    if (!tmClient) return
-
-    setIsLoading(true)
-    const fetchValidators = async () => {
-      try {
-        // Build query parameters
-        const params = new URLSearchParams({
-          rpc: rpcAddress,
-        })
-
-        // For client-side sorting, we need all data. For server-side sorting, use pagination
-        const isClientSideSorting =
-          sorting.length > 0 && sorting[0].id === 'delegatorCount'
-
-        if (!isClientSideSorting) {
-          params.append('page', page.toString())
-          params.append('perPage', perPage.toString())
-
-          // Add sorting parameters if any
-          if (sorting.length > 0) {
-            const sort = sorting[0]
-            params.append('sortBy', sort.id)
-            params.append('sortOrder', sort.desc ? 'desc' : 'asc')
-          }
-        }
-
-        const response = await fetch(`/api/validators?${params.toString()}`)
-        if (!response.ok) {
-          throw new Error('Failed to fetch validators')
-        }
-        const data: ValidatorResponse = await response.json()
-
-        if (data.validators) {
-          // Fetch delegator counts for all validators
-          const validatorsWithDelegatorCounts = await Promise.all(
-            data.validators.map(async (validator) => {
-              if (!validator.operator_address) {
-                throw new Error('Validator missing operator_address')
-              }
-              const delegatorCount = await fetchDelegatorCount(
-                validator.operator_address,
-                rpcAddress
-              )
-              return {
-                operatorAddress: validator.operator_address,
-                validator:
-                  validator.description?.moniker || validator.operator_address,
-                identity: validator.description?.identity || '',
-                website: validator.description?.website || '',
-                details: validator.description?.details || '',
-                securityContact: validator.description?.security_contact || '',
-                votingPower: parseInt(validator.tokens || '0'),
-                votingPowerPercentage: '0%', // Will be calculated below
-                commission: convertRateToPercent(
-                  validator.commission?.commission_rates?.rate || '0'
-                ),
-                delegatorCount,
-                status: validator.status,
-                jailed: validator.jailed || false,
-              }
-            })
-          )
-
-          // Apply client-side sorting if needed
-          if (isClientSideSorting) {
-            const sort = sorting[0]
-            validatorsWithDelegatorCounts.sort((a, b) => {
-              const aValue = a.delegatorCount
-              const bValue = b.delegatorCount
-              const result = aValue - bValue
-              return sort.desc ? -result : result
-            })
-          }
-
-          // Calculate total voting power from all validators (before pagination)
-          const totalPower = validatorsWithDelegatorCounts.reduce(
-            (sum, validator) => sum + validator.votingPower,
-            0
-          )
-          setTotalVotingPower(totalPower)
-
-          // Apply pagination for client-side sorting
-          if (isClientSideSorting) {
-            const start = page * perPage
-            const end = start + perPage
-            const paginatedValidators = validatorsWithDelegatorCounts.slice(
-              start,
-              end
-            )
-            setAllValidators(paginatedValidators)
-            setTotal(validatorsWithDelegatorCounts.length)
-          } else {
-            setAllValidators(validatorsWithDelegatorCounts)
-            setTotal(data.pagination?.total?.low || data.validators.length)
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching validators:', error)
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch validators',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchValidators()
-  }, [tmClient, rpcAddress, toast, page, perPage, sorting])
 
   useEffect(() => {
     if (
@@ -603,8 +568,8 @@ export default function Validators() {
   return (
     <>
       <Head>
-        <title>Blocks | Tellor Explorer</title>
-        <meta name="description" content="Blocks | Tellor Explorer" />
+        <title>Validators | Tellor Explorer</title>
+        <meta name="description" content="Validators | Tellor Explorer" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -629,8 +594,8 @@ export default function Validators() {
           <Icon fontSize="16" as={FiChevronRight} />
           <Text>Validators</Text>
         </HStack>
+
         <Box
-          mt={8}
           bg={useColorModeValue('light-container', 'dark-container')}
           shadow={'base'}
           borderRadius={4}
@@ -676,7 +641,7 @@ export default function Validators() {
             })}
             data={validatorDataWithPercentage}
             total={total}
-            isLoading={isLoading}
+            isLoading={graphqlLoading}
             onChangePagination={onChangePagination}
             onChangeSorting={handleSortingChange}
             serverSideSorting={

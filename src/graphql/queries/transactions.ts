@@ -22,10 +22,10 @@ export const GET_TRANSACTION_BY_HASH = gql`
  */
 export const GET_TRANSACTIONS = gql`
   ${TRANSACTION_FIELDS}
-  query GetTransactions($limit: Int!, $offset: Int!) {
+  query GetTransactions($limit: Int!) {
     transactions(
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -39,11 +39,11 @@ export const GET_TRANSACTIONS = gql`
  */
 export const GET_TRANSACTIONS_BY_BLOCK = gql`
   ${TRANSACTION_FIELDS}
-  query GetTransactionsByBlock($blockHeight: BigInt!, $limit: Int!, $offset: Int!) {
+  query GetTransactionsByBlock($blockHeight: BigInt!, $limit: Int!) {
     transactions(
       where: { blockHeight_eq: $blockHeight }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -57,14 +57,15 @@ export const GET_TRANSACTIONS_BY_BLOCK = gql`
  */
 export const GET_TRANSACTIONS_BY_TIME_RANGE = gql`
   ${TRANSACTION_FIELDS}
-  query GetTransactionsByTimeRange($startTime: DateTime!, $endTime: DateTime!, $limit: Int!, $offset: Int!) {
+  query GetTransactionsByTimeRange(
+    $startTime: DateTime!
+    $endTime: DateTime!
+    $limit: Int!
+  ) {
     transactions(
-      where: {
-        timestamp_gte: $startTime
-        timestamp_lte: $endTime
-      }
+      where: { timestamp_gte: $startTime, timestamp_lte: $endTime }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -107,15 +108,11 @@ export const GET_TRANSACTION_STATS = gql`
  */
 export const GET_TRANSACTIONS_BY_ADDRESS = gql`
   ${TRANSACTION_FIELDS}
-  query GetTransactionsByAddress($address: String!, $limit: Int!, $offset: Int!) {
+  query GetTransactionsByAddress($address: String!, $limit: Int!) {
     transactions(
-      where: { 
-        or: [
-          { txData_containsInsensitive: $address }
-        ]
-      }
+      where: { or: [{ txData_containsInsensitive: $address }] }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -129,7 +126,7 @@ export const GET_TRANSACTIONS_BY_ADDRESS = gql`
  */
 export const SEARCH_TRANSACTIONS = gql`
   ${TRANSACTION_FIELDS}
-  query SearchTransactions($searchTerm: String!, $limit: Int!, $offset: Int!) {
+  query SearchTransactions($searchTerm: String!, $limit: Int!) {
     transactions(
       where: {
         or: [
@@ -138,7 +135,7 @@ export const SEARCH_TRANSACTIONS = gql`
         ]
       }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {
@@ -153,11 +150,7 @@ export const SEARCH_TRANSACTIONS = gql`
 export const GET_RECENT_TRANSACTIONS = gql`
   ${TRANSACTION_FIELDS}
   query GetRecentTransactions($limit: Int!) {
-    transactions(
-      first: $limit
-      orderBy: timestamp
-      orderDirection: desc
-    ) {
+    transactions(first: $limit, orderBy: timestamp, orderDirection: desc) {
       ...TransactionFields
     }
   }
@@ -179,11 +172,11 @@ export const GET_TRANSACTION_COUNT_BY_BLOCK = gql`
  */
 export const GET_TRANSACTIONS_BY_DATA_PATTERN = gql`
   ${TRANSACTION_FIELDS}
-  query GetTransactionsByDataPattern($pattern: String!, $limit: Int!, $offset: Int!) {
+  query GetTransactionsByDataPattern($pattern: String!, $limit: Int!) {
     transactions(
       where: { txData_containsInsensitive: $pattern }
       first: $limit
-      skip: $offset
+      # skip: $offset  # Not supported by schema
       orderBy: timestamp
       orderDirection: desc
     ) {

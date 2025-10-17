@@ -27,7 +27,7 @@ const GraphQLStoreExample: React.FC = () => {
   const handleTestQuery = () => {
     const queryKey = 'test-query-' + Date.now()
     actions.setQueryLoading(queryKey, true)
-    
+
     // Simulate query execution
     setTimeout(() => {
       actions.setQueryCache(queryKey, { test: 'data' })
@@ -62,22 +62,26 @@ const GraphQLStoreExample: React.FC = () => {
   return (
     <div className="p-6 bg-white rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-4">GraphQL Store Example</h2>
-      
+
       {/* Connection Status */}
       <div className="mb-6">
         <h3 className="text-lg font-semibold mb-2">Connection Status</h3>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="font-medium">Connected:</span> {connection.isConnected ? 'Yes' : 'No'}
+            <span className="font-medium">Connected:</span>{' '}
+            {connection.isConnected ? 'Yes' : 'No'}
           </div>
           <div>
-            <span className="font-medium">Endpoint:</span> {connection.currentEndpoint || 'None'}
+            <span className="font-medium">Endpoint:</span>{' '}
+            {connection.currentEndpoint || 'None'}
           </div>
           <div>
-            <span className="font-medium">Last Health Check:</span> {new Date(connection.lastHealthCheck).toLocaleString()}
+            <span className="font-medium">Last Health Check:</span>{' '}
+            {new Date(connection.lastHealthCheck).toLocaleString()}
           </div>
           <div>
-            <span className="font-medium">Available Endpoints:</span> {connection.availableEndpoints.length}
+            <span className="font-medium">Available Endpoints:</span>{' '}
+            {connection.availableEndpoints.length}
           </div>
         </div>
       </div>
@@ -87,13 +91,22 @@ const GraphQLStoreExample: React.FC = () => {
         <h3 className="text-lg font-semibold mb-2">Performance Metrics</h3>
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div>
-            <span className="font-medium">Total Queries:</span> {performance.totalQueries}
+            <span className="font-medium">Total Queries:</span>{' '}
+            {performance.totalQueries}
           </div>
           <div>
-            <span className="font-medium">Success Rate:</span> {performance.totalQueries > 0 ? Math.round((performance.successfulQueries / performance.totalQueries) * 100) : 0}%
+            <span className="font-medium">Success Rate:</span>{' '}
+            {performance.totalQueries > 0
+              ? Math.round(
+                  (performance.successfulQueries / performance.totalQueries) *
+                    100
+                )
+              : 0}
+            %
           </div>
           <div>
-            <span className="font-medium">Avg Query Time:</span> {Math.round(performance.averageQueryTime)}ms
+            <span className="font-medium">Avg Query Time:</span>{' '}
+            {Math.round(performance.averageQueryTime)}ms
           </div>
         </div>
       </div>
@@ -103,13 +116,16 @@ const GraphQLStoreExample: React.FC = () => {
         <h3 className="text-lg font-semibold mb-2">Cache Statistics</h3>
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div>
-            <span className="font-medium">Total Cached:</span> {cacheStats.totalCached}
+            <span className="font-medium">Total Cached:</span>{' '}
+            {cacheStats.totalCached}
           </div>
           <div>
-            <span className="font-medium">Active Queries:</span> {cacheStats.activeQueries}
+            <span className="font-medium">Active Queries:</span>{' '}
+            {cacheStats.activeQueries}
           </div>
           <div>
-            <span className="font-medium">Recent Queries:</span> {cacheStats.recentQueries}
+            <span className="font-medium">Recent Queries:</span>{' '}
+            {cacheStats.recentQueries}
           </div>
         </div>
       </div>
@@ -119,10 +135,12 @@ const GraphQLStoreExample: React.FC = () => {
         <h3 className="text-lg font-semibold mb-2">Data Source Management</h3>
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="font-medium">Current Priority:</span> {dataSourcePriority.toUpperCase()}
+            <span className="font-medium">Current Priority:</span>{' '}
+            {dataSourcePriority.toUpperCase()}
           </div>
           <div>
-            <span className="font-medium">Total Fallbacks:</span> {fallbackUsage.totalFallbacks}
+            <span className="font-medium">Total Fallbacks:</span>{' '}
+            {fallbackUsage.totalFallbacks}
           </div>
         </div>
       </div>
@@ -187,7 +205,11 @@ const GraphQLStoreExample: React.FC = () => {
       <div className="mt-6 p-4 bg-gray-50 rounded">
         <h4 className="font-semibold mb-2">Usage Instructions:</h4>
         <ul className="text-sm text-gray-700 space-y-1">
-          <li>• Use <code className="bg-gray-200 px-1 rounded">useGraphQLStore()</code> hook to access store state and actions</li>
+          <li>
+            • Use{' '}
+            <code className="bg-gray-200 px-1 rounded">useGraphQLStore()</code>{' '}
+            hook to access store state and actions
+          </li>
           <li>• Monitor connection status and performance metrics</li>
           <li>• Track query cache and error states</li>
           <li>• Manage data source priority and fallback usage</li>
