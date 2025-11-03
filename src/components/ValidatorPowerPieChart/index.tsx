@@ -2,17 +2,19 @@ import { useState, useEffect, useMemo } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { Box, Text, useColorModeValue, VStack } from '@chakra-ui/react'
 import { useRouter } from 'next/router'
-import { useSelector } from 'react-redux'
-import { selectRPCAddress } from '@/store/connectSlice'
 import { isActiveValidator } from '@/utils/helper'
+// GraphQL imports
+import { graphqlQuery } from '@/datasources/graphql/client'
+import { GET_DASHBOARD_VALIDATORS } from '@/datasources/graphql/queries'
+import { DashboardValidatorsResponse } from '@/datasources/graphql/types'
 
 interface ValidatorData {
-  operator_address: string
+  operatorAddress: string
   description: {
     moniker: string
   }
   tokens: string
-  status: string
+  bondStatus: string
 }
 
 interface RawValidatorData extends ValidatorData {
@@ -52,8 +54,8 @@ export default function ValidatorPowerPieChart() {
   const [error, setError] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const router = useRouter()
-  const rpcAddress = useSelector(selectRPCAddress)
 
+  /* RPC CODE - COMMENTED OUT FOR GRAPHQL MIGRATION
   useEffect(() => {
     let isMounted = true
 
@@ -104,6 +106,73 @@ export default function ValidatorPowerPieChart() {
       isMounted = false
     }
   }, [rpcAddress])
+  */
+
+  // GraphQL data fetching for validators with polling
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchValidators = async () => {
+      try {
+        setIsLoading(true)
+        const response = await graphqlQuery<DashboardValidatorsResponse>(
+          GET_DASHBOARD_VALIDATORS
+        )
+
+        if (!isMounted) return
+
+        if (response?.validators?.edges) {
+          const validatorsData = response.validators.edges.map(edge => edge.node)
+          
+          // Transform GraphQL data to match our interface
+          const transformedValidators = validatorsData.map(validator => {
+            // GraphQL already parses JSON fields, so description is already an object
+            const description = validator.description as any || {}
+            
+            return {
+              operatorAddress: validator.operatorAddress,
+              description: {
+                moniker: description.moniker || 'Unknown'
+              },
+              tokens: validator.tokens || '0',
+              bondStatus: validator.bondStatus
+            }
+          })
+
+          // Only include active validators using the utility function
+          const activeValidators = transformedValidators.filter((v: ValidatorData) =>
+            isActiveValidator(v.bondStatus)
+          )
+
+
+          setValidators(activeValidators)
+        } else {
+          setValidators([])
+        }
+      } catch (err) {
+        if (!isMounted) return
+        console.error('Error fetching validators:', err)
+        setError(
+          err instanceof Error ? err.message : 'Failed to fetch validators'
+        )
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    // Initial fetch
+    fetchValidators()
+
+    // Set up polling every 5 minutes (300000ms)
+    const interval = setInterval(fetchValidators, 300000)
+
+    return () => {
+      clearInterval(interval)
+      isMounted = false
+    }
+  }, [])
 
   // Move chartData calculation to useMemo at the top level
   const chartData = useMemo(() => {
@@ -122,7 +191,7 @@ export default function ValidatorPowerPieChart() {
           ...validator,
           description: {
             ...validator.description,
-            moniker: `layer (${truncateAddress(validator.operator_address)})`,
+            moniker: `layer (${truncateAddress(validator.operatorAddress)})`,
           },
         })
       } else {
@@ -146,10 +215,11 @@ export default function ValidatorPowerPieChart() {
       // Convert tokens to TRB (divide by 1e6)
       const tokens = parseFloat(validator.tokens) / 1e6
 
+
       return {
         name: validator.description.moniker,
         value: tokens,
-        address: validator.operator_address,
+        address: validator.operatorAddress,
         percentage: 0, // Will be calculated below
         raw: validator, // Include the raw validator object
       } as ChartDataItem
@@ -157,6 +227,7 @@ export default function ValidatorPowerPieChart() {
 
     // Calculate percentages
     const totalTokens = data.reduce((sum, item) => sum + item.value, 0)
+    
     data.forEach((item) => {
       item.percentage = (item.value / totalTokens) * 100
     })

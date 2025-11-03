@@ -1,3 +1,23 @@
+/**
+ * HYBRID DATA ARCHITECTURE - Dashboard Page
+ * 
+ * This page uses a hybrid approach combining GraphQL and RPC data sources:
+ * 
+ * GraphQL Data Sources (via /src/datasources/graphql/):
+ * - Latest blocks (GET_LATEST_BLOCKS)
+ * - Validator statistics (GET_VALIDATORS)
+ * - Proposal counts (GET_GOV_PROPOSALS)
+ * 
+ * RPC Data Sources (via /api/ routes):
+ * - Current cycle list (/api/current-cycle) - Tellor-specific
+ * - Staking amounts (/api/staking-amount) - Tellor-specific
+ * - Unstaking amounts (/api/unstaking-amount) - Tellor-specific
+ * - Reporter counts (/api/reporter-count) - Tellor-specific
+ * 
+ * This hybrid approach ensures optimal performance for standard Cosmos data
+ * while maintaining real-time access to Tellor-specific module queries.
+ */
+
 import Head from 'next/head'
 import {
   useColorModeValue,
@@ -31,44 +51,68 @@ import { FaUserCheck } from 'react-icons/fa'
 import { HiUserGroup } from 'react-icons/hi2'
 import { IconType } from 'react-icons'
 import NextLink from 'next/link'
-import { useEffect, useState } from 'react'
-import { useSelector, useDispatch } from 'react-redux'
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { useRouter } from 'next/router'
+/* MIGRATED TO GRAPHQL - Commented out unused Redux imports
+ * No longer using Redux for newBlock state - using local GraphQL state instead
+ */
+// import { useSelector, useDispatch } from 'react-redux'
+/* RPC CODE - COMMENTED OUT FOR GRAPHQL MIGRATION
 import { getValidators } from '@/rpc/query'
-import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
-import { selectNewBlock } from '@/store/streamSlice'
-import { displayDate } from '@/utils/helper'
-import { StatusResponse } from '@cosmjs/tendermint-rpc'
 import { getAllowedUnstakingAmount } from '@/rpc/query'
 import { getAllowedStakingAmount } from '@/rpc/query'
 import { getTotalReporterCount } from '@/rpc/query'
 import { getAllowedAmountExp } from '@/rpc/query'
-import { FiDollarSign } from 'react-icons/fi'
 import { getCurrentCycleList } from '@/rpc/query'
-import { FiList } from 'react-icons/fi'
-import { MdPersonSearch } from 'react-icons/md'
-import { BsPersonFillAdd, BsPersonCheck } from 'react-icons/bs'
 import { getLatestBlock } from '@/rpc/query'
 import { getEvmValidators } from '@/rpc/query'
 import { getReporters } from '@/rpc/query'
-import axios from 'axios'
-import { setNewBlock } from '@/store/streamSlice'
 import { getSupplyByDenom } from '@/rpc/query'
+*/
+// RPC imports removed for GraphQL migration
+/* MIGRATED TO GRAPHQL - Commented out Redux newBlock state
+import { selectNewBlock } from '@/store/streamSlice'
+import { setNewBlock } from '@/store/streamSlice'
+*/
+import { displayDate } from '@/utils/helper'
+// StatusResponse import removed for GraphQL migration
+import { FiDollarSign } from 'react-icons/fi'
+import { FiList } from 'react-icons/fi'
+import { MdPersonSearch } from 'react-icons/md'
+import { BsPersonFillAdd, BsPersonCheck } from 'react-icons/bs'
+import axios from 'axios'
 import ValidatorPowerPieChart from '@/components/ValidatorPowerPieChart'
 import { isActiveValidator } from '@/utils/helper'
+// GraphQL imports
+import { graphqlQuery } from '@/datasources/graphql/client'
+import { 
+  GET_DASHBOARD_VALIDATORS, 
+  GET_DASHBOARD_REPORTERS, 
+  GET_DASHBOARD_LATEST_BLOCK,
+  GET_SINGLE_LATEST_BLOCK 
+} from '@/datasources/graphql/queries'
+import { 
+  DashboardValidatorsResponse, 
+  DashboardReportersResponse, 
+  DashboardLatestBlockResponse 
+} from '@/datasources/graphql/types'
 
 export default function Home() {
   const BOX_ICON_BG = useColorModeValue('#003734', '#eefffb') // Light mode, Dark mode
   const BOX_ICON_COLOR = useColorModeValue('#eefffb', '#003734') // Light mode, Dark mode
 
-  const tmClient = useSelector(selectTmClient)
-  const newBlock = useSelector(selectNewBlock)
-  const endpoint = useSelector(selectRPCAddress)
+  const router = useRouter()
+  /* MIGRATED TO GRAPHQL - Commented out Redux newBlock selector
+   * Now using local state from GraphQL query instead
+   */
+  // const newBlock = useSelector(selectNewBlock)
+  const [latestBlockHeight, setLatestBlockHeight] = useState<string | null>(null)
+  const [latestBlockTime, setLatestBlockTime] = useState<Date | null>(null)
   const [validators, setValidators] = useState<number>(0)
   const [isLoaded, setIsLoaded] = useState(false)
-  const [status, setStatus] = useState<any>(null)
   const [totalVotingPower, setTotalVotingPower] = useState<string>('0')
-  const [stakingAmount, setStakingAmount] = useState<string>('0 TRB')
-  const [unstakingAmount, setUnstakingAmount] = useState<string>('0 TRB')
+  const [stakingAmount, setStakingAmount] = useState<string>('0.0000 TRB')
+  const [unstakingAmount, setUnstakingAmount] = useState<string>('0.0000 TRB')
   const [allowedAmountExp, setAllowedAmountExp] = useState<number | undefined>(
     undefined
   )
@@ -81,33 +125,86 @@ export default function Home() {
   const [previousPairCount, setPreviousPairCount] = useState<number>(0)
   const [totalSupply, setTotalSupply] = useState<string>('0 LOYA')
 
-  const dispatch = useDispatch()
+  /* MIGRATED TO GRAPHQL - Commented out unused dispatch
+   * No longer dispatching setNewBlock to Redux - using local state instead
+   */
+  // const dispatch = useDispatch()
 
+  // Track all polling intervals to ensure cleanup on navigation
+  // IMPORTANT: These refs are scoped to THIS component instance only.
+  // Each page component (Home, Blocks, etc.) has its own isolated state/refs,
+  // so cleaning up Home's intervals will NOT affect intervals created by other pages.
+  const intervalsRef = useRef<NodeJS.Timeout[]>([])
+  const timeoutsRef = useRef<NodeJS.Timeout[]>([])
+
+  // Cleanup function to clear all intervals and timeouts
+  // SAFETY: This only clears intervals stored in THIS component's intervalsRef.
+  // It cannot affect intervals managed by other page components since they use
+  // separate component instances with their own isolated state/refs.
+  const cleanupAllPolling = useCallback(() => {
+    intervalsRef.current.forEach((interval) => {
+      if (interval) {
+        clearInterval(interval)
+        console.log('[Home] Cleared polling interval on navigation')
+      }
+    })
+    timeoutsRef.current.forEach((timeout) => {
+      if (timeout) {
+        clearTimeout(timeout)
+        console.log('[Home] Cleared timeout on navigation')
+      }
+    })
+    intervalsRef.current = []
+    timeoutsRef.current = []
+  }, [])
+
+  // Set up router event listeners to clean up on navigation
+  // SAFETY: Router events are global, but this handler only cleans up THIS component's
+  // intervals. Other pages' intervals are stored in their own component instances and
+  // are unaffected by this cleanup.
+  useEffect(() => {
+    const handleRouteChange = (url: string) => {
+      // Only clean up if we're navigating away from the home page
+      // This ensures we don't accidentally clean up intervals when navigating TO home
+      // from another page, or when other pages are navigating between themselves.
+      if (router.pathname === '/' && url !== '/') {
+        console.log('[Home] Navigating away from home page, cleaning up all polling')
+        cleanupAllPolling()
+      }
+    }
+
+    // Listen for route changes
+    router.events.on('routeChangeStart', handleRouteChange)
+
+    // Cleanup on unmount
+    return () => {
+      router.events.off('routeChangeStart', handleRouteChange)
+      // Always clean up on unmount
+      cleanupAllPolling()
+    }
+  }, [router, cleanupAllPolling])
+
+  // GraphQL data fetching for validators with polling
   useEffect(() => {
     const fetchValidators = async () => {
       try {
-        const response = await getValidators(endpoint)
-        if (response?.validators) {
-          // Debug: Log all validator statuses to understand the format
-          console.log(
-            'All validators statuses:',
-            response.validators.map((v: any) => ({
-              moniker: v.description?.moniker,
-              status: v.status,
-              statusType: typeof v.status,
-            }))
-          )
-
+        const response = await graphqlQuery<DashboardValidatorsResponse>(
+          GET_DASHBOARD_VALIDATORS
+        )
+        
+        if (response?.validators?.edges) {
+          const validatorsData = response.validators.edges.map(edge => edge.node)
+          
           // Only count active validators using the utility function
-          const activeValidators = response.validators.filter(
-            (validator: any) => isActiveValidator(validator.status)
+          const activeValidators = validatorsData.filter(
+            (validator) => isActiveValidator(validator.bondStatus)
           )
           console.log('Active validators count:', activeValidators.length)
           setValidators(activeValidators.length)
 
           // Calculate total voting power from ACTIVE validators only
           const totalPower = activeValidators.reduce(
-            (acc: bigint, validator: any) =>
+            (acc: bigint, validator) =>
               acc + BigInt(validator.tokens || 0),
             BigInt(0)
           )
@@ -124,83 +221,129 @@ export default function Home() {
       }
     }
 
-    if (endpoint) {
-      // Add a small delay to ensure RPC manager has updated
-      const timer = setTimeout(() => {
-        fetchValidators()
-      }, 100) // 100ms delay
+    // Initial fetch
+    fetchValidators()
 
-      return () => clearTimeout(timer)
+    // Set up polling every 5 seconds
+    const interval = setInterval(fetchValidators, 5000)
+    intervalsRef.current.push(interval)
+
+    return () => {
+      clearInterval(interval)
+      intervalsRef.current = intervalsRef.current.filter(i => i !== interval)
     }
-  }, [endpoint])
+  }, [])
 
+  // Fetch staking amount data
   useEffect(() => {
-    if (endpoint) {
-      getAllowedStakingAmount(endpoint)
-        .then((amount) => {
-          if (amount !== undefined) {
-            const numAmount = Number(amount)
-            const formattedAmount = !isNaN(numAmount)
-              ? new Intl.NumberFormat().format(numAmount) + ' TRB'
-              : '0 TRB'
-            setStakingAmount(formattedAmount)
-          } else {
-            setStakingAmount('0 TRB')
-          }
-        })
-        .catch((error) => {
-          console.error('Error in getAllowedStakingAmount:', error)
-          setStakingAmount('0 TRB')
-        })
+    const fetchStakingAmount = async () => {
+      try {
+        const response = await axios.get('/api/staking-amount')
+        if (response.data?.amount !== undefined) {
+          const numAmount = Number(response.data.amount)
+          // Convert from loya to TRB (1 TRB = 1,000,000 loya)
+          const trbAmount = numAmount / 1_000_000
+          const formattedAmount = !isNaN(trbAmount)
+            ? trbAmount.toFixed(4) + ' TRB'
+            : '0.0000 TRB'
+          setStakingAmount(formattedAmount)
+        } else {
+          setStakingAmount('0.0000 TRB')
+        }
+      } catch (error) {
+        console.error('Error fetching staking amount:', error)
+        setStakingAmount('0.0000 TRB')
+      }
     }
-  }, [endpoint])
 
-  useEffect(() => {
-    if (endpoint) {
-      // Add a small delay to ensure RPC manager has updated
-      const timer = setTimeout(() => {
-        getReporters(endpoint)
-          .then((data) => {
-            if (data?.reporters) {
-              setReporterCount(data.reporters.length)
-            } else {
-              setReporterCount(0)
-            }
-          })
-          .catch((error) => {
-            console.error('Error fetching reporters:', error)
-            setReporterCount(0)
-          })
-      }, 100) // 100ms delay
+    // Initial fetch
+    fetchStakingAmount()
 
-      return () => clearTimeout(timer)
+    // Set up polling every 10 seconds
+    const interval = setInterval(fetchStakingAmount, 10000)
+    intervalsRef.current.push(interval)
+
+    return () => {
+      clearInterval(interval)
+      intervalsRef.current = intervalsRef.current.filter(i => i !== interval)
     }
-  }, [endpoint])
+  }, [])
 
+  // GraphQL data fetching for reporters with polling
   useEffect(() => {
-    if (endpoint) {
-      getAllowedUnstakingAmount(endpoint)
-        .then((amount) => {
-          if (amount !== undefined) {
-            const formattedAmount =
-              new Intl.NumberFormat().format(Math.abs(Number(amount))) + ' TRB'
-            setUnstakingAmount(formattedAmount)
-          } else {
-            setUnstakingAmount('0 TRB')
-          }
-        })
-        .catch((error) => {
-          console.error('Error in getAllowedUnstakingAmount:', error)
-          setUnstakingAmount('0 TRB')
-        })
+    const fetchReporters = async () => {
+      try {
+        const response = await graphqlQuery<DashboardReportersResponse>(
+          GET_DASHBOARD_REPORTERS
+        )
+        
+        if (response?.reporters?.edges) {
+          const reportersData = response.reporters.edges.map(edge => edge.node)
+          setReporterCount(reportersData.length)
+        } else {
+          setReporterCount(0)
+        }
+      } catch (error) {
+        console.error('Error fetching reporters:', error)
+        setReporterCount(0)
+      }
     }
-  }, [endpoint])
 
+    // Initial fetch
+    fetchReporters()
+
+    // Set up polling every 5 seconds
+    const interval = setInterval(fetchReporters, 5000)
+    intervalsRef.current.push(interval)
+
+    return () => {
+      clearInterval(interval)
+      intervalsRef.current = intervalsRef.current.filter(i => i !== interval)
+    }
+  }, [])
+
+  // Fetch unstaking amount data
   useEffect(() => {
-    getAllowedAmountExp()
-      .then((parsedAmount) => {
-        if (parsedAmount) {
-          const timestamp = new Date(parsedAmount).getTime()
+    const fetchUnstakingAmount = async () => {
+      try {
+        const response = await axios.get('/api/unstaking-amount')
+        if (response.data?.amount !== undefined) {
+          const numAmount = Number(response.data.amount)
+          // Convert from loya to TRB (1 TRB = 1,000,000 loya)
+          const trbAmount = Math.abs(numAmount) / 1_000_000
+          const formattedAmount = !isNaN(trbAmount)
+            ? trbAmount.toFixed(4) + ' TRB'
+            : '0.0000 TRB'
+          setUnstakingAmount(formattedAmount)
+        } else {
+          setUnstakingAmount('0.0000 TRB')
+        }
+      } catch (error) {
+        console.error('Error fetching unstaking amount:', error)
+        setUnstakingAmount('0.0000 TRB')
+      }
+    }
+
+    // Initial fetch
+    fetchUnstakingAmount()
+
+    // Set up polling every 10 seconds
+    const interval = setInterval(fetchUnstakingAmount, 10000)
+    intervalsRef.current.push(interval)
+
+    return () => {
+      clearInterval(interval)
+      intervalsRef.current = intervalsRef.current.filter(i => i !== interval)
+    }
+  }, [])
+
+  // Fetch stake allowance reset time
+  useEffect(() => {
+    const fetchAllowedAmountExp = async () => {
+      try {
+        const response = await axios.get('/api/allowed-amount-exp')
+        if (response.data?.expiration !== undefined) {
+          const timestamp = Number(response.data.expiration)
           if (!isNaN(timestamp)) {
             setAllowedAmountExp(timestamp)
           } else {
@@ -209,99 +352,142 @@ export default function Home() {
         } else {
           setAllowedAmountExp(undefined)
         }
-      })
-      .catch((error) => {
-        console.error('Error in getAllowedAmountExp:', error)
+      } catch (error) {
+        console.error('Error fetching allowed amount exp:', error)
         setAllowedAmountExp(undefined)
-      })
-  }, [endpoint])
+      }
+    }
 
+    // Initial fetch
+    fetchAllowedAmountExp()
+
+    // Set up polling every 10 seconds
+    const interval = setInterval(fetchAllowedAmountExp, 10000)
+    intervalsRef.current.push(interval)
+
+    return () => {
+      clearInterval(interval)
+      intervalsRef.current = intervalsRef.current.filter(i => i !== interval)
+    }
+  }, [])
+
+  /* MIGRATED TO GRAPHQL - Commented out Redux newBlock dependency
+   * Now using local state from GraphQL query
+   */
   useEffect(() => {
-    if ((!isLoaded && newBlock) || (!isLoaded && status)) {
+    if (!isLoaded && latestBlockHeight) {
       setIsLoaded(true)
     }
-  }, [isLoaded, newBlock, status])
+  }, [isLoaded, latestBlockHeight])
 
+  // Fetch current cycle list
   useEffect(() => {
-    if (endpoint) {
-      const fetchCycleList = async () => {
-        try {
-          const cycleList = await getCurrentCycleList(endpoint)
-          if (cycleList && Array.isArray(cycleList)) {
-            const params = cycleList.map((item) => item.queryParams)
-            setCurrentCycleList((prev) => {
-              const combined = Array.from(new Set([...prev, ...params]))
-              return combined
-            })
-          }
-        } catch (error) {
-          console.error('Error in getCurrentCycleList:', error)
+    const fetchCycleList = async () => {
+      try {
+        const response = await axios.get('/api/current-cycle')
+        if (response.data?.cycleList && Array.isArray(response.data.cycleList)) {
+          const params = response.data.cycleList.map((item: any) => item.queryParams)
+          setCurrentCycleList((prev) => {
+            const combined = Array.from(new Set([...prev, ...params]))
+            return combined
+          })
         }
-      }
-
-      // Initial fetch
-      fetchCycleList()
-
-      // Set up polling every 3 seconds
-      const interval = setInterval(fetchCycleList, 3000)
-
-      // Stop polling after 10 seconds
-      const timeout = setTimeout(() => {
-        clearInterval(interval)
-      }, 10000)
-
-      // Cleanup both interval and timeout
-      return () => {
-        clearInterval(interval)
-        clearTimeout(timeout)
+      } catch (error) {
+        console.error('Error fetching cycle list:', error)
       }
     }
-  }, [endpoint])
 
+    // Initial fetch
+    fetchCycleList()
+
+    // Set up polling every 3 seconds
+    const interval = setInterval(fetchCycleList, 3000)
+    intervalsRef.current.push(interval)
+
+    // Stop polling after 10 seconds
+    const timeout = setTimeout(() => {
+      clearInterval(interval)
+      intervalsRef.current = intervalsRef.current.filter(i => i !== interval)
+    }, 10000)
+    timeoutsRef.current.push(timeout)
+
+    // Cleanup both interval and timeout
+    return () => {
+      clearInterval(interval)
+      clearTimeout(timeout)
+      intervalsRef.current = intervalsRef.current.filter(i => i !== interval)
+      timeoutsRef.current = timeoutsRef.current.filter(t => t !== timeout)
+    }
+  }, [])
+
+  // GraphQL data fetching for latest block (replaces RPC subscription)
+  // This replaces the Redux newBlock state that was populated by RPC subscriptions
   useEffect(() => {
-    if (endpoint) {
-      // Clear existing block data when endpoint changes
-      dispatch(setNewBlock(null))
-
-      const fetchLatestBlock = async () => {
-        try {
-          const response = await getLatestBlock(endpoint)
-          if (response?.block?.header?.height) {
-            dispatch(
-              setNewBlock({
-                header: {
-                  height: response.block.header.height,
-                },
-              })
-            )
-          }
-        } catch (error) {
-          console.error('Error fetching latest block:', error)
+    const fetchLatestBlock = async () => {
+      try {
+        const response = await graphqlQuery<DashboardLatestBlockResponse>(GET_SINGLE_LATEST_BLOCK)
+        
+        if (response?.blocks?.edges?.[0]?.node) {
+          const block = response.blocks.edges[0].node
+          // Update local state instead of Redux (migrated from RPC subscription)
+          setLatestBlockHeight(block.blockHeight)
+          setLatestBlockTime(new Date(block.blockTime))
         }
+      } catch (error) {
+        console.error('Error fetching latest block from GraphQL:', error)
       }
-      fetchLatestBlock()
     }
-  }, [endpoint, dispatch])
 
-  useEffect(() => {
-    if (endpoint) {
-      getSupplyByDenom(endpoint, 'loya')
-        .then((amount) => {
-          if (amount !== undefined) {
-            const numAmount = Number(amount.amount) / 1_000_000 // Move decimal 6 places left
-            const formattedAmount =
-              new Intl.NumberFormat().format(numAmount) + ' TRB'
-            setTotalSupply(formattedAmount)
-          } else {
-            setTotalSupply('0 TRB')
-          }
-        })
-        .catch((error) => {
-          console.error('Error fetching supply:', error)
-          setTotalSupply('0 TRB')
-        })
+    // Initial fetch
+    fetchLatestBlock()
+
+    // Set up polling every 3 seconds for latest block
+    const interval = setInterval(fetchLatestBlock, 3000)
+    intervalsRef.current.push(interval)
+
+    return () => {
+      clearInterval(interval)
+      intervalsRef.current = intervalsRef.current.filter(i => i !== interval)
     }
-  }, [endpoint])
+  }, [])
+
+  // Fetch total supply
+  useEffect(() => {
+    const fetchTotalSupply = async () => {
+      try {
+        const response = await axios.get('/api/supply-by-denom', {
+          params: { denom: 'loya' }
+        })
+        if (response.data?.amount !== undefined) {
+          // Backend already converts from loya to TRB and formats with 4 decimals
+          const numAmount = Number(response.data.amount.amount)
+          const formattedAmount =
+            new Intl.NumberFormat('en-US', {
+              minimumFractionDigits: 4,
+              maximumFractionDigits: 4,
+            }).format(numAmount) + ' TRB'
+          setTotalSupply(formattedAmount)
+        } else {
+          setTotalSupply('0.0000 TRB')
+        }
+      } catch (error) {
+        console.error('Error fetching total supply:', error)
+        setTotalSupply('0.0000 TRB')
+      }
+    }
+
+    // Initial fetch
+    fetchTotalSupply()
+
+    // Set up polling every 30 seconds (supply doesn't change often)
+    const interval = setInterval(fetchTotalSupply, 30000)
+    intervalsRef.current.push(interval)
+
+    return () => {
+      clearInterval(interval)
+      intervalsRef.current = intervalsRef.current.filter(i => i !== interval)
+    }
+  }, [])
 
   return (
     <>
@@ -321,11 +507,7 @@ export default function Home() {
                 color={BOX_ICON_COLOR}
                 icon={FiBox}
                 name="Latest Block Height"
-                value={
-                  newBlock?.header.height
-                    ? newBlock?.header.height
-                    : status?.syncInfo.latestBlockHeight
-                }
+                value={latestBlockHeight}
               />
             </Skeleton>
 
@@ -336,12 +518,8 @@ export default function Home() {
                 icon={FiClock}
                 name="Latest Block Time"
                 value={
-                  newBlock?.header.time
-                    ? displayDate(newBlock?.header.time?.toISOString())
-                    : status?.syncInfo.latestBlockTime
-                    ? displayDate(
-                        status?.syncInfo.latestBlockTime.toISOString()
-                      )
+                  latestBlockTime
+                    ? displayDate(latestBlockTime.toISOString())
                     : ''
                 }
               />
@@ -424,7 +602,7 @@ export default function Home() {
                 name="Stake Allowance Reset"
                 value={(() => {
                   return allowedAmountExp && !isNaN(allowedAmountExp)
-                    ? new Date(allowedAmountExp).toUTCString()
+                    ? new Date(allowedAmountExp).toLocaleString()
                     : 'Not available'
                 })()}
               />

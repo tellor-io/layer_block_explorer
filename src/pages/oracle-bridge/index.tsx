@@ -38,6 +38,9 @@ import { deriveSignatures } from '@/utils/signatures'
 import { AbiCoder, keccak256, toBeArray, getBytes } from 'ethers'
 import { Signature } from 'ethers'
 import { InfoOutlineIcon } from '@chakra-ui/icons'
+import { graphqlQuery } from '@/datasources/graphql/client'
+import { GET_AGGREGATE_REPORTS_BY_QUERY_ID } from '@/datasources/graphql/queries'
+import type { AggregateReportsResponse } from '@/datasources/graphql/types'
 
 // Define the type for our withdrawal data
 interface WithdrawalData {
@@ -150,6 +153,7 @@ export default function OracleBridge() {
     return String(error)
   }
 
+  /* MIGRATED TO GRAPHQL - Commented out RPC API call
   const fetchOracleData = async () => {
     try {
       const response = await fetch(`/api/oracle-data/${oracleQueryId}`)
@@ -160,6 +164,58 @@ export default function OracleBridge() {
       } else {
         throw new Error(data.error || 'Failed to fetch oracle data')
       }
+    } catch (error) {
+      console.error('Oracle fetch error:', error)
+      toast({
+        title: 'Error fetching oracle data',
+        description: getErrorMessage(error),
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+    }
+  }
+  */
+
+  // GraphQL client-side fetching for oracle data
+  const fetchOracleData = async () => {
+    try {
+      const response = await graphqlQuery<AggregateReportsResponse>(
+        GET_AGGREGATE_REPORTS_BY_QUERY_ID,
+        { 
+          queryId: oracleQueryId,
+          first: 1 // Get latest report for this queryId
+        }
+      )
+
+      if (!response.aggregateReports.edges.length) {
+        throw new Error('No aggregate report found for this query ID')
+      }
+
+      const latestReport = response.aggregateReports.edges[0].node
+      
+      // Transform GraphQL response to match expected oracle data structure
+      // The API endpoint returns: { aggregate: { aggregate_value: ... }, ... }
+      // We'll adapt the GraphQL response to a compatible structure
+      const oracleData = {
+        aggregate: {
+          aggregate_value: latestReport.value,
+          query_id: latestReport.queryId,
+          block_height: latestReport.blockHeight,
+          timestamp: latestReport.timestamp,
+          total_reporters: latestReport.totalReporters,
+          aggregate_power: latestReport.aggregatePower,
+          micro_report_height: latestReport.microReportHeight,
+        },
+        queryId: latestReport.queryId,
+        value: latestReport.value,
+        blockHeight: latestReport.blockHeight,
+        timestamp: latestReport.timestamp,
+        queryData: latestReport.queryData,
+      }
+
+      setOracleData(oracleData)
+      setIsOracleModalOpen(true)
     } catch (error) {
       console.error('Oracle fetch error:', error)
       toast({

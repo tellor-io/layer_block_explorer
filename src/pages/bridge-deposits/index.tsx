@@ -34,6 +34,9 @@ import NextLink from 'next/link'
 import { FiHome, FiChevronRight, FiCopy } from 'react-icons/fi'
 import { ethers } from 'ethers'
 import { RPCManager } from '@/utils/rpcManager'
+import { graphqlQuery } from '@/datasources/graphql/client'
+import { GET_AGGREGATE_REPORTS_BY_QUERY_ID } from '@/datasources/graphql/queries'
+import type { AggregateReportsResponse } from '@/datasources/graphql/types'
 
 interface ReportStatus {
   isReported: boolean
@@ -87,7 +90,7 @@ export default function BridgeDeposits() {
   const [error, setError] = useState<string | null>(null)
   const toast = useToast()
 
-  // Function to fetch report status for a deposit
+  /* MIGRATED TO GRAPHQL - Commented out RPC API call
   const fetchReportStatus = async (depositId: number) => {
     try {
       const queryId = generateDepositQueryId(depositId)
@@ -109,6 +112,63 @@ export default function BridgeDeposits() {
       return {
         isReported: hasValidData,
         data: hasValidData ? data : undefined,
+      }
+    } catch (error) {
+      console.error(
+        `Error fetching report status for deposit ${depositId}:`,
+        error
+      )
+      return { isReported: false }
+    }
+  }
+  */
+
+  // GraphQL client-side fetching for report status
+  const fetchReportStatus = async (depositId: number) => {
+    try {
+      const queryId = generateDepositQueryId(depositId)
+      
+      const response = await graphqlQuery<AggregateReportsResponse>(
+        GET_AGGREGATE_REPORTS_BY_QUERY_ID,
+        { 
+          queryId: queryId,
+          first: 1 // Get latest report for this queryId
+        }
+      )
+
+      // If no reports found, deposit is not reported
+      if (!response.aggregateReports.edges.length) {
+        return { isReported: false }
+      }
+
+      const latestReport = response.aggregateReports.edges[0].node
+      const hasValidData = latestReport.value && latestReport.value.length > 0
+
+      if (!hasValidData) {
+        return { isReported: false }
+      }
+
+      // Transform GraphQL response to match expected structure
+      const data = {
+        aggregate: {
+          aggregate_value: latestReport.value,
+          query_id: latestReport.queryId,
+          block_height: latestReport.blockHeight,
+          timestamp: latestReport.timestamp,
+          total_reporters: latestReport.totalReporters,
+          aggregate_power: latestReport.aggregatePower,
+          micro_report_height: latestReport.microReportHeight,
+        },
+        queryId: latestReport.queryId,
+        value: latestReport.value,
+        blockHeight: latestReport.blockHeight,
+        timestamp: latestReport.timestamp,
+        queryData: latestReport.queryData,
+      }
+
+      return {
+        isReported: true,
+        data: data,
       }
     } catch (error) {
       console.error(
@@ -249,7 +309,7 @@ export default function BridgeDeposits() {
     }
   }
 
-  // Function to fetch individual withdrawal data
+  /* MIGRATED TO GRAPHQL - Commented out RPC API call
   const fetchWithdrawalData = async (withdrawalId: number) => {
     try {
       const rpcManager = RPCManager.getInstance()
@@ -294,6 +354,80 @@ export default function BridgeDeposits() {
         blockTimestamp: new Date(Number(data.timestamp)),
         reported: true,
         reportData: data,
+        claimed: false,
+      }
+    } catch (error) {
+      console.error(`Error fetching withdrawal ${withdrawalId}:`, error)
+      return null
+    }
+  }
+  */
+
+  // GraphQL client-side fetching for withdrawal data
+  const fetchWithdrawalData = async (withdrawalId: number) => {
+    try {
+      const queryId = generateWithdrawalQueryId(withdrawalId)
+      
+      const response = await graphqlQuery<AggregateReportsResponse>(
+        GET_AGGREGATE_REPORTS_BY_QUERY_ID,
+        { 
+          queryId: queryId,
+          first: 1 // Get latest report for this queryId
+        }
+      )
+
+      if (!response.aggregateReports.edges.length) {
+        // No report found for this withdrawal
+        return null
+      }
+
+      const latestReport = response.aggregateReports.edges[0].node
+      
+      // Parse the value field (hex-encoded) the same way as the API response
+      // Remove '0x' prefix if present, as GraphQL value is hex-encoded
+      let encodedData = latestReport.value
+      if (encodedData.startsWith('0x')) {
+        encodedData = encodedData.slice(2)
+      }
+      
+      // Ensure we have enough data for parsing
+      if (!encodedData || encodedData.length < 320) {
+        throw new Error('Invalid aggregate value format')
+      }
+
+      // Parse withdrawal data from hex-encoded value
+      const sender = '0x' + encodedData.slice(0, 64).slice(-40)
+      const amountHex = encodedData.slice(128, 192)
+      const rawAmount = BigInt('0x' + amountHex.replace(/^0+/, '') || '0')
+      const amount = rawAmount * BigInt(10 ** 14)
+
+      const recipientLength = parseInt(encodedData.slice(256, 320), 16)
+      const recipientStart = 320
+      const recipient = Buffer.from(
+        encodedData.slice(recipientStart, recipientStart + recipientLength * 2),
+        'hex'
+      ).toString('utf8')
+
+      // Parse timestamp - GraphQL returns ISO string
+      const timestamp = latestReport.timestamp.endsWith('Z') 
+        ? new Date(latestReport.timestamp)
+        : new Date(latestReport.timestamp + 'Z')
+
+      return {
+        id: withdrawalId,
+        sender,
+        recipient,
+        amount,
+        blockHeight: BigInt(latestReport.blockHeight || '0'),
+        blockTimestamp: timestamp,
+        reported: true,
+        reportData: {
+          aggregate: {
+            aggregate_value: latestReport.value,
+            height: latestReport.blockHeight,
+          },
+          timestamp: latestReport.timestamp,
+        },
         claimed: false,
       }
     } catch (error) {

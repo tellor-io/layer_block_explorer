@@ -1,6 +1,19 @@
-import axios from 'axios'
+/*
+ * DEPRECATED: This API endpoint has been migrated to GraphQL
+ * 
+ * This endpoint was replaced by GraphQL queries in Phase 2 of the migration.
+ * Reporters data is now fetched directly from GraphQL in components.
+ * 
+ * Migration Date: Phase 2
+ * Replacement: Direct GraphQL queries in /src/pages/reporters/index.tsx
+ * 
+ * Original implementation preserved below for reference:
+ */
+
+/*
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { rpcManager } from '../../utils/rpcManager'
+import { graphqlQuery } from '../../datasources/graphql/client'
+import { GET_REPORTERS } from '../../datasources/graphql/queries'
 
 export default async function handler(
   req: NextApiRequest,
@@ -8,50 +21,99 @@ export default async function handler(
 ) {
   try {
     const {
-      endpoint: customEndpoint,
-      rpc,
       sortBy,
       sortOrder,
       page,
       perPage,
     } = req.query
 
-    // Use custom endpoint if provided, otherwise use RPC address from query, otherwise use rpcManager
-    let endpoint: string
-    if (customEndpoint) {
-      endpoint = customEndpoint as string
-    } else if (rpc) {
-      endpoint = rpc as string
-    } else {
-      endpoint = await rpcManager.getCurrentEndpoint()
+    // Use GraphQL to fetch reporters
+    const first = perPage ? parseInt(perPage as string) : 20
+    
+    // Build orderBy parameter based on sortBy and sortOrder
+    let orderBy = undefined
+    if (sortBy && sortOrder) {
+      const sortField = sortBy as string
+      const order = sortOrder as string
+      
+      // Map frontend sort fields to GraphQL orderBy values
+      const orderByMap: { [key: string]: string } = {
+        'displayName': 'MONIKER',
+        'min_tokens_required': 'MIN_TOKENS_REQUIRED',
+        'commission_rate': 'COMMISSION_RATE',
+        'jailed': 'JAILED',
+        'selectors': 'SELECTORS_COUNT'
+      }
+      
+      const graphqlField = orderByMap[sortField]
+      if (graphqlField) {
+        orderBy = `${graphqlField}_${order.toUpperCase()}`
+      }
     }
 
-    const baseEndpoint = endpoint.replace('/rpc', '')
+    // Enhanced query for reporters with sorting
+    const query = `
+      query GetReporters($first: Int, $orderBy: [ReportersOrderBy!]) {
+        reporters(first: $first, orderBy: $orderBy) {
+          edges {
+            node {
+              id
+              moniker
+              jailed
+              minTokensRequired
+              commissionRate
+              lastUpdated
+              jailedUntil
+              selectors {
+                totalCount
+              }
+            }
+          }
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+          }
+        }
+      }
+    `
 
-    const response = await fetch(
-      `${baseEndpoint}/tellor-io/layer/reporter/reporters`
-    )
+    const result = await graphqlQuery(query, {
+      first,
+      orderBy: orderBy ? [orderBy] : undefined
+    })
 
-    if (!response.ok) {
-      throw new Error(`External API responded with status: ${response.status}`)
+    if (!result.reporters) {
+      throw new Error('No reporters data returned from GraphQL')
     }
 
-    const data = await response.json()
+    // Convert GraphQL response to expected format
+    const reporters = result.reporters.edges.map((edge: any) => ({
+      address: edge.node.id,
+      power: "0", // Power field not available in GraphQL schema
+      metadata: {
+        moniker: edge.node.moniker,
+        jailed: edge.node.jailed,
+        min_tokens_required: edge.node.minTokensRequired,
+        commission_rate: edge.node.commissionRate,
+        last_updated: edge.node.lastUpdated,
+        jailed_until: edge.node.jailedUntil,
+        selectors: edge.node.selectors?.totalCount || 0
+      }
+    }))
 
-    // Apply sorting if requested
-    if (sortBy && data.reporters) {
+    // Apply sorting if requested (client-side sorting)
+    if (sortBy && reporters) {
       const sortField = sortBy as string
       const order = sortOrder === 'desc' ? -1 : 1
 
-      data.reporters.sort((a: any, b: any) => {
+      reporters.sort((a: any, b: any) => {
         let aValue = a[sortField]
         let bValue = b[sortField]
 
         // Handle nested properties
         if (sortField === 'displayName') {
-          // For displayName sorting, we need to sort by the actual display name
-          // Since displayName is derived client-side, we'll sort by address as a fallback
-          // The client-side will handle proper alphabetical sorting
           aValue = a.address
           bValue = b.address
         } else if (sortField === 'power') {
@@ -66,10 +128,6 @@ export default async function handler(
         } else if (sortField === 'jailed') {
           aValue = a.metadata?.jailed ? 'Yes' : 'No'
           bValue = b.metadata?.jailed ? 'Yes' : 'No'
-        } else if (sortField === 'selectors') {
-          // Note: selectors is calculated client-side, so we can't sort by it server-side
-          // This will be handled by client-side sorting
-          return 0
         }
 
         // Handle string comparison
@@ -86,14 +144,13 @@ export default async function handler(
       })
     }
 
-    // Apply pagination if requested
-    if (page && perPage && data.reporters) {
-      const pageNum = parseInt(page as string)
-      const perPageNum = parseInt(perPage as string)
-      const start = pageNum * perPageNum
-      const end = start + perPageNum
-
-      data.reporters = data.reporters.slice(start, end)
+    const data = {
+      reporters,
+      pagination: {
+        total: result.reporters.pageInfo?.hasNextPage ? 'unknown' : reporters.length,
+        page: page ? parseInt(page as string) : 1,
+        perPage: first
+      }
     }
 
     res.status(200).json(data)
@@ -106,14 +163,20 @@ export default async function handler(
   }
 }
 
-export const getReporters = async (endpoint: string) => {
-  try {
-    const response = await axios.get('/api/reporters', {
-      params: { endpoint },
-    })
-    return response.data
-  } catch (error) {
-    console.error('Failed to fetch reporters:', error)
-    throw error
-  }
+// Helper function removed - use GraphQL client directly in components
+*/
+
+// Return deprecation notice
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  res.status(410).json({
+    error: 'This API endpoint has been deprecated',
+    message: 'Reporters data is now fetched directly from GraphQL in components',
+    migrationPhase: 'Phase 2',
+    replacement: 'Direct GraphQL queries in /src/pages/reporters/index.tsx'
+  })
 }

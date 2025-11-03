@@ -53,10 +53,16 @@ import {
   FiGithub,
   FiAlertCircle,
 } from 'react-icons/fi'
+/* MIGRATED TO GRAPHQL - Commented out Redux newBlock import
 import { selectNewBlock } from '@/store/streamSlice'
+*/
 import { MoonIcon, SunIcon } from '@chakra-ui/icons'
 import { StatusResponse } from '@cosmjs/tendermint-rpc'
 import { connectWebsocketClient, validateConnection } from '@/rpc/client'
+// GraphQL imports for latest block
+import { graphqlQuery } from '@/datasources/graphql/client'
+import { GET_SINGLE_LATEST_BLOCK } from '@/datasources/graphql/queries'
+import { DashboardLatestBlockResponse } from '@/datasources/graphql/types'
 import { LinkItems, RefLinkItems, NavItem } from '@/components/Sidebar'
 import { rpcManager } from '../../utils/rpcManager'
 import { RPC_ENDPOINTS } from '../../utils/constant'
@@ -77,7 +83,11 @@ export default function Navbar() {
   const router = useRouter()
   const tmClient = useSelector(selectTmClient)
   const rpcAddress = useSelector(selectRPCAddress)
-  const newBlock = useSelector(selectNewBlock)
+  /* MIGRATED TO GRAPHQL - Commented out Redux newBlock selector
+   * Now using local state from GraphQL query instead
+   */
+  // const newBlock = useSelector(selectNewBlock)
+  const [latestBlockHeight, setLatestBlockHeight] = useState<string | null>(null)
   const [status, setStatus] = useState<StatusResponse | null>(null)
   const [search, setSearch] = useState('')
   const { isOpen, onOpen, onClose } = useDisclosure()
@@ -99,6 +109,30 @@ export default function Navbar() {
       })
     }
   }, [tmClient])
+
+  // GraphQL data fetching for latest block height (only when modal opens)
+  // This replaces the Redux newBlock state that was populated by RPC subscriptions
+  // Only fetches when the network info modal is opened - no continuous polling needed
+  useEffect(() => {
+    if (isOpen) {
+      const fetchLatestBlock = async () => {
+        try {
+          const response = await graphqlQuery<DashboardLatestBlockResponse>(GET_SINGLE_LATEST_BLOCK)
+          
+          if (response?.blocks?.edges?.[0]?.node) {
+            const block = response.blocks.edges[0].node
+            // Update local state instead of Redux (migrated from RPC subscription)
+            setLatestBlockHeight(block.blockHeight)
+          }
+        } catch (error) {
+          console.error('Error fetching latest block from GraphQL in Navbar:', error)
+        }
+      }
+
+      // Fetch once when modal opens
+      fetchLatestBlock()
+    }
+  }, [isOpen])
 
   const handleSearch = () => {
     if (heightRegex.test(search)) {
@@ -439,7 +473,7 @@ export default function Navbar() {
 
             <Text>
               <strong>Latest Block Height:</strong>{' '}
-              {newBlock?.header.height ?? status?.syncInfo.latestBlockHeight}
+              {latestBlockHeight ?? status?.syncInfo.latestBlockHeight}
             </Text>
             <HStack>
               <Text>

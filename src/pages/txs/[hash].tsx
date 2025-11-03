@@ -19,76 +19,60 @@ import {
   Tr,
   useColorModeValue,
   useToast,
+  Spinner,
+  Center,
 } from '@chakra-ui/react'
 import { FiChevronRight, FiHome, FiCheck, FiX } from 'react-icons/fi'
 import NextLink from 'next/link'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
-import { useSelector } from 'react-redux'
-import { selectTmClient } from '@/store/connectSlice'
-import { getTx, getBlock } from '@/rpc/query'
-import { IndexedTx, Block, Coin } from '@cosmjs/stargate'
-import { Tx } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
 import {
   timeFromNow,
   displayDate,
   isBech32Address,
   getTypeMsg,
 } from '@/utils/helper'
-import { decodeMsg, DecodeMsg } from '@/encoding'
+import { graphqlQuery } from '@/datasources/graphql/client'
+import { GET_TRANSACTION_BY_HASH } from '@/datasources/graphql/queries'
+import { TransactionResponse, Transaction } from '@/datasources/graphql/types'
 
-export default function DetailBlock() {
+export default function DetailTransaction() {
   const router = useRouter()
   const toast = useToast()
   const { hash } = router.query
-  const tmClient = useSelector(selectTmClient)
-  const [tx, setTx] = useState<IndexedTx | null>(null)
-  const [txData, setTxData] = useState<Tx | null>(null)
-  const [block, setBlock] = useState<Block | null>(null)
-  const [msgs, setMsgs] = useState<DecodeMsg[]>([])
+  const [transaction, setTransaction] = useState<Transaction | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (tmClient && hash) {
-      getTx(tmClient, hash as string)
-        .then(setTx)
-        .catch(showError)
-    }
-  }, [tmClient, hash])
-
-  useEffect(() => {
-    if (tmClient && tx?.height) {
-      getBlock(tmClient, tx?.height).then(setBlock).catch(showError)
-    }
-  }, [tmClient, tx])
-
-  useEffect(() => {
-    if (tx?.tx) {
-      const data = Tx.decode(tx?.tx)
-      setTxData(data)
-    }
-  }, [tx])
-
-  useEffect(() => {
-    if (txData?.body?.messages.length && !msgs.length) {
-      for (const message of txData?.body?.messages) {
-        const msg = decodeMsg(message.typeUrl, message.value)
-        setMsgs((prevMsgs) => [...prevMsgs, msg])
-      }
-    }
-  }, [txData])
-
-  const getFee = (fees: Coin[] | undefined) => {
-    if (fees && fees.length) {
-      return (
-        <HStack>
-          <Text>{fees[0].amount}</Text>
-          <Text textColor="cyan.800">{fees[0].denom}</Text>
-        </HStack>
+  const fetchTransaction = async () => {
+    if (!hash) return
+    
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const response = await graphqlQuery<TransactionResponse>(
+        GET_TRANSACTION_BY_HASH,
+        { id: hash as string }
       )
+      
+      if (response.transaction) {
+        setTransaction(response.transaction)
+      } else {
+        setError('Transaction not found')
+      }
+    } catch (err) {
+      console.error('Failed to fetch transaction:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch transaction')
+    } finally {
+      setLoading(false)
     }
-    return ''
   }
+
+  useEffect(() => {
+    fetchTransaction()
+  }, [hash])
 
   const showMsgData = (msgData: any) => {
     if (msgData) {
@@ -115,27 +99,6 @@ export default function DetailBlock() {
     }
 
     return ''
-  }
-
-  const showError = (err: Error) => {
-    const errMsg = err.message
-    let error = null
-    try {
-      error = JSON.parse(errMsg)
-    } catch (e) {
-      error = {
-        message: 'Invalid',
-        data: errMsg,
-      }
-    }
-
-    toast({
-      title: error.message,
-      description: error.data,
-      status: 'error',
-      duration: 5000,
-      isClosable: true,
-    })
   }
 
   return (
@@ -176,208 +139,94 @@ export default function DetailBlock() {
           <Icon fontSize="16" as={FiChevronRight} />
           <Text>Tx</Text>
         </HStack>
-        <Box
-          mt={8}
-          bg={useColorModeValue('light-container', 'dark-container')}
-          shadow={'base'}
-          borderRadius={4}
-          p={4}
-        >
-          <Heading size={'md'} mb={4}>
-            Information
-          </Heading>
-          <Divider borderColor={'gray'} mb={4} />
-          <TableContainer>
-            <Table variant="unstyled" size={'sm'}>
-              <Tbody>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Chain Id</b>
-                  </Td>
-                  <Td>{block?.header.chainId}</Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Tx Hash</b>
-                  </Td>
-                  <Td>{tx?.hash}</Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Status</b>
-                  </Td>
-                  <Td>
-                    {tx?.code == 0 ? (
+        {loading ? (
+          <Center py={8}>
+            <Spinner size="lg" />
+          </Center>
+        ) : error ? (
+          <Center py={8}>
+            <Text color="red.500">Error: {error}</Text>
+          </Center>
+        ) : transaction ? (
+          <Box
+            mt={8}
+            bg={useColorModeValue('light-container', 'dark-container')}
+            shadow={'base'}
+            borderRadius={4}
+            p={4}
+          >
+            <Heading size={'md'} mb={4}>
+              Information
+            </Heading>
+            <Divider borderColor={'gray'} mb={4} />
+            <TableContainer>
+              <Table variant="unstyled" size={'sm'}>
+                <Tbody>
+                  <Tr>
+                    <Td pl={0} width={150}>
+                      <b>Transaction ID</b>
+                    </Td>
+                    <Td>{transaction.id}</Td>
+                  </Tr>
+                  <Tr>
+                    <Td pl={0} width={150}>
+                      <b>Status</b>
+                    </Td>
+                    <Td>
                       <Tag variant="subtle" colorScheme="green">
                         <TagLeftIcon as={FiCheck} />
                         <TagLabel>Success</TagLabel>
                       </Tag>
-                    ) : (
-                      <Tag variant="subtle" colorScheme="red">
-                        <TagLeftIcon as={FiX} />
-                        <TagLabel>Error</TagLabel>
-                      </Tag>
-                    )}
-                  </Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Height</b>
-                  </Td>
-                  <Td>
-                    <Link
-                      as={NextLink}
-                      href={'/blocks/' + tx?.height}
-                      style={{ textDecoration: 'none' }}
-                      _focus={{ boxShadow: 'none' }}
-                    >
-                      <Text color={'cyan.400'}>{tx?.height}</Text>
-                    </Link>
-                  </Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Time</b>
-                  </Td>
-                  <Td>
-                    {block?.header.time
-                      ? `${timeFromNow(block?.header.time)} ( ${displayDate(
-                          block?.header.time
-                        )} )`
-                      : ''}
-                  </Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Fee</b>
-                  </Td>
-                  <Td>{getFee(txData?.authInfo?.fee?.amount)}</Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Gas (used / wanted)</b>
-                  </Td>
-                  <Td>
-                    {tx?.gasUsed ? `${tx.gasUsed} / ${tx.gasWanted}` : ''}
-                  </Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Memo</b>
-                  </Td>
-                  <Td>{txData?.body?.memo}</Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Events</b>
-                  </Td>
-                  <Td>
-                    {tx?.events?.map((event, index) => (
-                      <Box key={index}>
-                        <Text fontWeight="bold">{event.type}</Text>
-                        {event.attributes.map((attribute, attrIndex) => (
-                          <Text key={attrIndex}>
-                            {attribute.key}: {attribute.value}
-                          </Text>
-                        ))}
-                      </Box>
-                    ))}
-                  </Td>
-                </Tr>
-              </Tbody>
-            </Table>
-          </TableContainer>
-        </Box>
+                    </Td>
+                  </Tr>
+                  <Tr>
+                    <Td pl={0} width={150}>
+                      <b>Height</b>
+                    </Td>
+                    <Td>
+                      <Link
+                        as={NextLink}
+                        href={'/blocks/' + transaction.blockHeight}
+                        style={{ textDecoration: 'none' }}
+                        _focus={{ boxShadow: 'none' }}
+                      >
+                        <Text color={'cyan.400'}>{transaction.blockHeight}</Text>
+                      </Link>
+                    </Td>
+                  </Tr>
+                  <Tr>
+                    <Td pl={0} width={150}>
+                      <b>Time</b>
+                    </Td>
+                    <Td>
+                      {`${timeFromNow(transaction.timestamp)} ( ${displayDate(
+                        transaction.timestamp
+                      )} )`}
+                    </Td>
+                  </Tr>
+                </Tbody>
+              </Table>
+            </TableContainer>
+          </Box>
+        ) : null}
 
-        <Box
-          mt={8}
-          bg={useColorModeValue('light-container', 'dark-container')}
-          shadow={'base'}
-          borderRadius={4}
-          p={4}
-        >
-          <Heading size={'md'} mb={4}>
-            Messages
-          </Heading>
-
-          {msgs.map((msg, index) => (
-            <Card variant={'outline'} key={index} mb={8}>
-              <CardHeader>
-                <Heading size="sm">{getTypeMsg(msg.typeUrl)}</Heading>
-              </CardHeader>
-              <Divider />
-              <CardBody>
-                <TableContainer>
-                  <Table variant="unstyled" size={'sm'}>
-                    <Tbody>
-                      <Tr>
-                        <Td pl={0} width={150}>
-                          <b>typeUrl</b>
-                        </Td>
-                        <Td>{msg.typeUrl}</Td>
-                      </Tr>
-                      {Object.keys(msg.data ?? {}).map((key) => (
-                        <Tr key={key}>
-                          <Td pl={0} width={150}>
-                            <b>{key}</b>
-                          </Td>
-                          <Td>
-                            {showMsgData(
-                              msg.data ? msg.data[key as keyof {}] : ''
-                            )}
-                          </Td>
-                        </Tr>
-                      ))}
-                    </Tbody>
-                  </Table>
-                </TableContainer>
-              </CardBody>
-            </Card>
-          ))}
-        </Box>
-        <Box
-          mt={8}
-          bg={useColorModeValue('light-container', 'dark-container')}
-          shadow={'base'}
-          borderRadius={4}
-          p={4}
-        >
-          <Heading size={'md'} mb={4}>
-            New Report
-          </Heading>
-          <Divider borderColor={'gray'} mb={4} />
-          {tx?.events?.map((event, index) => {
-            if (event.type === 'NewReport') {
-              // Replace with the actual event type you're looking for
-              return (
-                <Box key={index}>
-                  <Text fontWeight="bold">Reporter:</Text>
-                  <Text>
-                    {
-                      event.attributes.find((attr) => attr.key === 'reporter')
-                        ?.value
-                    }
-                  </Text>
-                  <Text fontWeight="bold">Query Data:</Text>
-                  <Text>
-                    {
-                      event.attributes.find((attr) => attr.key === 'query_data')
-                        ?.value
-                    }
-                  </Text>
-                  <Text fontWeight="bold">Value:</Text>
-                  <Text>
-                    {
-                      event.attributes.find((attr) => attr.key === 'value')
-                        ?.value
-                    }
-                  </Text>
-                </Box>
-              )
-            }
-            return null
-          })}
-        </Box>
+        {transaction && (
+          <Box
+            mt={8}
+            bg={useColorModeValue('light-container', 'dark-container')}
+            shadow={'base'}
+            borderRadius={4}
+            p={4}
+          >
+            <Heading size={'md'} mb={4}>
+              Transaction Data
+            </Heading>
+            <Divider borderColor={'gray'} mb={4} />
+            <Text fontSize="sm" fontFamily="mono" whiteSpace="pre-wrap">
+              {transaction.txData}
+            </Text>
+          </Box>
+        )}
       </main>
     </>
   )

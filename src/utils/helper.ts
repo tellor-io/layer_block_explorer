@@ -1,17 +1,22 @@
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import duration from 'dayjs/plugin/duration'
+import utc from 'dayjs/plugin/utc'
 import { toHex } from '@cosmjs/encoding'
 import { bech32 } from 'bech32'
 import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin'
 
 export const timeFromNow = (date: string): string => {
   dayjs.extend(relativeTime)
-  return dayjs(date).fromNow()
+  dayjs.extend(utc)
+  // GraphQL timestamps are in format "2025-10-28T16:17:04.508" (UTC without Z suffix)
+  // We need to explicitly treat them as UTC
+  const utcDate = dayjs.utc(date)
+  return utcDate.fromNow()
 }
 
-export const trimHash = (txHash: Uint8Array): string => {
-  const hash = toHex(txHash).toUpperCase()
+export const trimHash = (txHash: Uint8Array | string): string => {
+  const hash = typeof txHash === 'string' ? txHash.toUpperCase() : toHex(txHash).toUpperCase()
   const first = hash.slice(0, 5)
   const last = hash.slice(hash.length - 5, hash.length)
   return first + '...' + last
@@ -108,4 +113,28 @@ export const isActiveValidator = (status: string | number): boolean => {
     return status === 3 // BOND_STATUS_BONDED = 3
   }
   return false
+}
+
+/**
+ * Convert comma-separated byte string to bech32 consensus address
+ * Used for matching proposer addresses with validator consensus addresses
+ * 
+ * @param byteString - Comma-separated byte string (e.g., "213,57,224,58,...")
+ * @returns Bech32 consensus address (e.g., "tellorvalcons165u7qw4f8rzwae5fg0yect2eelfj5fnu7eshrt")
+ */
+export const bytesToBech32ConsensusAddress = (byteString: string): string => {
+  try {
+    // Convert comma-separated bytes to Buffer
+    const bytes = byteString.split(',').map(byte => parseInt(byte.trim(), 10))
+    const buffer = Buffer.from(bytes)
+    
+    // Convert to bech32 with consensus prefix
+    const words = bech32.toWords(buffer)
+    const consensusAddress = bech32.encode('tellorvalcons', words)
+    
+    return consensusAddress
+  } catch (error) {
+    console.error('Failed to convert bytes to bech32 consensus address:', error)
+    return byteString // Return original if conversion fails
+  }
 }

@@ -11,6 +11,7 @@ import {
   setTmClient,
   setRPCAddress,
 } from '@/store/connectSlice'
+/* MIGRATED TO GRAPHQL - Commented out RPC subscription imports
 import { subscribeNewBlock, subscribeTx } from '@/rpc/subscribe'
 import {
   setNewBlock,
@@ -21,6 +22,7 @@ import {
   setSubsTxEvent,
 } from '@/store/streamSlice'
 import { NewBlockEvent, TxEvent } from '@cosmjs/tendermint-rpc'
+*/
 import { connectWebsocketClient } from '@/rpc/client'
 import { rpcManager } from '@/utils/rpcManager'
 import { toHex } from '@cosmjs/encoding'
@@ -35,11 +37,16 @@ export default function Layout({ children }: LayoutProps) {
 
   const connectState = useSelector(selectConnectState)
   const tmClient = useSelector(selectTmClient)
+  /* MIGRATED TO GRAPHQL - Commented out RPC subscription state
   const newBlock = useSelector(selectNewBlock)
   const txEvent = useSelector(selectTxEvent)
+  const subsNewBlock = useSelector(selectSubsNewBlock)
+  const subsTxEvent = useSelector(selectSubsTxEvent)
+  */
 
   const [isLoading, setIsLoading] = useState(true)
 
+  /* MIGRATED TO GRAPHQL - Commented out RPC subscription callbacks
   const updateNewBlock = (event: NewBlockEvent): void => {
     dispatch(setNewBlock(event))
   }
@@ -47,6 +54,7 @@ export default function Layout({ children }: LayoutProps) {
   const updateTxEvent = (event: TxEvent): void => {
     dispatch(setTxEvent(event))
   }
+  */
 
   const connect = async (address: string) => {
     try {
@@ -92,15 +100,53 @@ export default function Layout({ children }: LayoutProps) {
     }
   }
 
+  /* MIGRATED TO GRAPHQL - Commented out RPC subscription setup
+   * 
+   * Previous behavior: Created RPC subscriptions for new blocks and transactions
+   * - subscribeNewBlock: Polled every 1 second for new blocks
+   * - subscribeTx: Polled every 2 seconds for new transactions
+   * - These subscriptions were never cleaned up, causing continuous RPC calls
+   * 
+   * New behavior: Each page component now uses GraphQL queries directly
+   * - Home page: Uses GraphQL polling for latest block (GET_SINGLE_LATEST_BLOCK)
+   * - Navbar: Uses GraphQL polling for latest block height
+   * - Blocks page: Uses GraphQL polling for block list
+   * - Data Feed page: Uses GraphQL polling for aggregate reports
+   * 
+   * This eliminates unnecessary RPC calls and improves performance.
+   * 
+   * Migration Date: 2025-11-03
+   * Migration Plan: See GRAPHQL_MIGRATION_PLAN.md
+   */
+  /*
   useEffect(() => {
     if (tmClient) {
+      // Clean up any existing subscriptions before creating new ones
+      if (subsNewBlock) {
+        subsNewBlock.unsubscribe()
+      }
+      if (subsTxEvent) {
+        subsTxEvent.unsubscribe()
+      }
+
       const subscription = subscribeNewBlock(tmClient, updateNewBlock)
       dispatch(setSubsNewBlock(subscription))
 
       const txSubscription = subscribeTx(tmClient, updateTxEvent)
       dispatch(setSubsTxEvent(txSubscription))
+
+      // Cleanup function to unsubscribe when component unmounts or tmClient changes
+      return () => {
+        if (subscription) {
+          subscription.unsubscribe()
+        }
+        if (txSubscription) {
+          txSubscription.unsubscribe()
+        }
+      }
     }
-  }, [tmClient, dispatch])
+  }, [tmClient, dispatch, subsNewBlock, subsTxEvent])
+  */
 
   useEffect(() => {
     if (isLoading) {

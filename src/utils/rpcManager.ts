@@ -1,6 +1,30 @@
 import axios from 'axios'
 import { RPC_ENDPOINTS, LS_RPC_ADDRESS } from './constant'
 
+/**
+ * HYBRID ARCHITECTURE - Phase 3 Migration
+ * 
+ * This RPCManager now handles only Tellor-specific data endpoints that are not available in GraphQL.
+ * 
+ * GraphQL Data Sources (via /src/datasources/graphql/):
+ * - Blocks, Validators, Proposals, Delegations, Reporters (basic data)
+ * 
+ * RPC Data Sources (via this manager):
+ * - Current cycle lists (/api/current-cycle)
+ * - Staking/unstaking amounts (/api/staking-amount, /api/unstaking-amount)
+ * - Allowed amount expiration (/api/allowed-amount-exp)
+ * - Oracle data queries (/api/oracle-data/[queryId])
+ * - Bridge data (/api/bridge-data/[queryId]/[timestamp])
+ * - Bridge attestations (/api/bridge-attestations/[snapshot])
+ * - EVM validators (/api/evm-validators)
+ * - Reporter counts (/api/reporter-count)
+ * - Reporter selectors (/api/reporter-selectors/[reporter])
+ * 
+ * This hybrid approach ensures we get the best of both worlds:
+ * - Fast, indexed data from GraphQL for standard Cosmos operations
+ * - Real-time, Tellor-specific data from RPC for custom module queries
+ */
+
 interface RPCState {
   currentIndex: number
   failures: { [key: string]: number }
@@ -126,18 +150,16 @@ export class RPCManager {
   private async clearCaches() {
     // Clear any in-memory caches that might be holding stale data
     try {
-      // Clear the reporter count cache
+      // Clear the reporter count cache (Tellor-specific data)
       await fetch('/api/reporter-count?clearCache=true')
 
-      // Clear the validators cache
-      await fetch('/api/validators?clearCache=true')
-
-      // Clear other potential caches by making fresh requests
-      // This ensures all API endpoints get fresh data from the new RPC
+      // Clear other Tellor-specific caches by making fresh requests
+      // Note: Standard Cosmos data (blocks, validators, proposals) now uses GraphQL
       const cacheClearingPromises = [
         fetch('/api/evm-validators').catch(() => {}),
-        fetch('/api/reporters').catch(() => {}),
-        fetch('/api/latest-block').catch(() => {}),
+        fetch('/api/current-cycle').catch(() => {}),
+        fetch('/api/staking-amount').catch(() => {}),
+        fetch('/api/unstaking-amount').catch(() => {}),
       ]
 
       await Promise.all(cacheClearingPromises)

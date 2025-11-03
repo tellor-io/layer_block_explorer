@@ -52,6 +52,6 @@ export const proposalStatusList: proposalStatus[] = [
 ]
 
 export const RPC_ENDPOINTS = [
-  'https://mainnet.tellorlayer.com/rpc', // primary URL
-  'https://node-palmito.tellorlayer.com/rpc', // fallback URL
+  'https://node-palmito.tellorlayer.com/rpc', // primary URL
+  'https://mainnet.tellorlayer.com/rpc', // fallback URL
 ]

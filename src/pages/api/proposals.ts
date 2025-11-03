@@ -2,10 +2,10 @@
  * DEPRECATED: This API endpoint has been migrated to GraphQL
  * 
  * This endpoint was replaced by GraphQL queries in Phase 2 of the migration.
- * Validators data is now fetched directly from GraphQL in components.
+ * Proposals data is now fetched directly from GraphQL in components.
  * 
  * Migration Date: Phase 2
- * Replacement: Direct GraphQL queries in /src/pages/validators/index.tsx
+ * Replacement: Direct GraphQL queries in /src/pages/proposals/index.tsx
  * 
  * Original implementation preserved below for reference:
  */
@@ -13,7 +13,7 @@
 /*
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { graphqlQuery } from '../../datasources/graphql/client'
-import { GET_VALIDATORS } from '../../datasources/graphql/queries'
+import { GET_GOV_PROPOSALS } from '../../datasources/graphql/queries'
 
 export default async function handler(
   req: NextApiRequest,
@@ -27,7 +27,7 @@ export default async function handler(
       perPage,
     } = req.query
 
-    // Use GraphQL to fetch validators
+    // Use GraphQL to fetch proposals
     const first = perPage ? parseInt(perPage as string) : 20
     
     // Build orderBy parameter based on sortBy and sortOrder
@@ -38,11 +38,11 @@ export default async function handler(
       
       // Map frontend sort fields to GraphQL orderBy values
       const orderByMap: { [key: string]: string } = {
-        'moniker': 'DESCRIPTION',
-        'tokens': 'TOKENS',
-        'commission': 'COMMISSION',
-        'jailed': 'JAILED',
-        'bondStatus': 'BOND_STATUS'
+        'proposalId': 'PROPOSAL_ID',
+        'title': 'TITLE',
+        'status': 'STATUS',
+        'submitTime': 'SUBMIT_TIME',
+        'votingEndTime': 'VOTING_END_TIME'
       }
       
       const graphqlField = orderByMap[sortField]
@@ -51,19 +51,19 @@ export default async function handler(
       }
     }
 
-    // Enhanced query for validators with sorting
+    // Enhanced query for proposals with sorting
     const query = `
-      query GetValidators($first: Int, $orderBy: [ValidatorsOrderBy!]) {
-        validators(first: $first, orderBy: $orderBy) {
+      query GetGovProposals($first: Int, $orderBy: [GovProposalsOrderBy!]) {
+        govProposals(first: $first, orderBy: $orderBy) {
           edges {
             node {
-              operatorAddress
-              consensusPubkey
-              bondStatus
-              tokens
-              commission
-              description
-              jailed
+              proposalId
+              title
+              status
+              submitTime
+              votingStartTime
+              votingEndTime
+              messages
             }
           }
           pageInfo {
@@ -81,25 +81,25 @@ export default async function handler(
       orderBy: orderBy ? [orderBy] : undefined
     })
 
-    if (!result.validators) {
-      throw new Error('No validators data returned from GraphQL')
+    if (!result.govProposals) {
+      throw new Error('No proposals data returned from GraphQL')
     }
 
     // Convert GraphQL response to expected format
-    const validators = result.validators.edges.map((edge: any) => ({
-      operatorAddress: edge.node.operatorAddress,
-      consensusPubkey: edge.node.consensusPubkey,
-      bondStatus: edge.node.bondStatus,
-      tokens: edge.node.tokens,
-      commission: edge.node.commission,
-      description: edge.node.description,
-      jailed: edge.node.jailed,
+    const proposals = result.govProposals.edges.map((edge: any) => ({
+      proposalId: edge.node.proposalId,
+      title: edge.node.title,
+      status: edge.node.status,
+      submitTime: edge.node.submitTime,
+      votingStartTime: edge.node.votingStartTime,
+      votingEndTime: edge.node.votingEndTime,
+      messages: edge.node.messages,
     }))
 
     const data = {
-      validators,
+      proposals,
       pagination: {
-        total: result.validators.pageInfo?.hasNextPage ? 'unknown' : validators.length,
+        total: result.govProposals.pageInfo?.hasNextPage ? 'unknown' : proposals.length,
         page: page ? parseInt(page as string) : 1,
         perPage: first
       }
@@ -109,7 +109,7 @@ export default async function handler(
   } catch (error) {
     console.error('API Route Error:', error)
     res.status(500).json({
-      error: 'Failed to fetch validators',
+      error: 'Failed to fetch proposals',
       details: error instanceof Error ? error.message : 'Unknown error',
     })
   }
@@ -125,8 +125,8 @@ export default async function handler(
 ) {
   res.status(410).json({
     error: 'This API endpoint has been deprecated',
-    message: 'Validators data is now fetched directly from GraphQL in components',
+    message: 'Proposals data is now fetched directly from GraphQL in components',
     migrationPhase: 'Phase 2',
-    replacement: 'Direct GraphQL queries in /src/pages/validators/index.tsx'
+    replacement: 'Direct GraphQL queries in /src/pages/proposals/index.tsx'
   })
 }

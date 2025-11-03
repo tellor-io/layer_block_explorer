@@ -33,6 +33,8 @@ import NextLink from 'next/link'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
+import axios from 'axios'
+/* RPC IMPORTS - COMMENTED OUT FOR GRAPHQL MIGRATION
 import { useSelector } from 'react-redux'
 import { getBlock, getBlockResults } from '@/rpc/query'
 import { selectTmClient } from '@/store/connectSlice'
@@ -40,14 +42,21 @@ import { Block, Coin } from '@cosmjs/stargate'
 import { Tx as TxData } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
 import { sha256 } from '@cosmjs/crypto'
 import { toHex, fromBase64 } from '@cosmjs/encoding'
-import { timeFromNow, trimHash, displayDate, getTypeMsg } from '@/utils/helper'
-import { decodeData } from '@/utils/decodeHelper' // Import the decoding function
-import ErrorBoundary from '../../components/ErrorBoundary'
-import axios from 'axios'
-import { FaExpand, FaCompress, FaCopy } from 'react-icons/fa'
+import { decodeData } from '@/utils/decodeHelper'
 import { rpcManager } from '@/utils/rpcManager'
 import { getValidators } from '@/rpc/query'
+*/
+import { toHex } from '@cosmjs/encoding'
+import { timeFromNow, trimHash, displayDate, getTypeMsg } from '@/utils/helper'
+import { sha256 } from '@cosmjs/crypto'
+import ErrorBoundary from '../../components/ErrorBoundary'
+import { FaExpand, FaCompress, FaCopy } from 'react-icons/fa'
+// GraphQL imports
+import { graphqlQuery, bytesToHex, parseJsonField } from '@/datasources/graphql/client'
+import { GET_BLOCK_BY_HEIGHT, GET_VALIDATORS } from '@/datasources/graphql/queries'
+import { BlockResponse, ValidatorsResponse, ValidatorDescription } from '@/datasources/graphql/types'
 
+/* RPC INTERFACES - COMMENTED OUT FOR GRAPHQL MIGRATION
 // Extend the Block type to include rawData and proposerAddress
 interface ExtendedBlock extends Block {
   rawData?: Uint8Array
@@ -85,6 +94,17 @@ interface Validator {
     moniker: string
   }
 }
+*/
+
+// GraphQL interfaces
+interface GraphQLBlock {
+  blockHeight: string
+  blockHash: string
+  blockTime: string
+  proposerAddress: string
+  numberOfTx: number
+  appHash: string
+}
 
 interface ValidatorMap {
   [key: string]: string
@@ -94,10 +114,10 @@ export default function DetailBlock() {
   const router = useRouter()
   const toast = useToast()
   const { height } = router.query
+  /* RPC STATE - COMMENTED OUT FOR GRAPHQL MIGRATION
   const tmClient = useSelector(selectTmClient)
   const [block, setBlock] = useState<ExtendedBlock | null>(null)
   const [blockResults, setBlockResults] = useState<any>(null)
-  const [validatorMap, setValidatorMap] = useState<ValidatorMap>({})
   const [rawProposerAddress, setRawProposerAddress] = useState<string>('')
 
   interface Tx {
@@ -106,6 +126,12 @@ export default function DetailBlock() {
   }
   const [txs, setTxs] = useState<Tx[]>([])
   const [decodedTxData, setDecodedTxData] = useState<any>(null)
+  */
+  const [block, setBlock] = useState<GraphQLBlock | null>(null)
+  const [validatorMap, setValidatorMap] = useState<ValidatorMap>({})
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  /* RPC MODAL STATES - COMMENTED OUT FOR GRAPHQL MIGRATION
   const {
     isOpen: isTxOpen,
     onOpen: onTxOpen,
@@ -123,7 +149,9 @@ export default function DetailBlock() {
   const { onCopy: onCopyResults, hasCopied: hasCopiedResults } = useClipboard(
     blockResults ? JSON.stringify(serializeBigInt(blockResults), null, 2) : ''
   )
+  */
 
+  /* RPC FETCH VALIDATORS - COMMENTED OUT FOR GRAPHQL MIGRATION
   const fetchValidators = async () => {
     if (tmClient) {
       try {
@@ -142,18 +170,44 @@ export default function DetailBlock() {
       }
     }
   }
+  */
 
-  const getProposerMoniker = (rawProposerAddress: string | undefined) => {
+  // GraphQL fetch validators (client-side as per migration plan)
+  const fetchValidators = async () => {
     try {
-      if (!rawProposerAddress) {
+      console.log('Block detail: Fetching validators from GraphQL')
+      const response = await graphqlQuery<ValidatorsResponse>(GET_VALIDATORS, { first: 100 })
+      
+      if (response?.validators?.edges) {
+        const map: { [key: string]: string } = {}
+        response.validators.edges.forEach(({ node: validator }: any) => {
+          // Parse the consensus pubkey JSON to get the key
+          const consensusPubkey = parseJsonField(validator.consensusPubkey)
+          if (consensusPubkey?.key) {
+            const hexAddress = pubkeyToAddress(consensusPubkey.key as string)
+            const description = parseJsonField(validator.description) as ValidatorDescription | null
+            map[hexAddress] = description?.moniker || 'Unknown'
+          }
+        })
+        setValidatorMap(map)
+        console.log(
+          'Block detail: Successfully fetched validators from GraphQL, map size:',
+          Object.keys(map).length
+        )
+      }
+    } catch (error) {
+      console.error('Error fetching validators from GraphQL:', error)
+    }
+  }
+
+  const getProposerMoniker = (proposerAddress: string) => {
+    try {
+      if (!proposerAddress) {
         return 'Unknown'
       }
 
-      // The raw proposer address is already a hex string, not base64
-      // Just convert it to lowercase to match the validator addresses
-      const hexAddress = rawProposerAddress.toLowerCase()
-
-      // Check if the address exists in the map
+      // Convert comma-separated byte string to hex address
+      const hexAddress = bytesToHex(proposerAddress).toLowerCase()
       const moniker = validatorMap[hexAddress] || 'Unknown'
 
       return moniker
@@ -175,6 +229,7 @@ export default function DetailBlock() {
     })
   }
 
+  /* RPC DATA FETCHING - COMMENTED OUT FOR GRAPHQL MIGRATION
   useEffect(() => {
     if (height) {
       // Fetch validators first
@@ -244,7 +299,52 @@ export default function DetailBlock() {
         })
     }
   }, [height])
+  */
 
+  // GraphQL data fetching (client-side as per migration plan)
+  useEffect(() => {
+    if (height) {
+      const fetchData = async () => {
+        try {
+          setIsLoading(true)
+          setError(null)
+
+          // Fetch validators first
+          await fetchValidators()
+
+          // Fetch block data using GraphQL directly
+          console.log('Block detail: Fetching block from GraphQL for height:', height)
+          const response = await graphqlQuery<BlockResponse>(GET_BLOCK_BY_HEIGHT, { 
+            blockHeight: Array.isArray(height) ? height[0] : height 
+          })
+          
+          if (response?.block) {
+            const blockData: GraphQLBlock = {
+              blockHeight: response.block.blockHeight,
+              blockHash: response.block.blockHash,
+              blockTime: response.block.blockTime,
+              proposerAddress: response.block.proposerAddress,
+              numberOfTx: response.block.numberOfTx,
+              appHash: response.block.appHash,
+            }
+            setBlock(blockData)
+            console.log('Block detail: Successfully fetched block from GraphQL:', blockData)
+          } else {
+            setError('Block not found')
+          }
+        } catch (error) {
+          console.error('Error fetching block data from GraphQL:', error)
+          setError('Failed to fetch block data from GraphQL indexer. Please try again later.')
+        } finally {
+          setIsLoading(false)
+        }
+      }
+      
+      fetchData()
+    }
+  }, [height])
+
+  /* RPC TRANSACTION PROCESSING - COMMENTED OUT FOR GRAPHQL MIGRATION
   useEffect(() => {
     if (block?.txs.length && !txs.length) {
       for (const rawTx of block.txs) {
@@ -291,7 +391,9 @@ export default function DetailBlock() {
   }, [block])
 
   useEffect(() => {}, [blockResults])
+  */
 
+  /* RPC HELPER FUNCTIONS - COMMENTED OUT FOR GRAPHQL MIGRATION
   const renderMessages = (messages: any) => {
     if (messages.length == 1) {
       return (
@@ -347,6 +449,7 @@ export default function DetailBlock() {
   const toggleFullScreen = () => {
     setIsFullScreen(!isFullScreen)
   }
+  */
 
   return (
     <ErrorBoundary>
@@ -388,95 +491,90 @@ export default function DetailBlock() {
           <Icon fontSize="16" as={FiChevronRight} />
           <Text>Block #{height}</Text>
         </HStack>
-        <Box
-          mt={8}
-          bg={useColorModeValue('light-container', 'dark-container')}
-          shadow={'base'}
-          borderRadius={4}
-          p={4}
-        >
-          <Heading size={'md'} mb={4}>
-            Header
-          </Heading>
-          <Divider borderColor={'gray'} mb={4} />
-          <TableContainer>
-            <Table variant="unstyled" size={'sm'}>
-              <Tbody>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Chain Id</b>
-                  </Td>
-                  <Td>{block?.header.chainId}</Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Height</b>
-                  </Td>
-                  <Td>{block?.header.height}</Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Block Time</b>
-                  </Td>
-                  <Td>
-                    {block?.header.time
-                      ? `${timeFromNow(block?.header.time)} ( ${displayDate(
-                          block?.header.time
-                        )} )`
-                      : ''}
-                  </Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Block Hash</b>
-                  </Td>
-                  <Td>
-                    {(block as ExtendedBlock)?.header.appHash
-                      ? toHex((block as ExtendedBlock).header.appHash!)
-                      : ''}
-                  </Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Proposer</b>
-                  </Td>
-                  <Td>{getProposerMoniker(rawProposerAddress)}</Td>
-                </Tr>
-                <Tr>
-                  <Td pl={0} width={150}>
-                    <b>Number of Tx</b>
-                  </Td>
-                  <Td>{block?.txs.length}</Td>
-                </Tr>
-                {decodedTxData && (
+        {isLoading ? (
+          <Box
+            mt={8}
+            bg={useColorModeValue('light-container', 'dark-container')}
+            shadow={'base'}
+            borderRadius={4}
+            p={4}
+          >
+            <Text>Loading block data...</Text>
+          </Box>
+        ) : error ? (
+          <Box
+            mt={8}
+            bg={useColorModeValue('light-container', 'dark-container')}
+            shadow={'base'}
+            borderRadius={4}
+            p={4}
+          >
+            <Text color="red.500">Error: {error}</Text>
+          </Box>
+        ) : block ? (
+          <Box
+            mt={8}
+            bg={useColorModeValue('light-container', 'dark-container')}
+            shadow={'base'}
+            borderRadius={4}
+            p={4}
+          >
+            <Heading size={'md'} mb={4}>
+              Header
+            </Heading>
+            <Divider borderColor={'gray'} mb={4} />
+            <TableContainer>
+              <Table variant="unstyled" size={'sm'}>
+                <Tbody>
                   <Tr>
                     <Td pl={0} width={150}>
-                      <b>Vote Ext Tx</b>
+                      <b>Height</b>
                     </Td>
-                    <Td>
-                      <Button onClick={onTxOpen} size="sm">
-                        View Vote Extension Transaction
-                      </Button>
-                    </Td>
+                    <Td>{block.blockHeight}</Td>
                   </Tr>
-                )}
-                {blockResults !== null && (
                   <Tr>
                     <Td pl={0} width={150}>
-                      <b>Block Results</b>
+                      <b>Block Time</b>
                     </Td>
                     <Td>
-                      <Button onClick={onResultsOpen} size="sm">
-                        View Block Results
-                      </Button>
+                      {`${timeFromNow(block.blockTime)} ( ${displayDate(block.blockTime)} )`}
                     </Td>
                   </Tr>
-                )}
-              </Tbody>
-            </Table>
-          </TableContainer>
-        </Box>
+                  <Tr>
+                    <Td pl={0} width={150}>
+                      <b>Block Hash</b>
+                    </Td>
+                    <Td>
+                      {bytesToHex(block.blockHash)}
+                    </Td>
+                  </Tr>
+                  <Tr>
+                    <Td pl={0} width={150}>
+                      <b>App Hash</b>
+                    </Td>
+                    <Td>
+                      {bytesToHex(block.appHash)}
+                    </Td>
+                  </Tr>
+                  <Tr>
+                    <Td pl={0} width={150}>
+                      <b>Proposer</b>
+                    </Td>
+                    <Td>{getProposerMoniker(block.proposerAddress)}</Td>
+                  </Tr>
+                  <Tr>
+                    <Td pl={0} width={150}>
+                      <b>Number of Tx</b>
+                    </Td>
+                    <Td>{block.numberOfTx}</Td>
+                  </Tr>
+                </Tbody>
+              </Table>
+            </TableContainer>
+          </Box>
+        ) : null}
 
+        {/* TRANSACTIONS SECTION - COMMENTED OUT FOR GRAPHQL MIGRATION
         <Box
           mt={8}
           bg={useColorModeValue('light-container', 'dark-container')}
@@ -526,8 +624,10 @@ export default function DetailBlock() {
             </Table>
           </TableContainer>
         </Box>
+        */}
       </main>
 
+      {/* MODALS - COMMENTED OUT FOR GRAPHQL MIGRATION
       <Modal
         isOpen={isTxOpen}
         onClose={onTxClose}
@@ -637,6 +737,7 @@ export default function DetailBlock() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+      */}
     </ErrorBoundary>
   )
 }

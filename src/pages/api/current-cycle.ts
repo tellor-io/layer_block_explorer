@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { RPCManager } from '@/utils/rpcManager'
+import { rpcManager } from '../../utils/rpcManager'
 
 // Define interface for cache structure
 interface CacheData {
@@ -18,7 +18,6 @@ export default async function handler(
   res: NextApiResponse
 ) {
   try {
-    const rpcManager = RPCManager.getInstance()
     const endpoint = await rpcManager.getCurrentEndpoint()
     const baseEndpoint = endpoint.replace('/rpc', '')
 
@@ -64,13 +63,6 @@ export default async function handler(
       lastUpdated: cache.lastUpdated,
     })
   } catch (error) {
-    if (cache.data.length > 0) {
-      return res.status(200).json({
-        cycleList: cache.data,
-        lastUpdated: cache.lastUpdated,
-        fromCache: true,
-      })
-    }
     console.error('API Route Error:', error)
     res.status(500).json({
       error: 'Failed to fetch current cycle',

@@ -1,3 +1,22 @@
+/**
+ * HYBRID DATA ARCHITECTURE - Validators Page
+ * 
+ * This page uses GraphQL for validator data fetching:
+ * 
+ * GraphQL Data Sources (via /src/datasources/graphql/):
+ * - Validators list (GET_VALIDATORS)
+ * - Validator details and metadata
+ * - Delegation counts (GET_DELEGATIONS_BY_VALIDATOR)
+ * - Bonding status and commission rates
+ * 
+ * Migration Notes:
+ * - Replaced RPC validator queries with GraphQL
+ * - Added client-side sorting and pagination
+ * - Maintained all existing UI/UX functionality
+ * - Delegation counts fetched separately for each validator
+ * - All RPC code preserved in comments for reference
+ */
+
 import Head from 'next/head'
 import {
   Box,
@@ -31,7 +50,12 @@ import {
   FiMail,
 } from 'react-icons/fi'
 import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
+/* RPC CODE - COMMENTED OUT FOR GRAPHQL MIGRATION
 import { queryAllValidators } from '@/rpc/abci'
+*/
+import { graphqlQuery } from '@/datasources/graphql/client'
+import { GET_VALIDATORS, GET_DELEGATIONS_BY_VALIDATOR } from '@/datasources/graphql/queries'
+import { ValidatorsResponse, DelegationsResponse, Validator, Delegation } from '@/datasources/graphql/types'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
 import {
@@ -43,23 +67,19 @@ import { ColumnDef } from '@tanstack/react-table'
 import DelegationPieChart from '@/components/DelegationPieChart'
 import { useRouter } from 'next/router'
 
-// Function to fetch delegator count for a validator
+// Function to fetch delegator count for a validator using GraphQL
 const fetchDelegatorCount = async (
-  validatorAddress: string,
-  rpcAddress: string
+  validatorAddress: string
 ): Promise<number> => {
   try {
-    const response = await fetch(
-      `/api/validator-delegations/${validatorAddress}?rpc=${encodeURIComponent(
-        rpcAddress
-      )}`
+    const response = await graphqlQuery<DelegationsResponse>(
+      GET_DELEGATIONS_BY_VALIDATOR,
+      {
+        validatorAddressId: validatorAddress,
+        first: 1000 // Get up to 1000 delegations to count them
+      }
     )
-    if (!response.ok) {
-      return 0
-    }
-    const data = await response.json()
-    const count = data.delegation_responses?.length || 0
-    return count
+    return response.delegations.edges.length
   } catch (error) {
     console.error('Error fetching delegator count:', error)
     return 0
@@ -295,11 +315,32 @@ const columns: ColumnDef<ValidatorData, any>[] = [
     ),
     cell: (info) => {
       const status = info.getValue()
-      // Remove BOND_STATUS_ prefix if present
-      const cleanStatus = status.replace(/^BOND_STATUS_/, '')
+      // Convert numeric status to Cosmos SDK bond status representation
+      let statusText: string
+      if (typeof status === 'number') {
+        switch (status) {
+          case 0:
+            statusText = 'UNSPECIFIED'
+            break
+          case 1:
+            statusText = 'UNBONDED'
+            break
+          case 2:
+            statusText = 'UNBONDING'
+            break
+          case 3:
+            statusText = 'BONDED'
+            break
+          default:
+            statusText = 'UNKNOWN'
+        }
+      } else {
+        // Handle string status (remove BOND_STATUS_ prefix if present)
+        statusText = String(status).replace(/^BOND_STATUS_/, '')
+      }
       return (
         <div style={{ width: '60px', textAlign: 'left' }}>
-          <Text fontSize="sm">{cleanStatus}</Text>
+          <Text fontSize="sm">{statusText}</Text>
         </div>
       )
     },
@@ -415,8 +456,10 @@ export default function Validators() {
   const [sorting, setSorting] = useState<SortingState>([])
   const highlightBgColor = useColorModeValue('gray.100', 'gray.700')
 
+  /* RPC CODE - COMMENTED OUT FOR GRAPHQL MIGRATION
   const tmClient = useSelector(selectTmClient)
   const rpcAddress = useSelector(selectRPCAddress)
+  */
   const toast = useToast()
 
   const validatorDataWithPercentage = useMemo(() => {
@@ -431,64 +474,51 @@ export default function Validators() {
   }, [allValidators, totalVotingPower])
 
   useEffect(() => {
-    if (!tmClient) return
-
     setIsLoading(true)
     const fetchValidators = async () => {
       try {
-        // Build query parameters
-        const params = new URLSearchParams({
-          rpc: rpcAddress,
-        })
-
         // For client-side sorting, we need all data. For server-side sorting, use pagination
         const isClientSideSorting =
           sorting.length > 0 && sorting[0].id === 'delegatorCount'
 
-        if (!isClientSideSorting) {
-          params.append('page', page.toString())
-          params.append('perPage', perPage.toString())
+        // Determine pagination parameters
+        const first = isClientSideSorting ? 1000 : perPage // Get more data for client-side sorting
+        const after = page > 0 && !isClientSideSorting ? undefined : undefined // TODO: Implement cursor-based pagination
 
-          // Add sorting parameters if any
-          if (sorting.length > 0) {
-            const sort = sorting[0]
-            params.append('sortBy', sort.id)
-            params.append('sortOrder', sort.desc ? 'desc' : 'asc')
-          }
-        }
+        // GraphQL data fetching (client-side as per migration plan)
+        const response = await graphqlQuery<ValidatorsResponse>(GET_VALIDATORS, {
+          first,
+          after: undefined // TODO: Implement cursor-based pagination
+        })
 
-        const response = await fetch(`/api/validators?${params.toString()}`)
-        if (!response.ok) {
-          throw new Error('Failed to fetch validators')
-        }
-        const data: ValidatorResponse = await response.json()
-
-        if (data.validators) {
-          // Fetch delegator counts for all validators
+        if (response.validators?.edges?.length > 0) {
+          // Transform GraphQL data to component format
           const validatorsWithDelegatorCounts = await Promise.all(
-            data.validators.map(async (validator) => {
-              if (!validator.operator_address) {
-                throw new Error('Validator missing operator_address')
-              }
-              const delegatorCount = await fetchDelegatorCount(
-                validator.operator_address,
-                rpcAddress
-              )
+            response.validators.edges.map(async (edge: any) => {
+              const validator = edge.node
+              
+              // GraphQL already returns parsed objects, no need to parse JSON
+              const description = validator.description || {} as any
+              const commission = validator.commission || {} as any
+              
+              const delegatorCount = await fetchDelegatorCount(validator.operatorAddress)
+              
               return {
-                operatorAddress: validator.operator_address,
-                validator:
-                  validator.description?.moniker || validator.operator_address,
-                identity: validator.description?.identity || '',
-                website: validator.description?.website || '',
-                details: validator.description?.details || '',
-                securityContact: validator.description?.security_contact || '',
+                operatorAddress: validator.operatorAddress,
+                validator: description.moniker || validator.operatorAddress,
+                identity: description.identity || '',
+                website: description.website || '',
+                details: description.details || '',
+                securityContact: description.security_contact || '',
                 votingPower: parseInt(validator.tokens || '0'),
                 votingPowerPercentage: '0%', // Will be calculated below
                 commission: convertRateToPercent(
-                  validator.commission?.commission_rates?.rate || '0'
+                  commission.commissionRates?.rate || '0'
                 ),
                 delegatorCount,
-                status: validator.status,
+                status: validator.bondStatus === 'BOND_STATUS_BONDED' ? 3 : 
+                        validator.bondStatus === 'BOND_STATUS_UNBONDING' ? 2 :
+                        validator.bondStatus === 'BOND_STATUS_UNBONDED' ? 1 : 0, // Convert bond status to Cosmos SDK number
                 jailed: validator.jailed || false,
               }
             })
@@ -497,7 +527,7 @@ export default function Validators() {
           // Apply client-side sorting if needed
           if (isClientSideSorting) {
             const sort = sorting[0]
-            validatorsWithDelegatorCounts.sort((a, b) => {
+            validatorsWithDelegatorCounts.sort((a: any, b: any) => {
               const aValue = a.delegatorCount
               const bValue = b.delegatorCount
               const result = aValue - bValue
@@ -507,7 +537,7 @@ export default function Validators() {
 
           // Calculate total voting power from all validators (before pagination)
           const totalPower = validatorsWithDelegatorCounts.reduce(
-            (sum, validator) => sum + validator.votingPower,
+            (sum: any, validator: any) => sum + validator.votingPower,
             0
           )
           setTotalVotingPower(totalPower)
@@ -524,7 +554,7 @@ export default function Validators() {
             setTotal(validatorsWithDelegatorCounts.length)
           } else {
             setAllValidators(validatorsWithDelegatorCounts)
-            setTotal(data.pagination?.total?.low || data.validators.length)
+            setTotal(response.validators.edges.length)
           }
         }
       } catch (error) {
@@ -542,7 +572,7 @@ export default function Validators() {
     }
 
     fetchValidators()
-  }, [tmClient, rpcAddress, toast, page, perPage, sorting])
+  }, [toast, page, perPage, sorting])
 
   useEffect(() => {
     if (

@@ -8,19 +8,14 @@ import {
   Legend,
 } from 'recharts'
 import { Box, Text, useColorModeValue } from '@chakra-ui/react'
-import { useSelector } from 'react-redux'
-import { selectRPCAddress } from '@/store/connectSlice'
+import { graphqlQuery } from '@/datasources/graphql/client'
+import { GET_DELEGATIONS_BY_VALIDATOR } from '@/datasources/graphql/queries'
+import { DelegationsResponse, Delegation } from '@/datasources/graphql/types'
 
 interface DelegationData {
-  delegation: {
-    delegator_address: string
-    validator_address: string
-    shares: string
-  }
-  balance: {
-    denom: string
-    amount: string
-  }
+  delegatorAddress: string
+  validatorAddressId: string
+  shares: string
 }
 
 interface DelegationPieChartProps {
@@ -51,24 +46,31 @@ export default function DelegationPieChart({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  const rpcAddress = useSelector(selectRPCAddress)
 
   useEffect(() => {
     const fetchDelegations = async () => {
       try {
         setIsLoading(true)
-        const response = await fetch(
-          `/api/validator-delegations/${validatorAddress}?rpc=${encodeURIComponent(
-            rpcAddress
-          )}`
+        const response = await graphqlQuery<DelegationsResponse>(
+          GET_DELEGATIONS_BY_VALIDATOR,
+          {
+            validatorAddressId: validatorAddress,
+            first: 1000 // Get up to 1000 delegations
+          }
         )
-        if (!response.ok) {
-          throw new Error('Failed to fetch delegations')
+        
+        if (response.delegations?.edges?.length > 0) {
+          const delegationData = response.delegations.edges.map(edge => ({
+            delegatorAddress: edge.node.delegatorAddress,
+            validatorAddressId: edge.node.validatorAddressId,
+            shares: edge.node.shares
+          }))
+          setDelegations(delegationData)
+        } else {
+          setDelegations([])
         }
-        const data = await response.json()
-        setDelegations(data.delegation_responses || [])
       } catch (err) {
-        console.error('Error fetching delegations:', err) // Debug log
+        console.error('Error fetching delegations:', err)
         setError(
           err instanceof Error ? err.message : 'Failed to fetch delegations'
         )
@@ -78,7 +80,7 @@ export default function DelegationPieChart({
     }
 
     fetchDelegations()
-  }, [validatorAddress, rpcAddress])
+  }, [validatorAddress])
 
   if (isLoading) {
     return (
@@ -124,12 +126,11 @@ export default function DelegationPieChart({
 
   // Transform data for the pie chart
   const chartData = delegations.map((delegation) => {
-    const shares = parseFloat(delegation.delegation.shares)
-    const amount = parseFloat(delegation.balance.amount)
+    const shares = parseFloat(delegation.shares)
     return {
-      name: delegation.delegation.delegator_address,
+      name: delegation.delegatorAddress,
       value: shares,
-      amount: amount,
+      amount: shares, // Using shares as amount since GraphQL doesn't provide balance
       percentage: 0, // Will be calculated below
     }
   })
@@ -213,7 +214,7 @@ export default function DelegationPieChart({
         </Text>
         <Text fontSize="sm">Shares: {data.value.toLocaleString()}</Text>
         <Text fontSize="sm">
-          Amount: {(data.amount / 1000000).toLocaleString()} TRB
+          Delegation: {data.value.toLocaleString()} shares
         </Text>
         <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.400')}>
           {data.percentage.toFixed(2)}% of total
