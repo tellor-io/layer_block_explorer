@@ -311,7 +311,7 @@ const columns: ColumnDef<ValidatorData, any>[] = [
   }),
   columnHelper.accessor('status', {
     header: () => (
-      <div style={{ width: '60px', textAlign: 'left' }}>Bond Status</div>
+      <div style={{ width: '110px', textAlign: 'left', cursor: 'pointer' }}>Bond Status</div>
     ),
     cell: (info) => {
       const status = info.getValue()
@@ -339,15 +339,22 @@ const columns: ColumnDef<ValidatorData, any>[] = [
         statusText = String(status).replace(/^BOND_STATUS_/, '')
       }
       return (
-        <div style={{ width: '60px', textAlign: 'left' }}>
+        <div style={{ width: '110px', textAlign: 'left', whiteSpace: 'nowrap' }}>
           <Text fontSize="sm">{statusText}</Text>
         </div>
       )
     },
+    sortingFn: (rowA, rowB) => {
+      const a = rowA.original.status
+      const b = rowB.original.status
+      // Sort by status number: BONDED (3) > UNBONDING (2) > UNBONDED (1) > UNSPECIFIED (0)
+      return a - b
+    },
+    enableSorting: true,
   }),
   columnHelper.accessor('votingPower', {
     header: () => (
-      <div style={{ width: '100px', textAlign: 'left' }}>Tokens</div>
+      <div style={{ width: '100px', textAlign: 'left', cursor: 'pointer' }}>Tokens</div>
     ),
     cell: (info) => (
       <div style={{ width: '100px', textAlign: 'left' }}>
@@ -366,6 +373,12 @@ const columns: ColumnDef<ValidatorData, any>[] = [
     meta: {
       isNumeric: false,
     },
+    sortingFn: (rowA, rowB) => {
+      const a = rowA.original.votingPower
+      const b = rowB.original.votingPower
+      return a - b
+    },
+    enableSorting: true,
   }),
   columnHelper.accessor('commission', {
     header: () => (
@@ -380,7 +393,7 @@ const columns: ColumnDef<ValidatorData, any>[] = [
   }),
   columnHelper.accessor('delegatorCount', {
     header: () => (
-      <div style={{ width: '120px', textAlign: 'center' }}># of Delegators</div>
+      <div style={{ width: '120px', textAlign: 'center', cursor: 'pointer' }}># of Delegators</div>
     ),
     cell: (info) => (
       <div style={{ width: '120px', textAlign: 'center' }}>
@@ -395,6 +408,7 @@ const columns: ColumnDef<ValidatorData, any>[] = [
       const b = rowB.original.delegatorCount
       return a - b
     },
+    enableSorting: true,
   }),
   columnHelper.accessor('operatorAddress', {
     header: () => (
@@ -444,11 +458,14 @@ interface ValidatorResponse {
   }
 }
 
+// Columns that support client-side sorting
+const clientSideSortableColumns = ['delegatorCount', 'status', 'votingPower']
+
 export default function Validators() {
   const router = useRouter()
   const { highlight } = router.query
   const [page, setPage] = useState(0)
-  const [perPage, setPerPage] = useState(50)
+  const [perPage, setPerPage] = useState(10)
   const [total, setTotal] = useState(0)
   const [allValidators, setAllValidators] = useState<ValidatorData[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -479,7 +496,7 @@ export default function Validators() {
       try {
         // For client-side sorting, we need all data. For server-side sorting, use pagination
         const isClientSideSorting =
-          sorting.length > 0 && sorting[0].id === 'delegatorCount'
+          sorting.length > 0 && clientSideSortableColumns.includes(sorting[0].id)
 
         // Determine pagination parameters
         const first = isClientSideSorting ? 1000 : perPage // Get more data for client-side sorting
@@ -528,8 +545,22 @@ export default function Validators() {
           if (isClientSideSorting) {
             const sort = sorting[0]
             validatorsWithDelegatorCounts.sort((a: any, b: any) => {
-              const aValue = a.delegatorCount
-              const bValue = b.delegatorCount
+              let aValue: number
+              let bValue: number
+              
+              if (sort.id === 'delegatorCount') {
+                aValue = a.delegatorCount
+                bValue = b.delegatorCount
+              } else if (sort.id === 'status') {
+                aValue = a.status
+                bValue = b.status
+              } else if (sort.id === 'votingPower') {
+                aValue = a.votingPower
+                bValue = b.votingPower
+              } else {
+                return 0
+              }
+              
               const result = aValue - bValue
               return sort.desc ? -result : result
             })
@@ -544,6 +575,8 @@ export default function Validators() {
 
           // Apply pagination for client-side sorting
           if (isClientSideSorting) {
+            // When doing client-side sorting, we fetched 1000 validators
+            // so we need to paginate them client-side
             const start = page * perPage
             const end = start + perPage
             const paginatedValidators = validatorsWithDelegatorCounts.slice(
@@ -553,8 +586,15 @@ export default function Validators() {
             setAllValidators(paginatedValidators)
             setTotal(validatorsWithDelegatorCounts.length)
           } else {
-            setAllValidators(validatorsWithDelegatorCounts)
-            setTotal(response.validators.edges.length)
+            // When NOT doing client-side sorting, we should only show `perPage` validators
+            // Slice to ensure we never show more than perPage, even if GraphQL returns more
+            const paginatedValidators = validatorsWithDelegatorCounts.slice(0, perPage)
+            setAllValidators(paginatedValidators)
+            // For server-side pagination, we need the total from the GraphQL response
+            // TODO: Get accurate total count from GraphQL API (may require a separate count query)
+            // For now, use the fetched length, but this will be inaccurate if there are more validators
+            const totalCount = response.validators.edges.length
+            setTotal(totalCount)
           }
         }
       } catch (error) {
@@ -710,7 +750,7 @@ export default function Validators() {
             onChangePagination={onChangePagination}
             onChangeSorting={handleSortingChange}
             serverSideSorting={
-              sorting.length === 0 || sorting[0]?.id !== 'delegatorCount'
+              sorting.length === 0 || !clientSideSortableColumns.includes(sorting[0]?.id || '')
             }
           />
         </Box>

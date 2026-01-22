@@ -50,7 +50,7 @@ import { selectRPCAddress } from '@/store/connectSlice'
 // GraphQL imports
 import { graphqlQuery } from '@/datasources/graphql/client'
 import { GET_REPORTERS } from '@/datasources/graphql/queries'
-import { ReportersResponse, Reporter } from '@/datasources/graphql/types'
+import { ReportersResponse, Reporter, PageInfo } from '@/datasources/graphql/types'
 
 // Update the type to match the GraphQL data structure
 type ReporterData = {
@@ -223,120 +223,337 @@ const columns = [
 ]
 
 export default function Reporters() {
-  const [page, setPage] = useState(0)
-  const [perPage, setPerPage] = useState(10)
-  const [total, setTotal] = useState(0)
+  // Cursor-based pagination state (similar to blocks page)
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  const [pagesCursors, setPagesCursors] = useState<Array<{ startCursor: string | null; endCursor: string | null }>>([])
+  const [pageInfo, setPageInfo] = useState<PageInfo | null>(null)
   const [data, setData] = useState<ReporterData[]>([])
+  const [allData, setAllData] = useState<ReporterData[]>([]) // Store all data for client-side sorting
   const [isLoading, setIsLoading] = useState(true)
   const [sorting, setSorting] = useState<SortingState>([])
+  const [powerMap, setPowerMap] = useState<{ [key: string]: string }>({})
   const toast = useToast()
-  /* RPC state management commented out for GraphQL migration
-  const rpcAddress = useSelector(selectRPCAddress)
-  const [refreshKey, setRefreshKey] = useState(0)
-  useEffect(() => {
-    setRefreshKey((prev) => prev + 1)
-  }, [rpcAddress])
-  */
 
-  useEffect(() => {
-    const fetchReporters = async () => {
-      setIsLoading(true)
-      try {
-        // For client-side sorting, we need all data. For server-side sorting, use pagination
-        const isClientSideSorting =
-          sorting.length > 0 &&
-          (sorting[0].id === 'displayName' || sorting[0].id === 'selectors')
-
-        // Calculate pagination parameters
-        const first = isClientSideSorting ? 1000 : perPage // Get more data for client-side sorting
-        const after = isClientSideSorting ? undefined : undefined // TODO: Implement cursor-based pagination
-
-        // GraphQL data fetching (client-side as per migration plan)
-        const response = await graphqlQuery<ReportersResponse>(GET_REPORTERS, {
-          first,
-          after: undefined // TODO: Implement cursor-based pagination
-        })
-
-        if (response.reporters?.edges) {
-          const reporters = response.reporters.edges.map((edge: any) => edge.node)
-          
-          // Transform GraphQL data to match component expectations
-          const formattedData: ReporterData[] = reporters.map((reporter: Reporter) => ({
-            id: reporter.id,
-            displayName: reporter.moniker || truncateAddress(reporter.id),
-            min_tokens_required: reporter.minTokensRequired,
-            commission_rate: reporter.commissionRate,
-            jailed: reporter.jailed ? 'Yes' : 'No',
-            jailed_until: reporter.jailedUntil === '1970-01-01T00:00:00' ? '0001-01-01T00:00:00Z' : reporter.jailedUntil,
-            selectors: reporter.selectors.totalCount,
-            power: '0', // TODO: Calculate power from stake or other fields
-          }))
-
-          // Apply client-side sorting if needed
-          if (isClientSideSorting && sorting.length > 0) {
-            const sort = sorting[0]
-            formattedData.sort((a: ReporterData, b: ReporterData) => {
-              let aValue, bValue
-              if (sort.id === 'displayName') {
-                aValue = a.displayName
-                bValue = b.displayName
-                const result = aValue.localeCompare(bValue)
-                return sort.desc ? -result : result
-              } else if (sort.id === 'selectors') {
-                aValue = a.selectors
-                bValue = b.selectors
-                const result = aValue - bValue
-                return sort.desc ? -result : result
-              }
-              return 0
-            })
-          }
-
-          // Apply pagination for client-side sorting
-          if (isClientSideSorting) {
-            const start = page * perPage
-            const end = start + perPage
-            const paginatedData = formattedData.slice(start, end)
-            setData(paginatedData)
-            setTotal(formattedData.length)
-          } else {
-            setData(formattedData)
-            setTotal(response.reporters.edges.length)
-          }
-
-          setIsLoading(false)
-        } else {
-          throw new Error('No reporters data received')
+  // Fetch reporter power from RPC
+  const fetchReporterPower = async () => {
+    try {
+      const response = await fetch('/api/reporter-power')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.powerMap) {
+          setPowerMap(data.powerMap)
         }
-      } catch (error) {
-        console.error('Error fetching reporters:', error)
-        toast({
-          title: 'Failed to fetch reporters',
-          description: error instanceof Error ? error.message : 'Unknown error',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        })
-        setData([])
-        setIsLoading(false)
       }
+    } catch (error) {
+      console.error('Error fetching reporter power:', error)
+      // Don't show error toast for power - it's optional data
+    }
+  }
+
+  // Determine if we need client-side sorting (for power field)
+  const needsClientSideSorting = sorting.length > 0 && sorting[0].id === 'power'
+
+  // Build GraphQL orderBy for server-side sorting
+  const getOrderBy = (): string[] | undefined => {
+    if (sorting.length === 0 || needsClientSideSorting) {
+      return undefined
+    }
+    
+    const sort = sorting[0]
+    if (sort.id === 'selectors') {
+      return sort.desc ? ['SELECTORS_COUNT_DESC'] : ['SELECTORS_COUNT_ASC']
+    }
+    // Add more server-side sortable fields here if needed
+    return undefined
+  }
+
+  // Fetch first page
+  const fetchFirstPage = async (size: number) => {
+    try {
+      setIsLoading(true)
+      
+      // For client-side sorting by power, fetch all data
+      const fetchSize = needsClientSideSorting ? 1000 : size
+      
+      const response = await graphqlQuery<ReportersResponse>(GET_REPORTERS, {
+        first: fetchSize,
+        orderBy: getOrderBy()
+      })
+      
+      if (response?.reporters?.edges) {
+        const reporters = response.reporters.edges.map((edge: any) => edge.node)
+        
+        // Transform GraphQL data to match component expectations
+        const formattedData: ReporterData[] = reporters.map((reporter: Reporter) => ({
+          id: reporter.id,
+          displayName: reporter.moniker || truncateAddress(reporter.id),
+          min_tokens_required: reporter.minTokensRequired,
+          commission_rate: reporter.commissionRate,
+          jailed: reporter.jailed ? 'Yes' : 'No',
+          jailed_until: reporter.jailedUntil === '1970-01-01T00:00:00' ? '0001-01-01T00:00:00Z' : reporter.jailedUntil,
+          selectors: reporter.selectors.totalCount,
+          power: powerMap[reporter.id] || '0', // Use power from RPC if available
+        }))
+
+        // Apply client-side sorting if needed (for power)
+        let finalData = formattedData
+        if (needsClientSideSorting && sorting.length > 0) {
+          finalData = [...formattedData].sort((a, b) => {
+            const aPower = parseFloat(a.power || '0')
+            const bPower = parseFloat(b.power || '0')
+            return sorting[0].desc ? bPower - aPower : aPower - bPower
+          })
+          // Store all data for client-side pagination
+          setAllData(finalData)
+          // Paginate the sorted data
+          const start = pageIndex * size
+          const end = start + size
+          finalData = finalData.slice(start, end)
+        } else {
+          // Clear allData when not doing client-side sorting
+          setAllData([])
+        }
+
+        setData(finalData)
+        setPageInfo(response.reporters.pageInfo)
+        
+        // Store cursors for page 0 (only if not doing client-side sorting)
+        if (!needsClientSideSorting) {
+          const cursors = {
+            startCursor: response.reporters.pageInfo.startCursor,
+            endCursor: response.reporters.pageInfo.endCursor,
+          }
+          setPagesCursors([cursors])
+        } else {
+          setPagesCursors([])
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching first page:', error)
+      toast({
+        title: 'Failed to fetch reporters',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+      setData([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Fetch next page
+  const fetchNextPage = async (afterCursor: string | null, size: number) => {
+    if (!afterCursor) {
+      throw new Error('No cursor available for next page')
+    }
+    
+    // Don't fetch next page if doing client-side sorting (all data already loaded)
+    if (needsClientSideSorting) {
+      return
+    }
+    
+    try {
+      setIsLoading(true)
+      const response = await graphqlQuery<ReportersResponse>(GET_REPORTERS, {
+        first: size,
+        after: afterCursor,
+        orderBy: getOrderBy()
+      })
+      
+      if (response?.reporters?.edges) {
+        const reporters = response.reporters.edges.map((edge: any) => edge.node)
+        
+        // Transform GraphQL data to match component expectations
+        const formattedData: ReporterData[] = reporters.map((reporter: Reporter) => ({
+          id: reporter.id,
+          displayName: reporter.moniker || truncateAddress(reporter.id),
+          min_tokens_required: reporter.minTokensRequired,
+          commission_rate: reporter.commissionRate,
+          jailed: reporter.jailed ? 'Yes' : 'No',
+          jailed_until: reporter.jailedUntil === '1970-01-01T00:00:00' ? '0001-01-01T00:00:00Z' : reporter.jailedUntil,
+          selectors: reporter.selectors.totalCount,
+          power: powerMap[reporter.id] || '0', // Use power from RPC if available
+        }))
+
+        setData(formattedData)
+        setPageInfo(response.reporters.pageInfo)
+        
+        // Store cursors for the new page
+        const cursors = {
+          startCursor: response.reporters.pageInfo.startCursor,
+          endCursor: response.reporters.pageInfo.endCursor,
+        }
+        setPagesCursors((prev) => [...prev, cursors])
+      }
+    } catch (error) {
+      console.error('Error fetching next page:', error)
+      toast({
+        title: 'Failed to fetch reporters',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+      setData([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Fetch previous page
+  const fetchPrevPage = async (beforeCursor: string | null, size: number) => {
+    if (!beforeCursor) {
+      throw new Error('No cursor available for previous page')
+    }
+    
+    // Don't fetch previous page if doing client-side sorting (all data already loaded)
+    if (needsClientSideSorting) {
+      return
+    }
+    
+    try {
+      setIsLoading(true)
+      const response = await graphqlQuery<ReportersResponse>(GET_REPORTERS, {
+        last: size,
+        before: beforeCursor,
+        orderBy: getOrderBy()
+      })
+      
+      if (response?.reporters?.edges) {
+        const reporters = response.reporters.edges.map((edge: any) => edge.node)
+        
+        // Transform GraphQL data to match component expectations
+        const formattedData: ReporterData[] = reporters.map((reporter: Reporter) => ({
+          id: reporter.id,
+          displayName: reporter.moniker || truncateAddress(reporter.id),
+          min_tokens_required: reporter.minTokensRequired,
+          commission_rate: reporter.commissionRate,
+          jailed: reporter.jailed ? 'Yes' : 'No',
+          jailed_until: reporter.jailedUntil === '1970-01-01T00:00:00' ? '0001-01-01T00:00:00Z' : reporter.jailedUntil,
+          selectors: reporter.selectors.totalCount,
+          power: powerMap[reporter.id] || '0', // Use power from RPC if available
+        }))
+
+        setData(formattedData)
+        setPageInfo(response.reporters.pageInfo)
+      }
+    } catch (error) {
+      console.error('Error fetching previous page:', error)
+      toast({
+        title: 'Failed to fetch reporters',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+      setData([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Initial load and when page size or sorting changes
+  useEffect(() => {
+    fetchReporterPower()
+    fetchFirstPage(pageSize)
+    setPageIndex(0)
+    setPagesCursors([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageSize, sorting])
+
+  // Handle pagination changes (only for server-side sorting)
+  useEffect(() => {
+    // Skip if doing client-side sorting (handled in fetchFirstPage)
+    if (needsClientSideSorting) {
+      // For client-side sorting, just update the displayed slice
+      return
     }
 
-    fetchReporters()
-  }, [page, perPage, toast, sorting])
+    // Skip if this is the initial load (handled by pageSize/sorting effect)
+    if (pagesCursors.length === 0 && pageIndex === 0) {
+      return
+    }
+
+    if (pageIndex === 0) {
+      // Reset to first page
+      fetchFirstPage(pageSize)
+      setPagesCursors([])
+    } else if (pageIndex > pagesCursors.length - 1) {
+      // Fetch next page
+      const previousPageCursor = pagesCursors[pageIndex - 1]
+      if (previousPageCursor?.endCursor) {
+        fetchNextPage(previousPageCursor.endCursor, pageSize)
+      }
+    } else if (pageIndex < pagesCursors.length && pageIndex > 0) {
+      // Go back to a previous page
+      const currentPageCursor = pagesCursors[pageIndex]
+      if (currentPageCursor?.startCursor) {
+        fetchPrevPage(currentPageCursor.startCursor, pageSize)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageIndex, needsClientSideSorting])
+
+  // Handle client-side pagination for power sorting
+  useEffect(() => {
+    if (needsClientSideSorting && allData.length > 0) {
+      // Paginate from already-sorted allData
+      const start = pageIndex * pageSize
+      const end = start + pageSize
+      const paginatedData = allData.slice(start, end)
+      setData(paginatedData)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageIndex, needsClientSideSorting, allData])
+
+  // Update data when power map changes
+  useEffect(() => {
+    if (Object.keys(powerMap).length > 0) {
+      // If sorting by power, we need to re-fetch and re-sort
+      if (needsClientSideSorting) {
+        fetchFirstPage(pageSize)
+      } else if (data.length > 0) {
+        // Otherwise, just update the power values in current data
+        setData((prevData) =>
+          prevData.map((reporter) => ({
+            ...reporter,
+            power: powerMap[reporter.id] || reporter.power,
+          }))
+        )
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [powerMap])
 
   const onChangePagination = (value: {
     pageIndex: number
     pageSize: number
   }) => {
-    setPage(value.pageIndex)
-    setPerPage(value.pageSize)
+    if (value.pageSize !== pageSize) {
+      // Page size changed - reset to first page
+      setPageSize(value.pageSize)
+      setPageIndex(0)
+    } else {
+      // Page index changed
+      setPageIndex(value.pageIndex)
+    }
   }
 
   const handleSortingChange = (newSorting: SortingState) => {
     setSorting(newSorting)
-    setPage(0) // Reset to first page when sorting changes
+    setPageIndex(0) // Reset to first page when sorting changes
   }
+
+  // Calculate total based on pageInfo
+  // For client-side sorting, use the total count of all fetched data
+  const total = needsClientSideSorting
+    ? allData.length
+    : pageInfo?.hasNextPage 
+      ? (pageIndex + 1) * pageSize + 1 // Estimate: current pages + 1 to indicate more
+      : (pageIndex * pageSize) + data.length // If no next page, this is the last page
 
   return (
     <>
@@ -389,11 +606,7 @@ export default function Reporters() {
             isLoading={isLoading}
             onChangePagination={onChangePagination}
             onChangeSorting={handleSortingChange}
-            serverSideSorting={
-              sorting.length === 0 ||
-              (sorting[0]?.id !== 'displayName' &&
-                sorting[0]?.id !== 'selectors')
-            }
+            serverSideSorting={!needsClientSideSorting}
           />
         </Box>
       </main>

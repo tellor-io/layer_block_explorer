@@ -49,6 +49,13 @@ export const GET_BLOCK_BY_HEIGHT = `
       proposerAddress
       numberOfTx
       appHash
+      chainId
+      voteExtensions
+      consensusHash
+      dataHash
+      evidenceHash
+      nextValidatorsHash
+      validatorsHash
     }
   }
 `;
@@ -214,10 +221,11 @@ export const GET_DELEGATION_COUNT = `
 /**
  * Get governance proposals with pagination
  * Used for: /proposals page
+ * Ordered by proposalId in descending order (newest first: 20, 19, 18, ...)
  */
 export const GET_GOV_PROPOSALS = `
   query GetGovProposals($first: Int, $after: Cursor) {
-    govProposals(first: $first, after: $after) {
+    govProposals(first: $first, after: $after, orderBy: PROPOSAL_ID_DESC) {
       edges {
         node {
           proposalId
@@ -227,6 +235,7 @@ export const GET_GOV_PROPOSALS = `
           votingStartTime
           votingEndTime
           messages
+          tallyResults
         }
         cursor
       }
@@ -242,18 +251,24 @@ export const GET_GOV_PROPOSALS = `
 
 /**
  * Get a single governance proposal by ID
- * Used for: proposal detail pages
+ * Used for: proposal detail pages and tooltips
  */
 export const GET_GOV_PROPOSAL_BY_ID = `
-  query GetGovProposalById($proposalId: Int!) {
+  query GetGovProposalById($proposalId: String!) {
     govProposal(id: $proposalId) {
       proposalId
       title
+      summary
+      metaData
+      proposer
+      expedited
       status
       submitTime
+      depositEndTime
       votingStartTime
       votingEndTime
       messages
+      tallyResults
     }
   }
 `;
@@ -283,8 +298,8 @@ export const GET_GOV_PROPOSAL_COUNT = `
  * Used for: /reporters page
  */
 export const GET_REPORTERS = `
-  query GetReporters($first: Int, $after: Cursor) {
-    reporters(first: $first, after: $after) {
+  query GetReporters($first: Int, $after: Cursor, $last: Int, $before: Cursor, $orderBy: [ReportersOrderBy!]) {
+    reporters(first: $first, after: $after, last: $last, before: $before, orderBy: $orderBy) {
       edges {
         node {
           id
@@ -402,6 +417,33 @@ export const GET_TRANSACTIONS_BY_ACCOUNT = `
 `;
 
 /**
+ * Get transactions by block height
+ * Used for: /blocks/[height] page
+ */
+export const GET_TRANSACTIONS_BY_BLOCK_HEIGHT = `
+  query GetTransactionsByBlockHeight($blockHeight: BigFloat!, $first: Int, $after: Cursor) {
+    transactions(first: $first, after: $after, filter: { blockHeight: { equalTo: $blockHeight } }) {
+      edges {
+        node {
+          nodeId
+          id
+          txData
+          blockHeight
+          timestamp
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+    }
+  }
+`;
+
+/**
  * Get transaction count for dashboard stats
  * Used for: dashboard stats (get transaction count)
  */
@@ -448,7 +490,7 @@ export const GET_DASHBOARD_DATA = `
         }
       }
     }
-    proposals: govProposals(first: 5) {
+    proposals: govProposals(first: 5, orderBy: PROPOSAL_ID_DESC) {
       edges {
         node {
           proposalId
@@ -545,10 +587,7 @@ export const GET_ALL_PARAMETERS = `
       edges {
         node {
           id
-          disputeFee
-          slashAmount
-          slashCount
-          slashWindow
+          teamAddress
         }
       }
     }
@@ -567,9 +606,28 @@ export const GET_ALL_PARAMETERS = `
       edges {
         node {
           id
-          votingParams
-          tallyParams
-          depositParams
+          quorum
+          votingPeriod
+          threshold
+          vetoThreshold
+          minDeposit {
+            denom
+            amount
+          }
+          maxDepositPeriod
+          minInitialDepositRatio
+          proposalCancelRatio
+          proposalCancelDest
+          expeditedVotingPeriod
+          expeditedThreshold
+          expeditedMinDeposit {
+            denom
+            amount
+          }
+          burnVoteQuorum
+          burnProposalDepositPrevote
+          burnVoteVeto
+          minDepositRatio
         }
       }
     }
@@ -577,12 +635,9 @@ export const GET_ALL_PARAMETERS = `
       edges {
         node {
           id
-          maxDataPoints
-          maxValueLength
-          maxReporters
-          minValidReports
-          reportFrequency
-          reportExpiration
+          minStakeAmount
+          minTipAmount
+          maxTipAmount
         }
       }
     }
@@ -590,10 +645,7 @@ export const GET_ALL_PARAMETERS = `
       edges {
         node {
           id
-          stakeAmount
-          stakeToken
-          governanceToken
-          reporterAddress
+          maxReportBufferWindow
         }
       }
     }
@@ -601,9 +653,10 @@ export const GET_ALL_PARAMETERS = `
       edges {
         node {
           id
-          reporterStake
-          reporterPayout
-          reporterSlash
+          minCommissionRate
+          minLoya
+          maxSelectors
+          maxNumOfDelegations
         }
       }
     }
@@ -648,8 +701,8 @@ export const GET_ALL_PARAMETERS = `
  * in queryData field if decoded.
  */
 export const GET_LATEST_AGGREGATE_REPORTS = `
-  query GetLatestAggregateReports($first: Int, $after: Cursor, $orderBy: AggregateReportOrderBy) {
-    aggregateReports(first: $first, after: $after, orderBy: $orderBy) {
+  query GetLatestAggregateReports($first: Int, $after: Cursor) {
+    aggregateReports(first: $first, after: $after, orderBy: BLOCK_HEIGHT_DESC) {
       edges {
         node {
           id
@@ -717,6 +770,107 @@ export const GET_AGGREGATE_REPORTS_BY_QUERY_ID = `
 `;
 
 /**
+ * Get aggregate reports with combined queryId and date range filters
+ * Used for: filtering reports by queryId and date range at the GraphQL level
+ * This allows filtering across ALL historical data, not just client-side filtering
+ */
+export const GET_AGGREGATE_REPORTS_BY_QUERY_ID_AND_DATE = `
+  query GetAggregateReportsByQueryIdAndDate(
+    $queryId: String!
+    $fromDate: Datetime
+    $toDate: Datetime
+    $first: Int
+    $after: Cursor
+  ) {
+    aggregateReports(
+      first: $first
+      after: $after
+      filter: {
+        queryId: { equalTo: $queryId }
+        timestamp: {
+          greaterThanOrEqualTo: $fromDate
+          lessThanOrEqualTo: $toDate
+        }
+      }
+      orderBy: BLOCK_HEIGHT_DESC
+    ) {
+      edges {
+        node {
+          id
+          queryId
+          value
+          queryData
+          blockHeight
+          timestamp
+          microReportHeight
+          totalReporters
+          totalPower
+          cyclist
+          aggregatePower
+          flagged
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+    }
+  }
+`;
+
+/**
+ * Get aggregate reports with date range filter only (no queryId filter)
+ * Used for: filtering all reports by date range at the GraphQL level
+ */
+export const GET_AGGREGATE_REPORTS_BY_DATE_RANGE = `
+  query GetAggregateReportsByDateRange(
+    $fromDate: Datetime
+    $toDate: Datetime
+    $first: Int
+    $after: Cursor
+  ) {
+    aggregateReports(
+      first: $first
+      after: $after
+      filter: {
+        timestamp: {
+          greaterThanOrEqualTo: $fromDate
+          lessThanOrEqualTo: $toDate
+        }
+      }
+      orderBy: BLOCK_HEIGHT_DESC
+    ) {
+      edges {
+        node {
+          id
+          queryId
+          value
+          queryData
+          blockHeight
+          timestamp
+          microReportHeight
+          totalReporters
+          totalPower
+          cyclist
+          aggregatePower
+          flagged
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+    }
+  }
+`;
+
+/**
  * Get single latest aggregate reports for polling
  * Used for: /data-feed page (real-time updates via polling)
  * 
@@ -749,3 +903,139 @@ export const GET_SINGLE_LATEST_AGGREGATE_REPORTS = `
     }
   }
 `;
+
+// ============================================================================
+// BRIDGE DEPOSIT QUERIES
+// ============================================================================
+
+/**
+ * Get all bridge deposits with pagination
+ * Used for: /bridge-deposits page
+ */
+export const GET_BRIDGE_DEPOSITS = `
+  query GetBridgeDeposits($first: Int, $after: Cursor, $orderBy: [BridgeDepositsOrderBy!]) {
+    bridgeDeposits(first: $first, after: $after, orderBy: $orderBy) {
+      edges {
+        node {
+          id
+          depositId
+          blockHeight
+          timestamp
+          sender
+          recipient
+          amount
+          tip
+          reported
+          claimed
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+    }
+  }
+`;
+
+/**
+ * Get a single bridge deposit by deposit ID
+ * Used for: deposit detail pages
+ */
+export const GET_BRIDGE_DEPOSIT_BY_ID = `
+  query GetBridgeDepositById($depositId: Int!) {
+    bridgeDeposits(first: 1, filter: { depositId: { equalTo: $depositId } }) {
+      edges {
+        node {
+          id
+          depositId
+          blockHeight
+          timestamp
+          sender
+          recipient
+          amount
+          tip
+          reported
+          claimed
+        }
+      }
+    }
+  }
+`;
+
+// ============================================================================
+// BRIDGE WITHDRAWAL QUERIES
+// ============================================================================
+
+/**
+ * Get all withdrawals with pagination
+ * Used for: /bridge-withdrawals page
+ */
+export const GET_WITHDRAWALS = `
+  query GetWithdrawals($first: Int, $after: Cursor, $orderBy: [WithdrawsOrderBy!]) {
+    withdraws(first: $first, after: $after, orderBy: $orderBy) {
+      edges {
+        node {
+          id
+          depositId
+          blockHeight
+          sender
+          recipient
+          amount
+          claimed
+          withdrawalInitiatedHeight
+          withdrawalInitiatedTimestamp
+          claimedTimestamp
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+    }
+  }
+`;
+
+/**
+ * Get a single withdrawal by deposit ID
+ * Used for: withdrawal detail pages
+ */
+export const GET_WITHDRAWAL_BY_DEPOSIT_ID = `
+  query GetWithdrawalByDepositId($depositId: Int!) {
+    withdraws(first: 1, filter: { depositId: { equalTo: $depositId } }) {
+      edges {
+        node {
+          id
+          depositId
+          blockHeight
+          sender
+          recipient
+          amount
+          claimed
+          withdrawalInitiatedHeight
+          withdrawalInitiatedTimestamp
+          claimedTimestamp
+        }
+      }
+    }
+  }
+`;
+
+/**
+ * Get block by height (for fetching withdrawal timestamps)
+ * Used for: getting block time for withdrawals
+ */
+export const GET_BLOCK_BY_HEIGHT_FOR_TIMESTAMP = `
+  query GetBlockByHeightForTimestamp($blockHeight: String!) {
+    block(id: $blockHeight) {
+      blockHeight
+      blockTime
+    }
+  }
+`;
+

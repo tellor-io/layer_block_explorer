@@ -1,0 +1,402 @@
+# Phase 1 Schema - Optional Fields for Safe Migration
+# Use this schema to start the indexer, then run migration scripts
+# After migration completes, switch to the main schema.graphql (Phase 2)
+
+# To improve query performance, we strongly suggest adding indexes to any field that you plan to filter or sort by
+# Add the `@index` or `@index(unique: true)` annotation after any non-key field
+# https://academy.subquery.network/build/graphql.html#indexing-by-non-primary-key-field
+
+type Block @entity {
+  id: ID! # The block height
+  blockHeight: BigInt! @index(unique: true)
+  blockHash: String! @index
+  blockTime: Date! @index
+  appHash: String!
+  chainId: String!
+  consensusHash: String!
+  dataHash: String!
+  evidenceHash: String!
+  nextValidatorsHash: String!
+  validatorsHash: String!
+  proposerAddress: String!
+  numberOfTx: Int!
+  voteExtensions: String
+  finalizedEvents: [FinalizedEvents] @derivedFrom(field: "blockHeight")
+}
+
+type Transaction @entity {
+  id: ID! # tx_hash
+  txData: String!
+  blockHeight: BigInt! @index
+  timestamp: Date!
+}
+
+type FinalizedEvents @entity {
+  id: ID! # block height
+  blockHeight: Block!
+  events: [String]
+}
+
+# Oracle
+type MicroReport @entity {
+  id: ID! # reporter-metaId
+  queryId: String!
+  queryIdHeight: String! @index # queryId-height
+  metaId: String! @index
+  height: BigInt!
+  reporter: String!
+  power: BigInt!
+  cycleList: Boolean!
+}
+
+type MetaIdAggregate @entity {
+  id: ID! # metaId
+  totalPower: BigInt!
+  reporterCount: Int!
+}
+
+type AggregateReport @entity {
+  id: ID! # queryId-timestamp
+  queryId: String! @index
+  queryData: String!
+  value: String!
+  aggregatePower: BigInt!
+  microReportHeight: BigInt! @index
+  blockHeight: BigInt! @index
+  timestamp: Date! @index
+  flagged: Boolean!
+  totalReporters: Int!
+  totalPower: BigInt!
+  cyclist: Boolean!
+}
+
+# Bridge
+
+type BridgeDeposit @entity {
+  id: ID! # DepositId
+  depositId: Int! @index(unique: true)
+  blockHeight: BigInt
+  timestamp: BigInt!
+  sender: String!
+  recipient: String!
+  amount: BigInt!
+  tip: BigInt!
+  reported: Boolean!
+  claimed: Boolean!
+}
+
+type Withdraw @entity {
+  id: ID! # DepositID
+  depositId: Int! @index(unique: true)
+  blockHeight: BigInt!
+  sender: String!
+  recipient: String!
+  amount: BigInt!
+  claimed: Boolean                    # ⚠️ PHASE 1: Optional (will be required in Phase 2)
+  withdrawalInitiatedHeight: BigInt   # ⚠️ PHASE 1: Optional (will be required in Phase 2)
+  withdrawalInitiatedTimestamp: Date  # ⚠️ PHASE 1: Optional (will be required in Phase 2) - Index added after column exists
+  claimedTimestamp: Date       # ✅ Already optional, safe to add
+}
+
+# Staking
+
+type CommissionRates @jsonField(indexed: false) {
+  rate: String!
+  maxRate: String!
+  maxChangeRate: String!
+}
+
+type Commission @jsonField(indexed: false) {
+  commissionRates: CommissionRates
+  updateTime: Date!
+}
+
+type Validator @entity {
+  id: ID! # validatorAddress
+  operatorAddress: String! @index
+  consensusPubkey: String!
+  consensusAddress: String! @index(unique: true)
+  delegatorAddress: String!
+  jailed: Boolean!
+  bondStatus: String! @index
+  tokens: BigInt! @index
+  delegatorShares: BigInt!
+  description: Description!
+  unbondingHeight: BigInt!
+  unbondingTime: BigInt!
+  commission: Commission!
+  minSelfDelegation: String!
+  unbondingOnHoldRefCount: BigInt
+  unbondingIds: [BigInt!]
+  missedBlocks: Int!
+  delegations: [Delegation] @derivedFrom(field: "validatorAddress")
+}
+
+type Delegation @entity {
+  id: ID! # delegatorAddress-validatorAddress
+  delegatorAddress: String! @index
+  validatorAddress: Validator!
+  shares: BigInt!
+}
+
+type SlashEvent @entity {
+  id: ID! # blockHeight-consensusAddress-timestamp
+  consensusAddress: String! @index
+  power: BigInt!
+  reason: String!
+  burnedCoins: String!
+  blockHeight: BigInt! @index
+  timestamp: Date! @index
+}
+
+type Description @jsonField(indexed: false) {
+  moniker: String!
+  identity: String!
+  website: String!
+  securityContact: String!
+  details: String!
+}
+
+# Reporter
+type Reporter @entity {
+  id: ID! # reporter address
+  creationHeight: BigInt!
+  commissionRate: BigInt!
+  LastUpdated: Date!
+  minTokensRequired: BigInt!
+  moniker: String!
+  jailed: Boolean!
+  jailedUntil: Date!
+  selectors: [Selector] @derivedFrom(field: "reporter")
+}
+
+type Selector @entity {
+  id: ID!
+  reporter: Reporter!
+  lockedUntilTime: Date!
+}
+
+type ReporterRewardsReceipt @entity {
+  id: ID! # blockHeight-reporter-timestamp
+  reporter: String! @index
+  commission: BigInt!
+  netReward: BigInt!
+  periodTotal: BigInt!
+  blockHeight: BigInt! @index
+  timestamp: Date! @index
+}
+
+# Governance
+
+type Coin @jsonField(indexed: false) {
+  denom: String
+  amount: String
+}
+
+type GovProposal @entity {
+  id: ID! # proposalId
+  proposalId: Int! @index(unique: true)
+  messages: String!
+  status: String! @index
+  submitTime: Date!
+  depositEndTime: Date
+  votingStartTime: Date @index
+  votingEndTime: Date @index
+  metaData: String!
+  title: String
+  summary: String!
+  proposer: String @index
+  expedited: Boolean!
+  votes: [Vote] @derivedFrom(field: "proposal")
+  tallyResults: String # JSON string: {"tally":{"yes_count":"...","abstain_count":"...","no_count":"...","no_with_veto_count":"..."},"totalPower":"..."}
+}
+
+type WeightedVoteOption @jsonField(indexed: false) {
+  VoteOption: Int!
+  Weight: String!
+}
+
+type Vote @entity {
+  id: ID! # proposalID-voterAccAddress
+  proposal: GovProposal!
+  option: [WeightedVoteOption]
+  metaData: String!
+}
+
+type EvmAddress @entity {
+  id: ID!
+  evmAddress: String!
+}
+
+# Parameters
+
+type StakingParams @entity {
+  id: ID! # "stakingParams"
+  unbondingTime: String!
+  maxValidators: Int!
+  maxEntries: Int!
+  historicalEntries: Int!
+  bondDenom: String!
+  minCommissionRate: String!
+}
+
+type GovParams @entity {
+  id: ID! # "govParams"
+  minDeposit: [Coin]!
+  maxDepositPeriod: String!
+  votingPeriod: String!
+  quorum: String!
+  threshold: String!
+  vetoThreshold: String!
+  minInitialDepositRatio: String!
+  proposalCancelRatio: String!
+  proposalCancelDest: String!
+  expeditedVotingPeriod: String!
+  expeditedThreshold: String!
+  expeditedMinDeposit: [Coin]!
+  burnVoteQuorum: Boolean!
+  burnProposalDepositPrevote: Boolean!
+  burnVoteVeto: Boolean!
+  minDepositRatio: String!
+}
+
+type DistributionParams @entity {
+  id: ID! # "distributionParams"
+  communityTax: String!
+  baseProposerReward: String!
+  bonusProposerReward: String!
+  withdrawAddrEnabled: Boolean!
+}
+
+type SlashingParams @entity {
+  id: ID! # "slashingParams"
+  signedBlocksWindow: String!
+  minSignedPerWindow: String!
+  downtimeJailDuration: String!
+  slashFractionDoubleSign: String!
+  slashFractionDowntime: String!
+}
+
+type OracleParams @entity {
+  id: ID! # oracleParams
+  minStakeAmount: String!
+  minTipAmount: String!
+  maxTipAmount: String!
+}
+
+type RegistryParams @entity {
+  id: ID! # registryParams
+  maxReportBufferWindow: String!
+}
+
+type DisputeParams @entity {
+  id: ID! # disputeParams
+  teamAddress: String!
+}
+
+type ReporterParams @entity {
+  id: ID! # reporterParams
+  minCommissionRate: String!
+  minLoya: String!
+  maxSelectors: String!
+  maxNumOfDelegations: String!
+}
+
+type NoStakeReports @entity {
+  id: ID! # queryId-timestamp
+  reporter: String!
+  queryData: String!
+  value: String!
+  blockHeight: BigInt! 
+}
+
+type ValidatorPubkey @jsonField(indexed: false) {
+  type: String!
+  value: String!
+}
+
+type ConsensusValidator @jsonField(indexed: false) {
+  address: String!
+  pubkey: ValidatorPubkey
+  votingPower: BigInt!
+  proposerPriority: Int
+}
+
+type ValidatorSet @entity {
+  id: ID! # block height
+  updatedHeight: BigInt!
+  validators: [ConsensusValidator!]!
+}
+
+type TotalTipsSnapshot @entity {
+  id: ID! # blockHeight
+  blockHeight: BigInt! @index
+  cumulativeTotalTips: BigInt!
+}
+
+type TipperSnapshot @entity {
+  id: ID! # tipper-blockHeight
+  tipper: String! @index
+  blockHeight: BigInt! @index
+  cumulativeTotalTips: BigInt! # total tips from this tipper up to this block
+}
+
+type TipTransaction @entity {
+  id: ID! # txHash-logIndex or blockHeight-txIndex-eventIndex
+  queryId: String! @index
+  queryIdTipHistory: QueryIdTipHistory!
+  tipper: String! @index
+  amount: BigInt!
+  querymetaId: Int! @index
+  blockHeight: BigInt! @index
+  timestamp: Date! @index
+  transactionHash: String!
+}
+
+type QueryIdTipHistory @entity {
+  id: ID! # queryId
+  queryId: String! @index(unique: true)
+  totalAmount: BigInt!
+  transactionCount: Int!
+  transactions: [TipTransaction] @derivedFrom(field: "queryIdTipHistory")
+}
+
+type TipWithdraw @entity {
+  id: ID! # blockHeight-txIndex-eventIndex or blockHeight-selector-validator-amount-timestamp
+  selector: String! @index
+  selectorTipsWithdrawn: SelectorTipsWithdrawn!
+  validator: String! @index
+  amount: BigInt!
+  shares: BigInt
+  blockHeight: BigInt! @index
+  timestamp: Date! @index
+}
+
+type SelectorTipsWithdrawn @entity {
+  id: ID! # selector address
+  selector: String! @index(unique: true)
+  totalAmount: BigInt!
+  withdrawCount: Int!
+  withdraws: [TipWithdraw] @derivedFrom(field: "selectorTipsWithdrawn")
+}
+
+type Dispute @entity {
+  id: ID! # disputeId
+  disputeId: Int! @index(unique: true)
+  blockHeight: BigInt!
+  creator: String!
+  disputedReporter: String!
+  disputeCategory: String!
+  totalFee: BigInt!
+  feePaid: BigInt!
+  reportValue: String!
+  reportBlock: BigInt!
+  reportTimestamp: BigInt!
+  queryType: String!
+  queryId: String!
+  executed: Boolean!
+  result: String!
+  disputeRound: Int!
+  previousDisputeIds: [Int!]
+}
+

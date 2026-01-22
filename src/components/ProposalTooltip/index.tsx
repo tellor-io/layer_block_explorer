@@ -12,8 +12,10 @@ import {
 } from '@chakra-ui/react'
 import { FiCopy } from 'react-icons/fi'
 import { useClipboard } from '@chakra-ui/react'
-import { useSelector } from 'react-redux'
-import { selectRPCAddress } from '@/store/connectSlice'
+import { graphqlQuery } from '@/datasources/graphql/client'
+import { GET_GOV_PROPOSAL_BY_ID } from '@/datasources/graphql/queries'
+import { GovProposalResponse } from '@/datasources/graphql/types'
+import { getTypeMsg } from '@/utils/helper'
 
 interface ProposalDetails {
   proposalId: number
@@ -62,7 +64,6 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
   const triggerRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const { hasCopied, onCopy } = useClipboard(proposalDetails?.summary || '')
-  const rpcAddress = useSelector(selectRPCAddress)
 
   const bgColor = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.600')
@@ -115,6 +116,120 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
     }
   }, [])
 
+  // Fetch proposal details using GraphQL
+  const fetchProposalDetails = useCallback(async () => {
+    if (proposalDetails || isLoading) return
+
+    console.log('Fetching proposal details for ID:', proposalId)
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await graphqlQuery<GovProposalResponse>(
+        GET_GOV_PROPOSAL_BY_ID,
+        { proposalId: String(proposalId) }
+      )
+
+      if (!response?.govProposal) {
+        throw new Error('Proposal not found')
+      }
+
+      const proposal = response.govProposal
+
+      // Parse messages field (comma-separated string) into array
+      let messageTypes: string[] = []
+      let formattedMessages: Array<{
+        index: number
+        type: string
+        content: any
+      }> = []
+      let primaryType = 'Unknown Type'
+
+      try {
+        if (proposal.messages && proposal.messages.trim()) {
+          // Messages field is a comma-separated string of message type URLs
+          messageTypes = proposal.messages
+            .split(',')
+            .map((msg: string) => msg.trim())
+            .filter((msg: string) => msg.length > 0)
+
+          if (messageTypes.length > 0) {
+            primaryType = getTypeMsg(messageTypes[0]) || messageTypes[0]
+
+            // Format messages for display
+            formattedMessages = messageTypes.map((messageType, index) => ({
+              index: index + 1,
+              type: messageType,
+              content: { '@type': messageType }, // GraphQL doesn't provide full message content
+            }))
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to parse proposal messages:', error)
+      }
+
+      // Parse tally results if available
+      let tallyResult = null
+      try {
+        if (proposal.tallyResults) {
+          const tallyData = JSON.parse(proposal.tallyResults)
+          const tally = tallyData.tally || {}
+          tallyResult = {
+            yes: tally.yes_count || tally.yes || '0',
+            no: tally.no_count || tally.no || '0',
+            abstain: tally.abstain_count || tally.abstain || '0',
+            noWithVeto: tally.no_with_veto_count || tally.no_with_veto || '0',
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to parse tally results:', error)
+      }
+
+      // Map GraphQL status to expected format
+      const statusMap: Record<string, string> = {
+        'proposal_deposit_period': 'PROPOSAL_STATUS_DEPOSIT_PERIOD',
+        'proposal_voting_period': 'PROPOSAL_STATUS_VOTING_PERIOD',
+        'PROPOSAL_STATUS_VOTING_PERIOD': 'PROPOSAL_STATUS_VOTING_PERIOD',
+        'proposal_passed': 'PROPOSAL_STATUS_PASSED',
+        'proposal_rejected': 'PROPOSAL_STATUS_REJECTED',
+        'proposal_failed': 'PROPOSAL_STATUS_FAILED',
+        'proposal_dropped': 'PROPOSAL_STATUS_FAILED',
+      }
+      const mappedStatus = statusMap[proposal.status] || proposal.status
+
+      // Transform GraphQL response to ProposalDetails format
+      const details: ProposalDetails = {
+        proposalId: proposal.proposalId,
+        title: proposal.title || 'Untitled Proposal',
+        summary: proposal.summary || '',
+        metadata: proposal.metaData || '',
+        proposer: proposal.proposer || '',
+        expedited: proposal.expedited || false,
+        failedReason: '', // GraphQL doesn't provide this field
+        messages: formattedMessages,
+        messageTypes,
+        primaryType,
+        status: mappedStatus,
+        submitTime: proposal.submitTime || null,
+        depositEndTime: proposal.depositEndTime || null,
+        votingStartTime: proposal.votingStartTime || null,
+        votingEndTime: proposal.votingEndTime || null,
+        totalDeposit: [], // GraphQL doesn't provide this field
+        tallyResult,
+      }
+
+      console.log('Proposal data received:', details)
+      setProposalDetails(details)
+    } catch (err) {
+      console.error('Error fetching proposal details:', err)
+      setError(
+        err instanceof Error ? err.message : 'Failed to fetch proposal details'
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }, [proposalId, proposalDetails, isLoading])
+
   // Handle mouse enter on trigger
   const handleMouseEnter = useCallback(() => {
     updatePosition()
@@ -122,7 +237,7 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
     if (!proposalDetails && !isLoading) {
       fetchProposalDetails()
     }
-  }, [proposalDetails, isLoading])
+  }, [proposalDetails, isLoading, updatePosition, fetchProposalDetails])
 
   // Handle mouse leave with delay
   const handleMouseLeave = useCallback(() => {
@@ -158,35 +273,6 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [isOpen, updatePosition])
-
-  const fetchProposalDetails = async () => {
-    if (proposalDetails || isLoading) return
-
-    console.log('Fetching proposal details for ID:', proposalId)
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const url = rpcAddress 
-        ? `/api/proposals/${proposalId}?rpc=${encodeURIComponent(rpcAddress)}`
-        : `/api/proposals/${proposalId}`
-      const response = await fetch(url)
-      console.log('API response status:', response.status)
-      if (!response.ok) {
-        throw new Error(`Failed to fetch proposal: ${response.statusText}`)
-      }
-      const data = await response.json()
-      console.log('Proposal data received:', data)
-      setProposalDetails(data)
-    } catch (err) {
-      console.error('Error fetching proposal details:', err)
-      setError(
-        err instanceof Error ? err.message : 'Failed to fetch proposal details'
-      )
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A'
@@ -354,12 +440,6 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
                       spacing={2}
                       maxH="400px"
                       overflowY="auto"
-                      onMouseEnter={() =>
-                        console.log('Mouse entered messages area')
-                      }
-                      onMouseLeave={() =>
-                        console.log('Mouse left messages area')
-                      }
                       css={{
                         '&::-webkit-scrollbar': {
                           width: '6px',

@@ -36,6 +36,13 @@ export interface Block {
   proposerAddress: string; // Comma-separated byte string
   numberOfTx: number;
   appHash: string; // Comma-separated byte string
+  chainId: string;
+  voteExtensions?: string; // Vote extension data as JSON string (parsed by indexer)
+  consensusHash?: string; // Comma-separated byte string
+  dataHash?: string; // Comma-separated byte string
+  evidenceHash?: string; // Comma-separated byte string
+  nextValidatorsHash?: string; // Comma-separated byte string
+  validatorsHash?: string; // Comma-separated byte string
 }
 
 export interface BlocksResponse {
@@ -109,12 +116,18 @@ export interface DelegationsResponse {
 
 export interface GovProposal {
   proposalId: number;
-  title: string;
+  title: string | null;
+  summary: string;
+  metaData: string;
+  proposer: string | null;
+  expedited: boolean;
   status: 'proposal_deposit_period' | 'proposal_voting_period' | 'proposal_passed' | 'proposal_rejected' | 'proposal_failed' | 'proposal_dropped' | 'PROPOSAL_STATUS_VOTING_PERIOD';
   submitTime: string; // ISO timestamp
+  depositEndTime: string | null; // ISO timestamp
   votingStartTime: string; // ISO timestamp
   votingEndTime: string; // ISO timestamp
   messages: string; // Comma-separated message types
+  tallyResults?: string | null; // JSON string: {"tally":{"yes_count":"...","abstain_count":"...","no_count":"...","no_with_veto_count":"..."},"totalPower":"..."}
 }
 
 export interface GovProposalsResponse {
@@ -187,36 +200,49 @@ export interface DistributionParam {
   withdrawAddrEnabled: boolean;
 }
 
+export interface Coin {
+  denom: string;
+  amount: string;
+}
+
 export interface GovParam {
   id: string;
-  votingParams: string; // JSON string
-  tallyParams: string; // JSON string
-  depositParams: string; // JSON string
+  quorum: string;
+  votingPeriod: string;
+  threshold: string;
+  vetoThreshold: string;
+  minDeposit: Coin[];
+  maxDepositPeriod: string;
+  minInitialDepositRatio: string;
+  proposalCancelRatio: string;
+  proposalCancelDest: string;
+  expeditedVotingPeriod: string;
+  expeditedThreshold: string;
+  expeditedMinDeposit: Coin[];
+  burnVoteQuorum: boolean;
+  burnProposalDepositPrevote: boolean;
+  burnVoteVeto: boolean;
+  minDepositRatio: string;
 }
 
 export interface OracleParam {
   id: string;
-  maxDataPoints: string;
-  maxValueLength: string;
-  maxReporters: string;
-  minValidReports: string;
-  reportFrequency: string;
-  reportExpiration: string;
+  minStakeAmount: string;
+  minTipAmount: string;
+  maxTipAmount: string;
 }
 
 export interface RegistryParam {
   id: string;
-  stakeAmount: string;
-  stakeToken: string;
-  governanceToken: string;
-  reporterAddress: string;
+  maxReportBufferWindow: string;
 }
 
 export interface ReporterParam {
   id: string;
-  reporterStake: string;
-  reporterPayout: string;
-  reporterSlash: string;
+  minCommissionRate: string;
+  minLoya: string;
+  maxSelectors: string;
+  maxNumOfDelegations: string;
 }
 
 export interface SlashingParam {
@@ -394,4 +420,73 @@ export interface AggregateReportsResponse {
 
 export interface AggregateReportResponse {
   aggregateReport: AggregateReport | null;
+}
+
+// ============================================================================
+// BRIDGE DEPOSIT TYPES
+// ============================================================================
+
+/**
+ * Bridge deposit from GraphQL indexer
+ * Represents a bridge deposit from Ethereum to Tellor Layer
+ */
+export interface BridgeDeposit {
+  id: string;
+  depositId: number;
+  blockHeight: string | null; // BigFloat as string, can be null
+  timestamp: string; // BigFloat as string (Unix timestamp)
+  sender: string; // Ethereum address (0x...)
+  recipient: string; // Cosmos address (tellor...)
+  amount: string; // BigFloat as string (in wei)
+  tip: string; // BigFloat as string (in wei)
+  reported: boolean;
+  claimed: boolean;
+}
+
+export interface BridgeDepositsResponse {
+  bridgeDeposits: Connection<BridgeDeposit>;
+}
+
+export interface BridgeDepositResponse {
+  bridgeDeposits: Connection<BridgeDeposit>;
+}
+
+// ============================================================================
+// BRIDGE WITHDRAWAL TYPES
+// ============================================================================
+
+/**
+ * Withdrawal from GraphQL indexer
+ * Represents a bridge withdrawal from Tellor Layer to Ethereum
+ * 
+ * Note: Withdrawals are independent from deposits - they are separate processes.
+ * The `depositId` field is the withdrawal's own ID (not a reference to a deposit).
+ * Both deposits and withdrawals use the same smart contract on Ethereum but are unrelated.
+ */
+export interface Withdraw {
+  id: string;
+  depositId: number; // This is the withdrawal's own ID, not a reference to a deposit
+  blockHeight: string; // BigFloat as string
+  sender: string; // Cosmos address (tellor...)
+  recipient: string; // Ethereum address (0x...)
+  amount: string; // BigFloat as string
+  claimed?: boolean | null;
+  withdrawalInitiatedHeight?: string | null; // BigFloat as string
+  withdrawalInitiatedTimestamp?: string | null; // Datetime as ISO string
+  claimedTimestamp?: string | null; // Datetime as ISO string
+}
+
+export interface WithdrawalsResponse {
+  withdraws: Connection<Withdraw>;
+}
+
+export interface WithdrawalResponse {
+  withdraws: Connection<Withdraw>;
+}
+
+export interface BlockTimestampResponse {
+  block: {
+    blockHeight: string;
+    blockTime: string; // ISO timestamp
+  } | null;
 }

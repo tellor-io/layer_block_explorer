@@ -47,14 +47,18 @@ import { rpcManager } from '@/utils/rpcManager'
 import { getValidators } from '@/rpc/query'
 */
 import { toHex } from '@cosmjs/encoding'
-import { timeFromNow, trimHash, displayDate, getTypeMsg } from '@/utils/helper'
+import { timeFromNow, trimHash, displayDate, getTypeMsg, bytesToBech32ConsensusAddress } from '@/utils/helper'
 import { sha256 } from '@cosmjs/crypto'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { FaExpand, FaCompress, FaCopy } from 'react-icons/fa'
 // GraphQL imports
 import { graphqlQuery, bytesToHex, parseJsonField } from '@/datasources/graphql/client'
-import { GET_BLOCK_BY_HEIGHT, GET_VALIDATORS } from '@/datasources/graphql/queries'
-import { BlockResponse, ValidatorsResponse, ValidatorDescription } from '@/datasources/graphql/types'
+import { GET_BLOCK_BY_HEIGHT, GET_VALIDATORS, GET_TRANSACTIONS_BY_BLOCK_HEIGHT } from '@/datasources/graphql/queries'
+import { BlockResponse, ValidatorsResponse, ValidatorDescription, TransactionsResponse, Transaction } from '@/datasources/graphql/types'
+import { getBlockResults } from '@/rpc/query'
+import { Tx as TxData } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
+import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin'
+import { fromBase64 } from '@cosmjs/encoding'
 
 /* RPC INTERFACES - COMMENTED OUT FOR GRAPHQL MIGRATION
 // Extend the Block type to include rawData and proposerAddress
@@ -104,6 +108,13 @@ interface GraphQLBlock {
   proposerAddress: string
   numberOfTx: number
   appHash: string
+  chainId: string
+  voteExtensions?: string
+  consensusHash?: string
+  dataHash?: string
+  evidenceHash?: string
+  nextValidatorsHash?: string
+  validatorsHash?: string
 }
 
 interface ValidatorMap {
@@ -131,6 +142,26 @@ export default function DetailBlock() {
   const [validatorMap, setValidatorMap] = useState<ValidatorMap>({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [blockResults, setBlockResults] = useState<any>(null)
+  const [voteExtensionData, setVoteExtensionData] = useState<any>(null)
+  const {
+    isOpen: isTxOpen,
+    onOpen: onTxOpen,
+    onClose: onTxClose,
+  } = useDisclosure()
+  const {
+    isOpen: isResultsOpen,
+    onOpen: onResultsOpen,
+    onClose: onResultsClose,
+  } = useDisclosure()
+  const [isFullScreen, setIsFullScreen] = useState(false)
+  const { onCopy: onCopyTx, hasCopied: hasCopiedTx } = useClipboard(
+    voteExtensionData ? JSON.stringify(voteExtensionData, null, 2) : ''
+  )
+  const { onCopy: onCopyResults, hasCopied: hasCopiedResults } = useClipboard(
+    blockResults ? JSON.stringify(blockResults, null, 2) : ''
+  )
   /* RPC MODAL STATES - COMMENTED OUT FOR GRAPHQL MIGRATION
   const {
     isOpen: isTxOpen,
@@ -181,12 +212,17 @@ export default function DetailBlock() {
       if (response?.validators?.edges) {
         const map: { [key: string]: string } = {}
         response.validators.edges.forEach(({ node: validator }: any) => {
-          // Parse the consensus pubkey JSON to get the key
-          const consensusPubkey = parseJsonField(validator.consensusPubkey)
-          if (consensusPubkey?.key) {
-            const hexAddress = pubkeyToAddress(consensusPubkey.key as string)
-            const description = parseJsonField(validator.description) as ValidatorDescription | null
-            map[hexAddress] = description?.moniker || 'Unknown'
+          // Use consensusAddress field directly for matching (same as blocks/index.tsx)
+          if (validator.consensusAddress) {
+            // Description is already parsed as an object, not a JSON string
+            const description = typeof validator.description === 'string' 
+              ? parseJsonField(validator.description) as ValidatorDescription | null
+              : validator.description as ValidatorDescription | null
+            map[validator.consensusAddress] = description?.moniker || 'Unknown'
+            console.log('Validator mapping:', { 
+              consensusAddress: validator.consensusAddress, 
+              moniker: description?.moniker || 'Unknown' 
+            })
           }
         })
         setValidatorMap(map)
@@ -206,9 +242,9 @@ export default function DetailBlock() {
         return 'Unknown'
       }
 
-      // Convert comma-separated byte string to hex address
-      const hexAddress = bytesToHex(proposerAddress).toLowerCase()
-      const moniker = validatorMap[hexAddress] || 'Unknown'
+      // Convert comma-separated byte string to bech32 consensus address (same as blocks/index.tsx)
+      const consensusAddress = bytesToBech32ConsensusAddress(proposerAddress)
+      const moniker = validatorMap[consensusAddress] || 'Unknown'
 
       return moniker
     } catch (error) {
@@ -312,10 +348,12 @@ export default function DetailBlock() {
           // Fetch validators first
           await fetchValidators()
 
+          const blockHeight = Array.isArray(height) ? height[0] : height
+
           // Fetch block data using GraphQL directly
-          console.log('Block detail: Fetching block from GraphQL for height:', height)
+          console.log('Block detail: Fetching block from GraphQL for height:', blockHeight)
           const response = await graphqlQuery<BlockResponse>(GET_BLOCK_BY_HEIGHT, { 
-            blockHeight: Array.isArray(height) ? height[0] : height 
+            blockHeight 
           })
           
           if (response?.block) {
@@ -326,8 +364,45 @@ export default function DetailBlock() {
               proposerAddress: response.block.proposerAddress,
               numberOfTx: response.block.numberOfTx,
               appHash: response.block.appHash,
+              chainId: response.block.chainId,
+              voteExtensions: response.block.voteExtensions,
+              consensusHash: response.block.consensusHash,
+              dataHash: response.block.dataHash,
+              evidenceHash: response.block.evidenceHash,
+              nextValidatorsHash: response.block.nextValidatorsHash,
+              validatorsHash: response.block.validatorsHash,
             }
             setBlock(blockData)
+
+            // Parse vote extension data from GraphQL (it's a JSON string)
+            if (response.block.voteExtensions) {
+              try {
+                const voteExtData = JSON.parse(response.block.voteExtensions)
+                setVoteExtensionData(voteExtData)
+              } catch (error) {
+                console.error('Error parsing vote extensions:', error)
+                // If parsing fails, set the raw string
+                setVoteExtensionData(response.block.voteExtensions)
+              }
+            }
+
+            // Fetch transactions for this block
+            const txResponse = await graphqlQuery<TransactionsResponse>(
+              GET_TRANSACTIONS_BY_BLOCK_HEIGHT,
+              { blockHeight, first: 100 }
+            )
+            if (txResponse?.transactions?.edges) {
+              setTransactions(txResponse.transactions.edges.map(edge => edge.node))
+            }
+
+            // Fetch block results separately (different from vote extensions)
+            try {
+              const results = await getBlockResults(parseInt(blockHeight))
+              setBlockResults(results)
+            } catch (error) {
+              console.error('Error fetching block results:', error)
+            }
+
             console.log('Block detail: Successfully fetched block from GraphQL:', blockData)
           } else {
             setError('Block not found')
@@ -393,63 +468,163 @@ export default function DetailBlock() {
   useEffect(() => {}, [blockResults])
   */
 
-  /* RPC HELPER FUNCTIONS - COMMENTED OUT FOR GRAPHQL MIGRATION
-  const renderMessages = (messages: any) => {
-    if (messages.length == 1) {
-      return (
-        <HStack>
-          <Tag colorScheme="cyan">{getTypeMsg(messages[0].typeUrl)}</Tag>
-        </HStack>
-      )
-    } else if (messages.length > 1) {
-      return (
-        <HStack>
-          <Tag colorScheme="cyan">{getTypeMsg(messages[0].typeUrl)}</Tag>
-          <Text textColor="cyan.800">+{messages.length - 1}</Text>
-        </HStack>
-      )
-    }
-
-    return ''
-  }
-
-  const getFee = (fees: Coin[] | undefined) => {
-    if (fees && fees.length) {
-      return (
-        <HStack>
-          <Text>{fees[0].amount}</Text>
-          <Text textColor="cyan.800">{fees[0].denom}</Text>
-        </HStack>
-      )
-    }
-    return ''
-  }
-
-  const showError = (err: Error) => {
-    const errMsg = err.message
-    let error = null
+  // Helper functions for rendering transaction data
+  const decodeTransaction = (txData: string): { messages: any[], fee: Coin[] | undefined } | null => {
     try {
-      error = JSON.parse(errMsg)
-    } catch (e) {
-      error = {
-        message: 'Invalid',
-        data: errMsg,
+      // txData from GraphQL is a JSON string with the transaction structure
+      const jsonData = JSON.parse(txData)
+      
+      // The transaction structure has auth_info and body at the top level
+      // Fee is at: auth_info.fee.amount
+      // Messages are at: body.messages
+      // There's also a nested "tx" object with events
+      const fee = jsonData.auth_info?.fee?.amount
+      const messages = jsonData.body?.messages || []
+      
+      if (messages.length > 0 || fee) {
+        return {
+          messages,
+          fee
+        }
       }
-    }
+      
+      // Fallback: try to get from nested tx object
+      const tx = jsonData.tx
+      if (tx?.body?.messages) {
+        return {
+          messages: tx.body.messages,
+          fee: tx.auth_info?.fee?.amount || jsonData.auth_info?.fee?.amount
+        }
+      }
+      
+      // Last fallback: try direct protobuf decoding if JSON parsing doesn't work
+      try {
+        const txBytes = fromBase64(txData)
+        const decoded = TxData.decode(txBytes)
+        return {
+          messages: decoded.body?.messages || [],
+          fee: decoded.authInfo?.fee?.amount
+        }
+      } catch {}
 
-    toast({
-      title: error.message,
-      description: error.data,
-      status: 'error',
-      duration: 5000,
-      isClosable: true,
-    })
+      return null
+    } catch (error) {
+      console.error('Error decoding transaction:', error)
+      return null
+    }
+  }
+
+  const renderMessages = (txData: string, txId: string) => {
+    try {
+      // Parse the transaction data JSON
+      const jsonData = JSON.parse(txData)
+      const tx = jsonData.tx || jsonData
+      
+      // Extract message types from events (more reliable than message objects)
+      const messageEvents = tx.events?.filter((e: any) => e.type === 'message') || []
+      const messageTypes: string[] = []
+      
+      messageEvents.forEach((event: any) => {
+        const actionAttr = event.attributes?.find((a: any) => a.key === 'action')
+        if (actionAttr?.value) {
+          // Extract the message type from path like "/layer.oracle.MsgSubmitValue"
+          const messageType = actionAttr.value.split('.').pop() || actionAttr.value
+          if (messageType && !messageTypes.includes(messageType)) {
+            messageTypes.push(messageType)
+          }
+        }
+      })
+      
+      if (messageTypes.length === 0) {
+        // Fallback: try to get from decoded messages
+        const decoded = decodeTransaction(txData)
+        if (decoded?.messages && decoded.messages.length > 0) {
+          decoded.messages.forEach((msg: any) => {
+            const msgType = msg['@type'] || msg.typeUrl || 'Unknown'
+            if (msgType !== 'Unknown' && !messageTypes.includes(msgType)) {
+              messageTypes.push(msgType)
+            }
+          })
+        }
+      }
+      
+      if (messageTypes.length === 0) {
+        return <Text>No messages</Text>
+      }
+      
+      if (messageTypes.length === 1) {
+        return (
+          <Link
+            as={NextLink}
+            href={`/txs/${txId}`}
+            style={{ textDecoration: 'none' }}
+            _focus={{ boxShadow: 'none' }}
+          >
+            <Tag colorScheme="cyan" cursor="pointer">{getTypeMsg(messageTypes[0])}</Tag>
+          </Link>
+        )
+      } else {
+        return (
+          <HStack>
+            <Link
+              as={NextLink}
+              href={`/txs/${txId}`}
+              style={{ textDecoration: 'none' }}
+              _focus={{ boxShadow: 'none' }}
+            >
+              <Tag colorScheme="cyan" cursor="pointer">{getTypeMsg(messageTypes[0])}</Tag>
+            </Link>
+            <Text textColor="cyan.800">+{messageTypes.length - 1}</Text>
+          </HStack>
+        )
+      }
+    } catch (error) {
+      console.error('Error rendering messages:', error)
+      return <Text>Error</Text>
+    }
+  }
+
+  const getFee = (txData: string) => {
+    const decoded = decodeTransaction(txData)
+    if (decoded?.fee && decoded.fee.length > 0) {
+      const fee = decoded.fee[0]
+      // Fee amount is already in the base denomination (loya), not uloya
+      // The amount is a string, so we parse it as-is
+      let amount = Number(fee.amount)
+      let denom = fee.denom
+      
+      // If denom starts with 'u', convert from micro-denomination
+      if (denom.startsWith('u')) {
+        amount = amount / 1_000_000
+        denom = denom.slice(1) // Remove 'u' prefix
+      }
+      
+      return (
+        <HStack>
+          <Text>{amount}</Text>
+          <Text textColor="cyan.800">{denom}</Text>
+        </HStack>
+      )
+    }
+    return <Text>0 loya</Text>
   }
 
   const toggleFullScreen = () => {
     setIsFullScreen(!isFullScreen)
   }
-  */
+
+  const serializeBigInt = (data: any): any => {
+    if (typeof data === 'bigint') {
+      return data.toString()
+    } else if (Array.isArray(data)) {
+      return data.map(serializeBigInt)
+    } else if (typeof data === 'object' && data !== null) {
+      return Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [key, serializeBigInt(value)])
+      )
+    }
+    return data
+  }
 
   return (
     <ErrorBoundary>
@@ -528,6 +703,12 @@ export default function DetailBlock() {
                 <Tbody>
                   <Tr>
                     <Td pl={0} width={150}>
+                      <b>Chain Id</b>
+                    </Td>
+                    <Td>{block.chainId}</Td>
+                  </Tr>
+                  <Tr>
+                    <Td pl={0} width={150}>
                       <b>Height</b>
                     </Td>
                     <Td>{block.blockHeight}</Td>
@@ -550,14 +731,6 @@ export default function DetailBlock() {
                   </Tr>
                   <Tr>
                     <Td pl={0} width={150}>
-                      <b>App Hash</b>
-                    </Td>
-                    <Td>
-                      {bytesToHex(block.appHash)}
-                    </Td>
-                  </Tr>
-                  <Tr>
-                    <Td pl={0} width={150}>
                       <b>Proposer</b>
                     </Td>
                     <Td>{getProposerMoniker(block.proposerAddress)}</Td>
@@ -568,66 +741,91 @@ export default function DetailBlock() {
                     </Td>
                     <Td>{block.numberOfTx}</Td>
                   </Tr>
+                  <Tr>
+                    <Td pl={0} width={150}>
+                      <b>Vote Ext Tx</b>
+                    </Td>
+                    <Td>
+                      <Button
+                        colorScheme="teal"
+                        size="sm"
+                        onClick={onTxOpen}
+                        isDisabled={!voteExtensionData}
+                      >
+                        View Vote Extension Transaction
+                      </Button>
+                    </Td>
+                  </Tr>
+                  <Tr>
+                    <Td pl={0} width={150}>
+                      <b>Block Results</b>
+                    </Td>
+                    <Td>
+                      <Button
+                        colorScheme="teal"
+                        size="sm"
+                        onClick={onResultsOpen}
+                        isDisabled={!blockResults}
+                      >
+                        View Block Results
+                      </Button>
+                    </Td>
+                  </Tr>
                 </Tbody>
               </Table>
             </TableContainer>
           </Box>
         ) : null}
 
-        {/* TRANSACTIONS SECTION - COMMENTED OUT FOR GRAPHQL MIGRATION
-        <Box
-          mt={8}
-          bg={useColorModeValue('light-container', 'dark-container')}
-          shadow={'base'}
-          borderRadius={4}
-          p={4}
-        >
-          <Heading size={'md'} mb={4}>
-            Transactions
-          </Heading>
-          <Divider borderColor={'gray'} mb={4} />
-          <TableContainer>
-            <Table variant="simple">
-              <Thead>
-                <Tr>
-                  <Th>Tx Hash</Th>
-                  <Th>Messages</Th>
-                  <Th>Fee</Th>
-                  <Th>Height</Th>
-                  <Th>Time</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {txs.map((tx) => (
-                  <Tr key={toHex(tx.hash)}>
-                    <Td>
-                      <Link
-                        as={NextLink}
-                        href={'/txs/' + toHex(tx.hash).toUpperCase()}
-                        style={{ textDecoration: 'none' }}
-                        _focus={{ boxShadow: 'none' }}
-                      >
-                        <Text color={'cyan.400'}>{trimHash(tx.hash)}</Text>
-                      </Link>
-                    </Td>
-                    <Td>{renderMessages(tx.data.body?.messages)}</Td>
-                    <Td>{getFee(tx.data.authInfo?.fee?.amount)}</Td>
-                    <Td>{height}</Td>
-                    <Td>
-                      {block?.header.time
-                        ? timeFromNow(block?.header.time)
-                        : ''}
-                    </Td>
+        {transactions.length > 0 && (
+          <Box
+            mt={8}
+            bg={useColorModeValue('light-container', 'dark-container')}
+            shadow={'base'}
+            borderRadius={4}
+            p={4}
+          >
+            <Heading size={'md'} mb={4}>
+              Transactions
+            </Heading>
+            <Divider borderColor={'gray'} mb={4} />
+            <TableContainer>
+              <Table variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th>TX HASH</Th>
+                    <Th>MESSAGES</Th>
+                    <Th>FEE</Th>
+                    <Th>HEIGHT</Th>
+                    <Th>TIME</Th>
                   </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </TableContainer>
-        </Box>
-        */}
+                </Thead>
+                <Tbody>
+                  {transactions.map((tx) => (
+                    <Tr key={tx.id}>
+                      <Td>
+                        <Link
+                          as={NextLink}
+                          href={'/txs/' + tx.id}
+                          style={{ textDecoration: 'none' }}
+                          _focus={{ boxShadow: 'none' }}
+                        >
+                          <Text color={'cyan.400'}>{trimHash(tx.id)}</Text>
+                        </Link>
+                      </Td>
+                      <Td>{renderMessages(tx.txData, tx.id)}</Td>
+                      <Td>{getFee(tx.txData)}</Td>
+                      <Td>{tx.blockHeight}</Td>
+                      <Td>{timeFromNow(tx.timestamp)}</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </TableContainer>
+          </Box>
+        )}
       </main>
 
-      {/* MODALS - COMMENTED OUT FOR GRAPHQL MIGRATION
       <Modal
         isOpen={isTxOpen}
         onClose={onTxClose}
@@ -637,7 +835,7 @@ export default function DetailBlock() {
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
-            Decoded Transaction Data for Block {block?.header.height}
+            Vote Extension Transaction for Block {block?.blockHeight}
             <IconButton
               icon={isFullScreen ? <FaCompress /> : <FaExpand />}
               aria-label={isFullScreen ? 'Exit full screen' : 'Full screen'}
@@ -663,14 +861,14 @@ export default function DetailBlock() {
                 icon={<FaCopy />}
                 aria-label="Copy to clipboard"
                 onClick={() =>
-                  handleCopy(onCopyTx, 'Transaction data copied to clipboard')
+                  handleCopy(onCopyTx, 'Vote extension data copied to clipboard')
                 }
                 position="absolute"
                 top={2}
                 right={2}
                 size="sm"
               />
-              <pre>{JSON.stringify(decodedTxData, null, 2)}</pre>
+              <pre>{JSON.stringify(voteExtensionData, null, 2)}</pre>
             </Box>
           </ModalBody>
           <ModalFooter>
@@ -690,7 +888,7 @@ export default function DetailBlock() {
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>
-            Block Results for Block {block?.header.height}
+            Block Results for Block {block?.blockHeight}
             <IconButton
               icon={isFullScreen ? <FaCompress /> : <FaExpand />}
               aria-label={isFullScreen ? 'Exit full screen' : 'Full screen'}
@@ -726,7 +924,7 @@ export default function DetailBlock() {
               <pre>
                 {blockResults
                   ? JSON.stringify(serializeBigInt(blockResults), null, 2)
-                  : ''}
+                  : 'No block results available'}
               </pre>
             </Box>
           </ModalBody>
@@ -737,7 +935,6 @@ export default function DetailBlock() {
           </ModalFooter>
         </ModalContent>
       </Modal>
-      */}
     </ErrorBoundary>
   )
 }

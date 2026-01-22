@@ -15,7 +15,7 @@
  * - Fields: queryId, value, blockHeight, timestamp, totalReporters, totalPower, cyclist
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Head from 'next/head'
 import {
   Box,
@@ -39,12 +39,28 @@ import {
   VStack,
   Radio,
   RadioGroup,
+  Button,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverBody,
+  Checkbox,
+  Flex,
 } from '@chakra-ui/react'
 import NextLink from 'next/link'
-import { FiChevronRight, FiHome } from 'react-icons/fi'
+import { FiChevronRight, FiHome, FiCalendar } from 'react-icons/fi'
 import { ExternalLinkIcon } from '@chakra-ui/icons'
+import { DayPicker, DateRange } from 'react-day-picker'
+import { format } from 'date-fns'
+import 'react-day-picker/dist/style.css'
 import { graphqlQuery } from '@/datasources/graphql/client'
-import { GET_SINGLE_LATEST_AGGREGATE_REPORTS, GET_AGGREGATE_REPORTS_BY_QUERY_ID } from '@/datasources/graphql/queries'
+import { 
+  GET_SINGLE_LATEST_AGGREGATE_REPORTS, 
+  GET_LATEST_AGGREGATE_REPORTS,
+  GET_AGGREGATE_REPORTS_BY_QUERY_ID,
+  GET_AGGREGATE_REPORTS_BY_QUERY_ID_AND_DATE,
+  GET_AGGREGATE_REPORTS_BY_DATE_RANGE
+} from '@/datasources/graphql/queries'
 import type { AggregateReportsResponse } from '@/datasources/graphql/types'
 
 /* MIGRATED TO GRAPHQL - Commented out RPC imports
@@ -91,6 +107,12 @@ interface AggregateReportEvent {
 const normalizeQueryId = (queryId: string): string => {
   // Remove 0x prefix if present and convert to lowercase for consistent matching
   return queryId.startsWith('0x') ? queryId.slice(2).toLowerCase() : queryId.toLowerCase()
+}
+
+// Helper function to truncate 0x prefix from query IDs for GraphQL queries
+const truncateQueryIdPrefix = (queryId: string): string => {
+  // Remove 0x prefix if present for GraphQL API
+  return queryId.startsWith('0x') ? queryId.slice(2) : queryId
 }
 
 // Get query pair name from config mappings
@@ -143,6 +165,29 @@ export default function DataFeed() {
   const [selectedQueryId, setSelectedQueryId] = useState<string | null>(null)
   const [queryIdMappings, setQueryIdMappings] = useState<QueryIdPairMapping[]>([])
   const [availablePairNames, setAvailablePairNames] = useState<string[]>([])
+  
+  // Date filtering state
+  const [isDateFilterEnabled, setIsDateFilterEnabled] = useState<boolean>(false)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState<boolean>(false)
+  
+  // Pagination state
+  const [isPaginationMode, setIsPaginationMode] = useState<boolean>(false)
+  const [currentCursor, setCurrentCursor] = useState<string | null>(null) // Cursor for next page
+  const [currentPageStartCursor, setCurrentPageStartCursor] = useState<string | null>(null) // Cursor used to load current page
+  const [pageHistory, setPageHistory] = useState<(string | null)[]>([]) // Stack of start cursors for back navigation
+  const [hasNextPage, setHasNextPage] = useState<boolean>(false)
+  const [hasPreviousPage, setHasPreviousPage] = useState<boolean>(false)
+  const [pageSize] = useState<number>(50) // Number of aggregates per page
+  const [lastPollingCursor, setLastPollingCursor] = useState<string | null>(null) // Track cursor from last polling query for "load more"
+  
+  // Use ref to track pagination mode to prevent race conditions with polling
+  const isPaginationModeRef = useRef<boolean>(false)
+  
+  // Extract fromDate and toDate from dateRange for filtering logic
+  const fromDate = dateRange?.from
+  const toDate = dateRange?.to
+  
   const toast = useToast()
   
   // Fetch query pair configuration from public config file
@@ -193,69 +238,257 @@ export default function DataFeed() {
     fetchQueryPairConfig()
   }, [toast])
   
-  // GraphQL polling for aggregate reports
-  useEffect(() => {
-    const fetchGraphQLReports = async () => {
+  // Helper function to map GraphQL reports to OracleReport format
+  const mapReportsToOracleFormat = (reports: any[]): OracleReport[] => {
+    return reports.map(report => {
+      // Decode hex value to decimal
+      let decodedValue = report.value
       try {
-        // Use filtered query if a specific feed is selected
-        const response = selectedQueryId
-          ? await graphqlQuery<AggregateReportsResponse>(
-              GET_AGGREGATE_REPORTS_BY_QUERY_ID,
-              { queryId: selectedQueryId, first: 100 }
-            )
-          : await graphqlQuery<AggregateReportsResponse>(
-              GET_SINGLE_LATEST_AGGREGATE_REPORTS,
-              { first: 100 }
-            )
+        if (report.value.match(/^[0-9a-fA-F]+$/)) {
+          const valueInWei = BigInt(`0x${report.value}`)
+          const valueInEth = Number(valueInWei) / 1e18
+          decodedValue = valueInEth.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        }
+      } catch (error) {
+        console.debug('Error decoding hex value:', error)
+      }
+      
+      // Parse timestamp - GraphQL returns UTC timestamps without Z suffix
+      const timestamp = report.timestamp.endsWith('Z') 
+        ? new Date(report.timestamp)
+        : new Date(report.timestamp + 'Z')
+      
+      return {
+        type: 'aggregate_report',
+        queryId: report.queryId,
+        value: decodedValue,
+        microReportHeight: report.microReportHeight,
+        blockHeight: parseInt(report.blockHeight),
+        timestamp: timestamp,
+        aggregatePower: report.aggregatePower ? parseFloat(report.aggregatePower) : undefined,
+        queryData: report.queryData,
+      } as OracleReport
+    })
+  }
+
+  // Fetch aggregate reports with pagination support
+  const fetchAggregateReports = async (cursor: string | null = null, isPagination: boolean = false) => {
+    try {
+      // Determine which query to use based on filters
+      const hasDateFilter = isDateFilterEnabled && (fromDate || toDate)
+      const hasQueryIdFilter = selectedQueryId !== null
+      
+      let response: AggregateReportsResponse
+      // Use smaller batch sizes for date range queries to avoid database timeouts
+      // Date range queries scan more data, so we use pagination-size batches (50) instead of 500
+      const queryVars: any = {
+        first: isPagination ? pageSize : (hasDateFilter ? pageSize : 100),
+        ...(cursor && { after: cursor })
+      }
+      
+      if (hasDateFilter && hasQueryIdFilter) {
+        // Filter by both queryId and date range at GraphQL level
+        const filterVars: any = {
+          queryId: truncateQueryIdPrefix(selectedQueryId!),
+          first: queryVars.first,
+          ...(cursor && { after: cursor })
+        }
         
-        const reports = response.aggregateReports.edges.map(edge => edge.node)
-        const newReports = reports.filter(report => !processedReportIds.has(report.id))
+        // Format dates as ISO strings for GraphQL
+        if (fromDate) {
+          const fromDateUTC = new Date(Date.UTC(
+            fromDate.getUTCFullYear(),
+            fromDate.getUTCMonth(),
+            fromDate.getUTCDate(),
+            0, 0, 0, 0
+          ))
+          filterVars.fromDate = fromDateUTC.toISOString()
+        }
         
-        if (newReports.length === 0) return
+        if (toDate) {
+          const toDateUTC = new Date(Date.UTC(
+            toDate.getUTCFullYear(),
+            toDate.getUTCMonth(),
+            toDate.getUTCDate(),
+            23, 59, 59, 999
+          ))
+          filterVars.toDate = toDateUTC.toISOString()
+        }
         
-        const mappedReports = newReports.map(report => {
-          // Decode hex value to decimal
-          let decodedValue = report.value
-          try {
-            if (report.value.match(/^[0-9a-fA-F]+$/)) {
-              const valueInWei = BigInt(`0x${report.value}`)
-              const valueInEth = Number(valueInWei) / 1e18
-              decodedValue = valueInEth.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })
-            }
-          } catch (error) {
-            console.debug('Error decoding hex value:', error)
+        response = await graphqlQuery<AggregateReportsResponse>(
+          GET_AGGREGATE_REPORTS_BY_QUERY_ID_AND_DATE,
+          filterVars
+        )
+      } else if (hasDateFilter && !hasQueryIdFilter) {
+        // Filter by date range only at GraphQL level
+        const filterVars: any = { 
+          first: queryVars.first,
+          ...(cursor && { after: cursor })
+        }
+        
+        if (fromDate) {
+          const fromDateUTC = new Date(Date.UTC(
+            fromDate.getUTCFullYear(),
+            fromDate.getUTCMonth(),
+            fromDate.getUTCDate(),
+            0, 0, 0, 0
+          ))
+          filterVars.fromDate = fromDateUTC.toISOString()
+        }
+        
+        if (toDate) {
+          const toDateUTC = new Date(Date.UTC(
+            toDate.getUTCFullYear(),
+            toDate.getUTCMonth(),
+            toDate.getUTCDate(),
+            23, 59, 59, 999
+          ))
+          filterVars.toDate = toDateUTC.toISOString()
+        }
+        
+        response = await graphqlQuery<AggregateReportsResponse>(
+          GET_AGGREGATE_REPORTS_BY_DATE_RANGE,
+          filterVars
+        )
+      } else if (hasQueryIdFilter) {
+        // Filter by queryId only - use paginated query
+        response = await graphqlQuery<AggregateReportsResponse>(
+          GET_AGGREGATE_REPORTS_BY_QUERY_ID,
+          {
+            queryId: truncateQueryIdPrefix(selectedQueryId!),
+            first: queryVars.first,
+            ...(cursor && { after: cursor })
           }
+        )
+      } else {
+        // No filters - use paginated query for latest reports
+        response = await graphqlQuery<AggregateReportsResponse>(
+          GET_LATEST_AGGREGATE_REPORTS,
+          {
+            first: queryVars.first,
+            ...(cursor && { after: cursor })
+          }
+        )
+      }
+      
+      const reports = response.aggregateReports.edges.map(edge => edge.node)
+      const mappedReports = mapReportsToOracleFormat(reports)
+      
+      // Update pagination info only when in pagination mode
+      // Otherwise, let loadPaginatedPage handle pagination state updates
+      if (isPagination && response.aggregateReports.pageInfo) {
+        setHasNextPage(response.aggregateReports.pageInfo.hasNextPage || false)
+        setHasPreviousPage(response.aggregateReports.pageInfo.hasPreviousPage || false)
+      }
+      
+      return {
+        reports: mappedReports,
+        pageInfo: response.aggregateReports.pageInfo,
+        edges: response.aggregateReports.edges
+      }
+    } catch (error) {
+      console.error('Error fetching aggregate reports from GraphQL:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      toast({
+        title: 'Error',
+        description: `Failed to fetch aggregate reports: ${errorMessage}`,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+      throw error
+    }
+  }
+
+  // Keep ref in sync with state (but we also manually set it when needed)
+  useEffect(() => {
+    isPaginationModeRef.current = isPaginationMode
+    console.log('[Ref Sync] Syncing ref with state, isPaginationMode:', isPaginationMode, 'ref now:', isPaginationModeRef.current)
+  }, [isPaginationMode])
+
+  // GraphQL polling for aggregate reports
+  // Poll ONLY when NOT in pagination mode
+  useEffect(() => {
+    // Don't poll when in pagination mode at all
+    if (isPaginationMode || isPaginationModeRef.current) {
+      console.log('[Polling] Effect skipped - in pagination mode', { isPaginationMode, refValue: isPaginationModeRef.current })
+      return
+    }
+    
+    console.log('[Polling] Setting up polling effect')
+    
+    const fetchGraphQLReports = async () => {
+      // Double-check ref before proceeding (prevents race condition)
+      if (isPaginationModeRef.current) {
+        console.log('[Polling] Fetch skipped - ref indicates pagination mode')
+        return
+      }
+      
+      try {
+        const result = await fetchAggregateReports(null, false)
+        
+        // Triple-check ref after async operation (prevents race condition)
+        if (isPaginationModeRef.current) {
+          return
+        }
+        
+        const reports = result.reports
+        const rawReports = result.edges.map(edge => edge.node)
+        const edges = result.edges
+        
+        // When using GraphQL-level date filtering, replace all reports instead of merging
+        if (isDateFilterEnabled && (fromDate || toDate)) {
+          setAggregateReports(reports)
+          setProcessedReportIds(new Set(rawReports.map(r => r.id)))
           
-          // Parse timestamp - GraphQL returns UTC timestamps without Z suffix
-          // e.g., "2025-10-31T20:42:49.678" - we need to explicitly treat as UTC
-          const timestamp = report.timestamp.endsWith('Z') 
-            ? new Date(report.timestamp)
-            : new Date(report.timestamp + 'Z') // Add Z to indicate UTC
-          
-          return {
-            type: 'aggregate_report',
-            queryId: report.queryId,
-            value: decodedValue,
-            microReportHeight: report.microReportHeight,
-            blockHeight: parseInt(report.blockHeight),
-            timestamp: timestamp,
-            aggregatePower: report.aggregatePower ? parseFloat(report.aggregatePower) : undefined,
-            queryData: report.queryData,
-          } as OracleReport
-        })
+          // Always track the last cursor for "load more" functionality
+          if (edges.length > 0) {
+            const lastCursor = edges[edges.length - 1].cursor
+            setLastPollingCursor(lastCursor)
+          }
+          return
+        }
+        
+        // For non-date-filtered queries, use the existing merge logic
+        const newReports = rawReports.filter(report => !processedReportIds.has(report.id))
+        
+        if (newReports.length === 0) {
+          // Still update cursor even if no new reports
+          if (edges.length > 0) {
+            const lastCursor = edges[edges.length - 1].cursor
+            setLastPollingCursor(lastCursor)
+          }
+          return
+        }
+        
+        const mappedNewReports = mapReportsToOracleFormat(newReports)
         
         setAggregateReports(prev => {
+          // Final safety check - if we entered pagination mode during the async operation
+          // or during state update, don't merge the data
+          if (isPaginationModeRef.current) {
+            return prev // Return unchanged state
+          }
+          
           // Combine new reports with existing, avoiding duplicates by ID
           const existingIds = new Set(prev.map(r => `${r.queryId}-${r.blockHeight}`))
-          const trulyNew = mappedReports.filter(r => 
+          const trulyNew = mappedNewReports.filter(r => 
             !existingIds.has(`${r.queryId}-${r.blockHeight}`)
           )
-          const combined = [...trulyNew, ...prev].slice(0, 100)
+          // Keep more reports when date filtering is enabled
+          const maxReports = isDateFilterEnabled ? 500 : 100
+          const combined = [...trulyNew, ...prev].slice(0, maxReports)
           return combined
         })
+        
+        // Always track the last cursor from polling for "load more" functionality
+        if (edges.length > 0) {
+          const lastCursor = edges[edges.length - 1].cursor
+          setLastPollingCursor(lastCursor)
+        }
         
         setProcessedReportIds(prev => {
           const updated = new Set(prev)
@@ -263,24 +496,270 @@ export default function DataFeed() {
           return updated
         })
       } catch (error) {
-        console.error('Error fetching aggregate reports from GraphQL:', error)
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch aggregate reports from GraphQL',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        })
+        // Error already handled in fetchAggregateReports
       }
     }
     
     // Initial fetch
     fetchGraphQLReports()
     
-    // Poll every 3 seconds
-    const interval = setInterval(fetchGraphQLReports, 3000)
-    return () => clearInterval(interval)
-  }, [processedReportIds, toast, selectedQueryId])
+    // Poll every 3 seconds (only if not filtering by past dates)
+    const pollInterval = isDateFilterEnabled && (fromDate || toDate) ? 10000 : 3000
+    const interval = setInterval(() => {
+      // Check ref before each poll
+      if (!isPaginationModeRef.current) {
+        fetchGraphQLReports()
+      }
+    }, pollInterval)
+    return () => {
+      console.log('[Polling] Cleaning up polling effect, ref value:', isPaginationModeRef.current)
+      clearInterval(interval)
+    }
+  }, [toast, selectedQueryId, isDateFilterEnabled, fromDate, toDate, isPaginationMode, pageSize])
+
+  // Load paginated page
+  const loadPaginatedPage = async (cursor: string | null = null) => {
+    // Only load paginated data if we're actually in pagination mode
+    if (!isPaginationModeRef.current) {
+      console.warn('loadPaginatedPage called but not in pagination mode')
+      return
+    }
+    
+    try {
+      const result = await fetchAggregateReports(cursor, true)
+      
+      // Double-check we're still in pagination mode after async operation
+      if (!isPaginationModeRef.current) {
+        return
+      }
+      
+      const reports = result.reports
+      const edges = result.edges
+      const pageInfo = result.pageInfo
+      
+      // Replace all reports with paginated results
+      setAggregateReports(reports)
+      
+      // Update pagination info from pageInfo
+      if (pageInfo) {
+        setHasNextPage(pageInfo.hasNextPage || false)
+        setHasPreviousPage(pageInfo.hasPreviousPage || false)
+      }
+      
+      // Track the start cursor of this page (null for page 1, or the cursor used to fetch this page)
+      setCurrentPageStartCursor(cursor)
+      
+      // Update cursor to the end cursor for next page navigation
+      // Use endCursor from pageInfo if available, otherwise use last edge's cursor
+      if (pageInfo?.endCursor) {
+        setCurrentCursor(pageInfo.endCursor)
+      } else if (edges.length > 0) {
+        const lastCursor = edges[edges.length - 1].cursor
+        setCurrentCursor(lastCursor)
+      } else {
+        setCurrentCursor(null)
+      }
+    } catch (error) {
+      // Error already handled in fetchAggregateReports
+    }
+  }
+
+  // Handle entering pagination mode
+  const handleEnterPaginationMode = async () => {
+    // Capture the cursor BEFORE entering pagination mode to prevent race conditions
+    const cursorToUse = lastPollingCursor
+    
+    console.log('[Load More] Entering pagination mode, cursor:', cursorToUse, 'isPaginationMode before:', isPaginationMode, 'ref before:', isPaginationModeRef.current)
+    
+    // Stop polling immediately by setting pagination mode and updating ref FIRST
+    // This must happen before any other state updates to prevent race conditions
+    isPaginationModeRef.current = true
+    setIsPaginationMode(true)
+    
+    console.log('[Load More] Ref set to true, checking ref value:', isPaginationModeRef.current)
+    
+    // Clear current reports and reset pagination state
+    setAggregateReports([])
+    setPageHistory([])
+    setCurrentCursor(null)
+    setCurrentPageStartCursor(null)
+    setHasNextPage(false)
+    setHasPreviousPage(false)
+    
+    console.log('[Load More] About to load paginated page, ref value:', isPaginationModeRef.current, 'cursor:', cursorToUse)
+    
+    // Load the next page of older data using the cursor from the last polling query
+    // This allows users to seamlessly continue from where the real-time view left off
+    // Call immediately - the ref is already set to true
+    await loadPaginatedPage(cursorToUse)
+    
+    console.log('[Load More] Paginated page loaded')
+  }
+
+  // Handle exiting pagination mode
+  const handleExitPaginationMode = () => {
+    // Reset ref to allow polling to resume
+    isPaginationModeRef.current = false
+    setIsPaginationMode(false)
+    setCurrentCursor(null)
+    setCurrentPageStartCursor(null)
+    setPageHistory([])
+    setHasNextPage(false)
+    setHasPreviousPage(false)
+    // Clear reports and let polling resume
+    // Note: We keep lastPollingCursor so it's available for next "Load More"
+    setAggregateReports([])
+    setProcessedReportIds(new Set())
+  }
+
+  // Handle next page
+  const handleNextPage = async () => {
+    if (!currentCursor) return
+    
+    // Save the start cursor of the current page to history (for back navigation)
+    // This includes null for page 1
+    setPageHistory(prev => [...prev, currentPageStartCursor])
+    
+    await loadPaginatedPage(currentCursor)
+  }
+
+  // Handle previous page
+  const handlePreviousPage = async () => {
+    // If we're on page 1 (currentPageStartCursor is null), can't go back
+    if (currentPageStartCursor === null) {
+      return
+    }
+    
+    // If we have history, pop the last cursor to go back
+    if (pageHistory.length > 0) {
+      const newHistory = [...pageHistory]
+      const previousCursor = newHistory.pop() || null
+      setPageHistory(newHistory)
+      await loadPaginatedPage(previousCursor)
+    } else {
+      // No history but we're not on page 1, go back to page 1
+      await loadPaginatedPage(null)
+    }
+  }
+
+  // Track previous date range state to detect when date range is cleared (not just when pagination mode is set)
+  const prevDateRangeRef = useRef<{ isDateFilterEnabled: boolean; hasDateRange: boolean } | null>(null)
+  
+  // Automatically enable pagination mode when date range is selected (to avoid timeouts)
+  // Pagination uses cursors efficiently, preventing the database from scanning entire date ranges
+  // When a date range is selected, we use cursor-based pagination instead of polling to avoid
+  // database timeouts from scanning large date ranges. Each page only processes 50 records efficiently.
+  useEffect(() => {
+    const hasDateRange = !!(isDateFilterEnabled && (fromDate || toDate))
+    
+    // Initialize on first run
+    if (prevDateRangeRef.current === null) {
+      prevDateRangeRef.current = { isDateFilterEnabled, hasDateRange }
+      
+      // Enter pagination mode if date range is enabled on mount
+      if (hasDateRange && !isPaginationMode) {
+        const enterPaginationMode = async () => {
+          isPaginationModeRef.current = true
+          setIsPaginationMode(true)
+          setCurrentCursor(null)
+          setCurrentPageStartCursor(null)
+          setPageHistory([])
+          setHasNextPage(false)
+          setHasPreviousPage(false)
+          setAggregateReports([])
+          setProcessedReportIds(new Set())
+          await loadPaginatedPage(null)
+        }
+        enterPaginationMode()
+      }
+      return
+    }
+    
+    const prevHasDateRange = prevDateRangeRef.current.hasDateRange
+    const dateRangeWasCleared = prevHasDateRange && !hasDateRange
+    
+    if (hasDateRange && !isPaginationMode) {
+      // Automatically enter pagination mode for date ranges
+      const enterPaginationMode = async () => {
+        isPaginationModeRef.current = true
+        setIsPaginationMode(true)
+        setCurrentCursor(null)
+        setCurrentPageStartCursor(null)
+        setPageHistory([])
+        setHasNextPage(false)
+        setHasPreviousPage(false)
+        setAggregateReports([])
+        setProcessedReportIds(new Set())
+        await loadPaginatedPage(null)
+      }
+      enterPaginationMode()
+    } else if (dateRangeWasCleared && isPaginationMode) {
+      // Only exit pagination mode when date range was actually cleared (not when manually entering pagination)
+      console.log('[Date Range Effect] Exiting pagination mode - date range was cleared')
+      isPaginationModeRef.current = false
+      setIsPaginationMode(false)
+      setCurrentCursor(null)
+      setCurrentPageStartCursor(null)
+      setPageHistory([])
+      setHasNextPage(false)
+      setHasPreviousPage(false)
+      setAggregateReports([])
+      setProcessedReportIds(new Set())
+    }
+    
+    // Update previous state
+    prevDateRangeRef.current = { isDateFilterEnabled, hasDateRange }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDateFilterEnabled, fromDate, toDate])
+
+  // Track previous filter values to detect actual filter changes
+  const prevFiltersRef = useRef<{ filterType: typeof filterType; selectedPairName: string; selectedQueryIdInput: string } | null>(null)
+  
+  // Exit pagination mode when other filters change (but not date range - that's handled above)
+  // Only exit if we're in pagination mode AND filters actually changed (not just when pagination mode is set)
+  useEffect(() => {
+    // Initialize on first run
+    if (prevFiltersRef.current === null) {
+      prevFiltersRef.current = { filterType, selectedPairName, selectedQueryIdInput }
+      console.log('[Filter Exit Effect] Initializing, isPaginationMode:', isPaginationMode)
+      return
+    }
+    
+    // Check if filters actually changed
+    const filtersChanged = 
+      prevFiltersRef.current.filterType !== filterType ||
+      prevFiltersRef.current.selectedPairName !== selectedPairName ||
+      prevFiltersRef.current.selectedQueryIdInput !== selectedQueryIdInput
+    
+    console.log('[Filter Exit Effect] Running', {
+      filtersChanged,
+      isPaginationMode,
+      isDateFilterEnabled,
+      hasDateRange: !!(isDateFilterEnabled && (fromDate || toDate)),
+      prevFilters: prevFiltersRef.current,
+      currentFilters: { filterType, selectedPairName, selectedQueryIdInput }
+    })
+    
+    // Only exit pagination mode if filters changed AND we're not using date filtering
+    if (filtersChanged && isPaginationMode && !(isDateFilterEnabled && (fromDate || toDate))) {
+      console.log('[Filter Exit Effect] EXITING pagination mode')
+      isPaginationModeRef.current = false
+      setIsPaginationMode(false)
+      setCurrentCursor(null)
+      setCurrentPageStartCursor(null)
+      setPageHistory([])
+      setHasNextPage(false)
+      setHasPreviousPage(false)
+      // Clear reports and let polling resume
+      setAggregateReports([])
+      setProcessedReportIds(new Set())
+    } else {
+      console.log('[Filter Exit Effect] NOT exiting pagination mode')
+    }
+    
+    // Update previous filter values
+    prevFiltersRef.current = { filterType, selectedPairName, selectedQueryIdInput }
+  }, [filterType, selectedPairName, selectedQueryIdInput, isDateFilterEnabled, fromDate, toDate])
 
   // Update selectedQueryId when filter changes
   useEffect(() => {
@@ -303,7 +782,9 @@ export default function DataFeed() {
       const queryId = findQueryIdByPairName(selectedPairName, queryIdMappings)
       if (queryId && queryId !== selectedQueryId) {
         // We found a query ID and it's different from current, switch to filtered mode
-        setSelectedQueryId(queryId)
+        // Truncate 0x prefix before storing (GraphQL expects query IDs without 0x)
+        const normalizedQueryId = truncateQueryIdPrefix(queryId)
+        setSelectedQueryId(normalizedQueryId)
         // Clear existing reports when switching to a specific feed to avoid stale data
         setAggregateReports([])
         setProcessedReportIds(new Set())
@@ -320,10 +801,44 @@ export default function DataFeed() {
     }
   }, [filterType, selectedPairName, selectedQueryIdInput, queryIdMappings, selectedQueryId, toast])
 
-  // Filter reports based on selected filter
-  const filteredReports = selectedQueryId
-    ? aggregateReports.filter(report => report.queryId === selectedQueryId)
-    : aggregateReports
+  // Filter reports based on selected filters
+  // Note: When date filtering is enabled, GraphQL handles the filtering server-side
+  // For queryId-only filtering, we still need client-side filtering as a safety check
+  const filteredReports = aggregateReports.filter(report => {
+    // Apply queryId filter if selected (only needed when not using GraphQL date filtering)
+    // When using GraphQL date filtering with queryId, the server already filtered it
+    if (selectedQueryId && !(isDateFilterEnabled && (fromDate || toDate))) {
+      const reportQueryId = truncateQueryIdPrefix(report.queryId)
+      const normalizedSelected = selectedQueryId.toLowerCase()
+      const normalizedReport = reportQueryId.toLowerCase()
+      
+      if (normalizedReport !== normalizedSelected) {
+        return false
+      }
+    }
+    
+    // When date filtering is enabled, GraphQL already filtered by date
+    // So we don't need to do client-side date filtering in that case
+    // Only apply client-side date filtering if dates are enabled but GraphQL query didn't include them
+    // (This shouldn't happen with the new implementation, but kept as safety check)
+    
+    return true
+  })
+  
+  // Debug logging (remove in production)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Filter Debug:', {
+        totalReports: aggregateReports.length,
+        filteredReports: filteredReports.length,
+        selectedQueryId,
+        isDateFilterEnabled,
+        fromDate: fromDate?.toISOString(),
+        toDate: toDate?.toISOString(),
+        dateRange: dateRange ? { from: dateRange.from?.toISOString(), to: dateRange.to?.toISOString() } : null
+      })
+    }
+  }, [aggregateReports.length, filteredReports.length, selectedQueryId, isDateFilterEnabled, fromDate, toDate, dateRange])
 
 /* MIGRATED TO GRAPHQL - Commented out all RPC block processing code
  * 
@@ -386,7 +901,7 @@ export default function DataFeed() {
             <Text fontSize="2xl">
               Aggregate Reports
             </Text>
-            <VStack align="flex-end" spacing={2}>
+            <VStack align="flex-end" spacing={3}>
               <RadioGroup 
                 value={filterType} 
                 onChange={(value) => {
@@ -394,6 +909,7 @@ export default function DataFeed() {
                   if (value === 'none') {
                     setSelectedPairName('')
                     setSelectedQueryIdInput('')
+                    setSelectedQueryId(null)
                   }
                 }}
               >
@@ -433,7 +949,9 @@ export default function DataFeed() {
                     // Trigger update on blur
                     const cleanedQueryId = selectedQueryIdInput.trim()
                     if (cleanedQueryId && cleanedQueryId !== selectedQueryId) {
-                      setSelectedQueryId(cleanedQueryId)
+                      // Truncate 0x prefix before storing (GraphQL expects query IDs without 0x)
+                      const normalizedQueryId = truncateQueryIdPrefix(cleanedQueryId)
+                      setSelectedQueryId(normalizedQueryId)
                       setAggregateReports([])
                       setProcessedReportIds(new Set())
                     } else if (!cleanedQueryId) {
@@ -445,7 +963,9 @@ export default function DataFeed() {
                     if (e.key === 'Enter') {
                       const cleanedQueryId = selectedQueryIdInput.trim()
                       if (cleanedQueryId && cleanedQueryId !== selectedQueryId) {
-                        setSelectedQueryId(cleanedQueryId)
+                        // Truncate 0x prefix before storing (GraphQL expects query IDs without 0x)
+                        const normalizedQueryId = truncateQueryIdPrefix(cleanedQueryId)
+                        setSelectedQueryId(normalizedQueryId)
                         setAggregateReports([])
                         setProcessedReportIds(new Set())
                       } else if (!cleanedQueryId) {
@@ -459,6 +979,84 @@ export default function DataFeed() {
                   bg={useColorModeValue('white', 'gray.700')}
                 />
               )}
+              
+              {/* Date Filter Section */}
+              <HStack spacing={2} align="center">
+                <Checkbox
+                  isChecked={isDateFilterEnabled}
+                  onChange={(e) => {
+                    setIsDateFilterEnabled(e.target.checked)
+                    if (!e.target.checked) {
+                      setDateRange(undefined)
+                    }
+                  }}
+                >
+                  <Text fontSize="sm">Filter by Date</Text>
+                </Checkbox>
+                {isDateFilterEnabled && (
+                  <Popover
+                    isOpen={isDatePickerOpen}
+                    onClose={() => setIsDatePickerOpen(false)}
+                    placement="bottom-end"
+                  >
+                    <PopoverTrigger>
+                      <Button
+                        leftIcon={<Icon as={FiCalendar} />}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
+                        bg={useColorModeValue('white', 'gray.700')}
+                      >
+                        {dateRange?.from && dateRange?.to
+                          ? dateRange.from.getTime() === dateRange.to.getTime()
+                            ? format(dateRange.from, 'MMM d, yyyy')
+                            : `${format(dateRange.from, 'MMM d')} - ${format(dateRange.to, 'MMM d, yyyy')}`
+                          : dateRange?.from
+                          ? `${format(dateRange.from, 'MMM d')} - ...`
+                          : 'Select Date Range'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent width="auto" p={4}>
+                      <PopoverBody>
+                        <VStack spacing={4} align="stretch">
+                          <Box>
+                            <Text fontSize="sm" fontWeight="semibold" mb={2}>
+                              Select Date Range:
+                            </Text>
+                            <Text fontSize="xs" color="gray.500" mb={2}>
+                              Click a date to start, then click another to set the range. Click the same date twice for a single day.
+                            </Text>
+                            <DayPicker
+                              mode="range"
+                              selected={dateRange}
+                              onSelect={setDateRange}
+                              numberOfMonths={1}
+                            />
+                          </Box>
+                          <Flex justify="flex-end" gap={2}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setDateRange(undefined)
+                              }}
+                            >
+                              Clear
+                            </Button>
+                            <Button
+                              size="sm"
+                              colorScheme="blue"
+                              onClick={() => setIsDatePickerOpen(false)}
+                            >
+                              Apply
+                            </Button>
+                          </Flex>
+                        </VStack>
+                      </PopoverBody>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </HStack>
             </VStack>
           </HStack>
           <TableContainer>
@@ -516,13 +1114,59 @@ export default function DataFeed() {
             </Table>
           </TableContainer>
 
+          {/* Pagination Controls */}
+          {!isPaginationMode ? (
+            <Flex justify="center" mt={4}>
+              <Button
+                onClick={handleEnterPaginationMode}
+                colorScheme="blue"
+                variant="outline"
+              >
+                Load More
+              </Button>
+            </Flex>
+          ) : (
+            <Flex justify="center" gap={4} mt={4}>
+              {/* Only show "Return to live feed" button when NOT filtering by date */}
+              {!(isDateFilterEnabled && (fromDate || toDate)) && (
+                <Button
+                  onClick={handleExitPaginationMode}
+                  variant="ghost"
+                  size="sm"
+                >
+                  Return to live feed
+                </Button>
+              )}
+              <Button
+                onClick={handlePreviousPage}
+                isDisabled={pageHistory.length === 0 && currentPageStartCursor === null}
+                colorScheme="blue"
+                variant="outline"
+                title={pageHistory.length === 0 && currentPageStartCursor === null ? "You are on the first page" : "Go to previous page"}
+              >
+                Previous
+              </Button>
+              <Button
+                onClick={handleNextPage}
+                isDisabled={!hasNextPage || !currentCursor}
+                colorScheme="blue"
+              >
+                Next
+              </Button>
+            </Flex>
+          )}
+
           {filteredReports.length === 0 && (
             <Text textAlign="center" py={4} color="gray.500">
-              {filterType === 'pair' && selectedPairName
-                ? `Waiting for aggregate reports for ${selectedPairName}...`
+              {aggregateReports.length === 0
+                ? 'Waiting for aggregate reports from GraphQL...'
+                : filterType === 'pair' && selectedPairName
+                ? `No aggregate reports found for ${selectedPairName}${isDateFilterEnabled && (fromDate || toDate) ? ' in the selected date range' : ''}. Showing ${aggregateReports.length} total reports.`
                 : filterType === 'queryId' && selectedQueryId
-                ? `Waiting for aggregate reports for query ID ${selectedQueryId}...`
-                : 'Waiting for aggregate reports from GraphQL...'}
+                ? `No aggregate reports found for query ID ${selectedQueryId}${isDateFilterEnabled && (fromDate || toDate) ? ' in the selected date range' : ''}. Showing ${aggregateReports.length} total reports.`
+                : isDateFilterEnabled && (fromDate || toDate)
+                ? `No aggregate reports found in the selected date range. Showing ${aggregateReports.length} total reports.`
+                : 'No aggregate reports match the current filters.'}
             </Text>
           )}
         </Box>
