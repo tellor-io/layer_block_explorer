@@ -17,16 +17,6 @@
  */
 
 import { useEffect, useState, useMemo, useRef } from 'react'
-/* RPC IMPORTS - COMMENTED OUT FOR GRAPHQL MIGRATION
-import { pubkeyToAddress as aminoPubkeyToAddress, Pubkey } from '@cosmjs/amino'
-import { fromBech32, fromBase64 } from '@cosmjs/encoding'
-import { useSelector } from 'react-redux'
-import { NewBlockEvent, TxEvent } from '@cosmjs/tendermint-rpc'
-import { getValidators } from '@/rpc/query'
-import { rpcManager } from '@/utils/rpcManager'
-import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
-import { selectNewBlock, selectTxEvent } from '@/store/streamSlice'
-*/
 import {
   Box,
   Divider,
@@ -74,27 +64,6 @@ import { graphqlQuery, bytesToHex, parseJsonField } from '@/datasources/graphql/
 import { GET_LATEST_BLOCKS, GET_VALIDATORS } from '@/datasources/graphql/queries'
 import { BlocksResponse, Block, ValidatorsResponse, Validator, ValidatorDescription, PageInfo } from '@/datasources/graphql/types'
 
-/* RPC INTERFACES - COMMENTED OUT FOR GRAPHQL MIGRATION
-interface Tx {
-  TxEvent: TxEvent
-  Timestamp: Date
-}
-
-interface Validator {
-  operator_address: string
-  consensus_pubkey: {
-    '@type': string
-    key: string
-  }
-  description: {
-    moniker: string
-  }
-}
-
-interface ValidatorMap {
-  [key: string]: string
-}
-*/
 
 // GraphQL interfaces
 interface GraphQLBlock {
@@ -111,14 +80,6 @@ interface ValidatorMap {
 }
 
 export default function Blocks() {
-  /* RPC STATE - COMMENTED OUT FOR GRAPHQL MIGRATION
-  const newBlock = useSelector(selectNewBlock)
-  const txEvent = useSelector(selectTxEvent)
-  const tmClient = useSelector(selectTmClient)
-  const rpcAddress = useSelector(selectRPCAddress)
-  const [blocks, setBlocks] = useState<NewBlockEvent[]>([])
-  const [txs, setTxs] = useState<Tx[]>([])
-  */
   // Cursor-based pagination state
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState(20)
@@ -166,31 +127,6 @@ export default function Blocks() {
     [selectedTextColor, selectedBgColor, tabHoverColor, tabTextColor]
   )
 
-  /* RPC FETCH VALIDATORS - COMMENTED OUT FOR GRAPHQL MIGRATION
-  const fetchValidators = async () => {
-    if (tmClient) {
-      try {
-        const endpoint = await rpcManager.getCurrentEndpoint()
-        console.log('Blocks page: Fetching validators from endpoint:', endpoint)
-        const validatorsResponse = await getValidators(endpoint)
-        if (validatorsResponse?.validators) {
-          const map: { [key: string]: string } = {}
-          validatorsResponse.validators.forEach((validator: Validator) => {
-            const hexAddress = pubkeyToAddress(validator.consensus_pubkey.key)
-            map[hexAddress] = validator.description.moniker
-          })
-          setValidatorMap(map)
-          console.log(
-            'Blocks page: Successfully fetched validators, map size:',
-            Object.keys(map).length
-          )
-        }
-      } catch (error) {
-        console.error('Error fetching validators:', error)
-      }
-    }
-  }
-  */
 
   // GraphQL fetch validators (client-side as per migration plan)
   const fetchValidators = async () => {
@@ -315,148 +251,6 @@ export default function Blocks() {
     }
   }
 
-  /* RPC DATA FETCHING - COMMENTED OUT FOR GRAPHQL MIGRATION
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        console.log(
-          'Blocks page: RPC address changed, refetching data. New address:',
-          rpcAddress
-        )
-
-        // Clear old data when switching endpoints
-        setBlocks([])
-        setTxs([])
-        setError(null)
-        setIsLoading(true)
-
-        // Add a small delay to ensure RPC manager has updated when switching endpoints
-        await new Promise((resolve) => setTimeout(resolve, 100))
-
-        // Fetch validators using new endpoint
-        await fetchValidators()
-
-        // Fetch blocks
-        console.log('Blocks page: Fetching latest block...')
-        const blocksResponse = await axios.get('/api/latest-block')
-
-        if (!blocksResponse?.data?.block) {
-          throw new Error('Invalid block data received')
-        }
-
-        const latestBlock = blocksResponse.data.block
-        const blocksData = [
-          {
-            header: {
-              version: { block: 0, app: 0 },
-              height: latestBlock.header.height,
-              time: new Date(latestBlock.header.time),
-              proposerAddress: fromBase64(latestBlock.header.proposer_address),
-              chainId: latestBlock.header.chain_id,
-              lastBlockId: latestBlock.header.last_block_id,
-              lastCommitHash: fromBase64(latestBlock.header.last_commit_hash),
-              dataHash: fromBase64(latestBlock.header.data_hash),
-              validatorsHash: fromBase64(latestBlock.header.validators_hash),
-              nextValidatorsHash: fromBase64(
-                latestBlock.header.next_validators_hash
-              ),
-              consensusHash: fromBase64(latestBlock.header.consensus_hash),
-              appHash: fromBase64(latestBlock.header.app_hash),
-              lastResultsHash: fromBase64(latestBlock.header.last_results_hash),
-              evidenceHash: fromBase64(latestBlock.header.evidence_hash),
-            },
-            txs: latestBlock.data?.txs || [],
-            lastCommit: latestBlock.last_commit,
-            evidence: latestBlock.evidence,
-          },
-        ]
-
-        // Fetch previous blocks in parallel
-        const prevBlockPromises = []
-        for (let i = 1; i < 10; i++) {
-          const height = parseInt(latestBlock.header.height) - i
-          prevBlockPromises.push(
-            axios
-              .get(`/api/block-by-height/${height}`)
-              .then((response) => {
-                if (response?.data?.block) {
-                  const prevBlock = response.data.block
-                  return {
-                    header: {
-                      version: { block: 0, app: 0 },
-                      height: prevBlock.header.height,
-                      time: new Date(prevBlock.header.time),
-                      proposerAddress: fromBase64(
-                        prevBlock.header.proposer_address
-                      ),
-                      chainId: prevBlock.header.chain_id,
-                      lastBlockId: prevBlock.header.last_block_id,
-                      lastCommitHash: fromBase64(
-                        prevBlock.header.last_commit_hash
-                      ),
-                      dataHash: fromBase64(prevBlock.header.data_hash),
-                      validatorsHash: fromBase64(
-                        prevBlock.header.validators_hash
-                      ),
-                      nextValidatorsHash: fromBase64(
-                        prevBlock.header.next_validators_hash
-                      ),
-                      consensusHash: fromBase64(
-                        prevBlock.header.consensus_hash
-                      ),
-                      appHash: fromBase64(prevBlock.header.app_hash),
-                      lastResultsHash: fromBase64(
-                        prevBlock.header.last_results_hash
-                      ),
-                      evidenceHash: fromBase64(prevBlock.header.evidence_hash),
-                    },
-                    txs: prevBlock.data?.txs || [],
-                    lastCommit: prevBlock.last_commit,
-                    evidence: prevBlock.evidence,
-                  }
-                }
-                return null
-              })
-              .catch((error) => {
-                console.warn(`Error fetching block at height ${height}:`, error)
-                return null
-              })
-          )
-        }
-
-        // Wait for all block fetches to complete
-        const prevBlocks = await Promise.all(prevBlockPromises)
-
-        // Filter out null results and add valid blocks to blocksData
-        prevBlocks.forEach((block) => {
-          if (block) {
-            blocksData.push(block)
-          }
-        })
-
-        // Sort blocks by height in descending order
-        blocksData.sort((a, b) => b.header.height - a.header.height)
-
-        setBlocks(blocksData as NewBlockEvent[])
-        setIsLoading(false)
-      } catch (error) {
-        console.error('Error fetching blocks data:', error)
-        if (axios.isAxiosError(error)) {
-          setError(
-            'Failed to fetch data. Please check your network connection.'
-          )
-        } else {
-          setError('An unexpected error occurred.')
-        }
-        setIsLoading(false)
-        // Clear blocks on error to prevent showing stale data
-        setBlocks([])
-        setTxs([])
-      }
-    }
-    fetchData()
-  }, [tmClient, rpcAddress])
-  */
 
   // Track if initial load has happened to avoid refetching on pageSize changes
   const initialLoadRef = useRef(false)
@@ -798,83 +592,7 @@ export default function Blocks() {
     }
   }
 
-  /* RPC WEBSOCKET EFFECTS - COMMENTED OUT FOR GRAPHQL MIGRATION
-  useEffect(() => {
-    if (newBlock) {
-      updateBlocks(newBlock)
-    }
-  }, [newBlock])
 
-  useEffect(() => {
-    if (txEvent) {
-      updateTxs(txEvent)
-    }
-  }, [txEvent])
-  */
-
-  /* RPC UPDATE FUNCTIONS - COMMENTED OUT FOR GRAPHQL MIGRATION
-  const updateBlocks = (block: NewBlockEvent) => {
-    setBlocks((prevBlocks) => {
-      // Ensure block.txs exists
-      const newBlock = {
-        ...block,
-        txs: block.txs || [], // Ensure txs is always an array
-      }
-
-      // Check if this exact block already exists
-      const exists = prevBlocks.some((existingBlock) => {
-        // Safely compare block heights
-        const heightMatch =
-          existingBlock.header.height === newBlock.header.height
-
-        // Safely compare timestamps if both exist
-        const timeMatch =
-          existingBlock.header.time && newBlock.header.time
-            ? existingBlock.header.time.getTime() ===
-              newBlock.header.time.getTime()
-            : false
-
-        return heightMatch && timeMatch
-      })
-
-      if (
-        !exists &&
-        (!prevBlocks.length ||
-          newBlock.header.height > prevBlocks[0].header.height)
-      ) {
-        return [newBlock, ...prevBlocks.slice(0, MAX_ROWS - 1)]
-      }
-      return prevBlocks
-    })
-  }
-
-  const updateTxs = (txEvent: TxEvent) => {
-    const tx = {
-      TxEvent: {
-        ...txEvent,
-        result: {
-          ...txEvent.result,
-          data:
-            txEvent.tx && txEvent.tx.length > 0
-              ? txEvent.tx
-              : txEvent.result.data,
-        },
-      },
-      Timestamp: new Date(),
-    }
-
-    setTxs((prevTxs) => {
-      const exists = prevTxs.some(
-        (existingTx) => toHex(existingTx.TxEvent.hash) === toHex(txEvent.hash)
-      )
-
-      if (!exists) {
-        return [tx, ...prevTxs.slice(0, MAX_ROWS - 1)]
-      }
-      return prevTxs
-    })
-  }
-  */
 
   const getProposerMoniker = (proposerAddress: string) => {
     try {
@@ -888,69 +606,6 @@ export default function Blocks() {
     }
   }
 
-  /* RPC RENDER MESSAGES - COMMENTED OUT FOR GRAPHQL MIGRATION
-  const renderMessages = (data: Uint8Array | undefined) => {
-    if (!data) return ''
-
-    try {
-      // First try to decode as protobuf
-      try {
-        const txBody = TxBody.decode(data)
-        if (txBody.messages && txBody.messages.length > 0) {
-          if (txBody.messages.length === 1) {
-            return (
-              <HStack>
-                <Tag colorScheme="cyan">
-                  {getTypeMsg(txBody.messages[0].typeUrl)}
-                </Tag>
-              </HStack>
-            )
-          } else {
-            return (
-              <HStack>
-                <Tag colorScheme="cyan">
-                  {getTypeMsg(txBody.messages[0].typeUrl)}
-                </Tag>
-                <Text textColor="cyan.800">+{txBody.messages.length - 1}</Text>
-              </HStack>
-            )
-          }
-        }
-      } catch (e) {
-        // If protobuf fails, try JSON
-        const jsonStr =
-          typeof data === 'string' ? data : new TextDecoder().decode(data)
-        const jsonData = JSON.parse(jsonStr)
-
-        const messages = jsonData.messages || jsonData.body?.messages || []
-        if (messages.length > 0) {
-          if (messages.length === 1) {
-            return (
-              <HStack>
-                <Tag colorScheme="cyan">
-                  {getTypeMsg(messages[0].typeUrl || messages[0]['@type'])}
-                </Tag>
-              </HStack>
-            )
-          } else {
-            return (
-              <HStack>
-                <Tag colorScheme="cyan">
-                  {getTypeMsg(messages[0].typeUrl || messages[0]['@type'])}
-                </Tag>
-                <Text textColor="cyan.800">+{messages.length - 1}</Text>
-              </HStack>
-            )
-          }
-        }
-      }
-
-      return <Tag colorScheme="gray">Unknown Format</Tag>
-    } catch (error) {
-      return <Tag colorScheme="gray">Error</Tag>
-    }
-  }
-  */
 
   return (
     <>
@@ -987,15 +642,6 @@ export default function Blocks() {
               >
                 Blocks
               </Tab>
-              {/* TRANSACTIONS TAB - COMMENTED OUT FOR GRAPHQL MIGRATION
-              <Tab
-                _selected={tabStyles.selected}
-                _hover={tabStyles.hover}
-                {...tabStyles.normal}
-              >
-                Transactions
-              </Tab>
-              */}
             </TabList>
             <TabPanels>
               <TabPanel>

@@ -50,9 +50,6 @@ import {
   FiMail,
 } from 'react-icons/fi'
 import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
-/* RPC CODE - COMMENTED OUT FOR GRAPHQL MIGRATION
-import { queryAllValidators } from '@/rpc/abci'
-*/
 import { graphqlQuery } from '@/datasources/graphql/client'
 import { GET_VALIDATORS, GET_DELEGATIONS_BY_VALIDATOR } from '@/datasources/graphql/queries'
 import { ValidatorsResponse, DelegationsResponse, Validator, Delegation } from '@/datasources/graphql/types'
@@ -473,10 +470,6 @@ export default function Validators() {
   const [sorting, setSorting] = useState<SortingState>([])
   const highlightBgColor = useColorModeValue('gray.100', 'gray.700')
 
-  /* RPC CODE - COMMENTED OUT FOR GRAPHQL MIGRATION
-  const tmClient = useSelector(selectTmClient)
-  const rpcAddress = useSelector(selectRPCAddress)
-  */
   const toast = useToast()
 
   const validatorDataWithPercentage = useMemo(() => {

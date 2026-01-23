@@ -36,15 +36,6 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useSelector } from 'react-redux'
 import NextLink from 'next/link'
 import { FiChevronRight, FiHome } from 'react-icons/fi'
-/* RPC CODE COMMENTED OUT FOR GRAPHQL MIGRATION
-import { selectTmClient, selectRPCAddress } from '@/store/connectSlice'
-import {
-  queryProposals,
-  queryProposalVotes,
-  queryGovParams,
-  queryAllValidators,
-} from '@/rpc/abci'
-*/
 // GraphQL imports
 import { graphqlQuery } from '@/datasources/graphql/client'
 import { GET_GOV_PROPOSALS, GET_DASHBOARD_VALIDATORS, GET_ALL_PARAMETERS } from '@/datasources/graphql/queries'
@@ -218,10 +209,6 @@ const getErrorMessage = (error: unknown): string => {
 }
 
 export default function Proposals() {
-  /* RPC CODE COMMENTED OUT FOR GRAPHQL MIGRATION
-  const tmClient = useSelector(selectTmClient)
-  const rpcAddress = useSelector(selectRPCAddress)
-  */
   const [page, setPage] = useState(0)
   const [perPage, setPerPage] = useState(10)
   const [total, setTotal] = useState(0)
@@ -253,41 +240,6 @@ export default function Proposals() {
     totalStakedTokensRef.current = totalStakedTokens
   }, [totalStakedTokens])
 
-  /* RPC CODE COMMENTED OUT FOR GRAPHQL MIGRATION
-  // Fetch quorum requirement and total staked tokens
-  const fetchQuorumRequirement = useCallback(async () => {
-    if (!tmClient) return
-
-    try {
-      const [govResponse, validatorsResponse] = await Promise.all([
-        queryGovParams(tmClient, GOV_PARAMS_TYPE.TALLY),
-        queryAllValidators(tmClient),
-      ])
-
-      if (govResponse.tallyParams?.quorum) {
-        const quorumPercent = convertRateToPercent(
-          fromUtf8(govResponse.tallyParams.quorum)
-        )
-        setQuorumRequired(quorumPercent)
-      }
-
-      if (validatorsResponse?.validators) {
-        // Calculate total staked tokens from active validators
-        const activeValidators = validatorsResponse.validators.filter(
-          (validator: any) => isActiveValidator(validator.status)
-        )
-        const totalStaked = activeValidators.reduce(
-          (sum: number, validator: any) =>
-            sum + convertVotingPower(validator.tokens),
-          0
-        )
-        setTotalStakedTokens(totalStaked)
-      }
-    } catch (error) {
-      console.error('Error fetching quorum requirement:', error)
-    }
-  }, [tmClient])
-  */
 
   // GraphQL: Fetch quorum requirement and total staked tokens
   const fetchQuorumRequirement = useCallback(async () => {
@@ -390,103 +342,6 @@ export default function Proposals() {
     }
   }, [])
 
-  /* RPC CODE COMMENTED OUT FOR GRAPHQL MIGRATION
-  const fetchProposals = useCallback(async () => {
-    if (!tmClient || isFetchingRef.current || !mountedRef.current) {
-      return
-    }
-
-    try {
-      isFetchingRef.current = true
-      const response = await queryProposals(tmClient, page, perPage)
-
-      if (!mountedRef.current) return
-
-      setTotal(response.pagination?.total.low ?? 0)
-
-      const proposalsList = await Promise.all(
-        response.proposals.map(async (val) => {
-          const votingEnd = val.votingEndTime?.nanos
-            ? new Date(val.votingEndTime?.seconds.low * 1000).toISOString()
-            : null
-
-          let title = ''
-          let type = ''
-          try {
-            if (!val.content?.value || val.content.value.length === 0) {
-              title = 'Untitled Proposal'
-              type = 'Unknown Type'
-            } else {
-              const content = decodeContentProposal(
-                val.content?.typeUrl ?? '',
-                val.content?.value
-              )
-              title = content.data?.title ?? 'Untitled Proposal'
-              type = getTypeMsg(val.content?.typeUrl ?? '')
-            }
-          } catch (error) {
-            title = 'Untitled Proposal'
-            type = 'Unknown Type'
-          }
-
-          const voteResults = await queryProposalVotes(
-            tmClient,
-            val.proposalId.low
-          )
-
-          // Calculate quorum status
-          let quorumMet = false
-          let currentQuorumPercentage = '0%'
-
-          if (voteResults.hasVotes && quorumRequired && totalStakedTokens > 0) {
-            // Extract the numeric value from quorumRequired (e.g., "40.00%" -> 40.00)
-            const requiredQuorum = parseFloat(quorumRequired.replace('%', ''))
-
-            // Calculate current quorum percentage based on total voting power vs total staked tokens
-            const currentQuorum =
-              (voteResults.totalPower / totalStakedTokens) * 100
-            currentQuorumPercentage = `${currentQuorum.toFixed(2)}%`
-            quorumMet = currentQuorum >= requiredQuorum
-          }
-
-          return {
-            id: val.proposalId.low,
-            title,
-            types: type,
-            status: proposalStatusList.find(
-              (item) => item.id === Number(val.status.toString())
-            ),
-            votingEnd: votingEnd ? displayDate(votingEnd) : '',
-            voteResults: voteResults,
-            quorum: {
-              required: quorumRequired || 'Unknown',
-              met: quorumMet,
-              percentage: currentQuorumPercentage,
-            },
-          }
-        })
-      )
-
-      if (!mountedRef.current) return
-
-      setProposals(proposalsList)
-    } catch (error) {
-      if (!mountedRef.current) return
-      toast({
-        title: 'Failed to fetch datatable',
-        description: getErrorMessage(error),
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      })
-    } finally {
-      if (mountedRef.current) {
-        setIsLoading(false)
-      }
-      isFetchingRef.current = false
-    }
-  }, [tmClient, page, perPage, toast, quorumRequired, totalStakedTokens])
-  */
 
   // GraphQL: Fetch first page (page 0) - pure data fetcher
   const fetchFirstPage = useCallback(async (size: number): Promise<GovProposalsResponse> => {

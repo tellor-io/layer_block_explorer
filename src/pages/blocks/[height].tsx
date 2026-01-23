@@ -34,18 +34,6 @@ import Head from 'next/head'
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import axios from 'axios'
-/* RPC IMPORTS - COMMENTED OUT FOR GRAPHQL MIGRATION
-import { useSelector } from 'react-redux'
-import { getBlock, getBlockResults } from '@/rpc/query'
-import { selectTmClient } from '@/store/connectSlice'
-import { Block, Coin } from '@cosmjs/stargate'
-import { Tx as TxData } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
-import { sha256 } from '@cosmjs/crypto'
-import { toHex, fromBase64 } from '@cosmjs/encoding'
-import { decodeData } from '@/utils/decodeHelper'
-import { rpcManager } from '@/utils/rpcManager'
-import { getValidators } from '@/rpc/query'
-*/
 import { toHex } from '@cosmjs/encoding'
 import { timeFromNow, trimHash, displayDate, getTypeMsg, bytesToBech32ConsensusAddress } from '@/utils/helper'
 import { sha256 } from '@cosmjs/crypto'
@@ -60,45 +48,6 @@ import { Tx as TxData } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
 import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin'
 import { fromBase64 } from '@cosmjs/encoding'
 
-/* RPC INTERFACES - COMMENTED OUT FOR GRAPHQL MIGRATION
-// Extend the Block type to include rawData and proposerAddress
-interface ExtendedBlock extends Block {
-  rawData?: Uint8Array
-  header: Block['header'] & {
-    proposerAddress?: Uint8Array
-    appHash?: Uint8Array
-  }
-}
-
-function decodeBase64ToUtf8(base64String: string) {
-  return Buffer.from(base64String, 'base64').toString('utf8')
-}
-
-// Add this function at the top of your file, after the imports
-const serializeBigInt = (data: any): any => {
-  if (typeof data === 'bigint') {
-    return data.toString()
-  } else if (Array.isArray(data)) {
-    return data.map(serializeBigInt)
-  } else if (typeof data === 'object' && data !== null) {
-    return Object.fromEntries(
-      Object.entries(data).map(([key, value]) => [key, serializeBigInt(value)])
-    )
-  }
-  return data
-}
-
-interface Validator {
-  operator_address: string
-  consensus_pubkey: {
-    '@type': string
-    key: string
-  }
-  description: {
-    moniker: string
-  }
-}
-*/
 
 // GraphQL interfaces
 interface GraphQLBlock {
@@ -125,19 +74,6 @@ export default function DetailBlock() {
   const router = useRouter()
   const toast = useToast()
   const { height } = router.query
-  /* RPC STATE - COMMENTED OUT FOR GRAPHQL MIGRATION
-  const tmClient = useSelector(selectTmClient)
-  const [block, setBlock] = useState<ExtendedBlock | null>(null)
-  const [blockResults, setBlockResults] = useState<any>(null)
-  const [rawProposerAddress, setRawProposerAddress] = useState<string>('')
-
-  interface Tx {
-    data: TxData
-    hash: Uint8Array
-  }
-  const [txs, setTxs] = useState<Tx[]>([])
-  const [decodedTxData, setDecodedTxData] = useState<any>(null)
-  */
   const [block, setBlock] = useState<GraphQLBlock | null>(null)
   const [validatorMap, setValidatorMap] = useState<ValidatorMap>({})
   const [isLoading, setIsLoading] = useState(true)
@@ -162,46 +98,7 @@ export default function DetailBlock() {
   const { onCopy: onCopyResults, hasCopied: hasCopiedResults } = useClipboard(
     blockResults ? JSON.stringify(blockResults, null, 2) : ''
   )
-  /* RPC MODAL STATES - COMMENTED OUT FOR GRAPHQL MIGRATION
-  const {
-    isOpen: isTxOpen,
-    onOpen: onTxOpen,
-    onClose: onTxClose,
-  } = useDisclosure()
-  const {
-    isOpen: isResultsOpen,
-    onOpen: onResultsOpen,
-    onClose: onResultsClose,
-  } = useDisclosure()
-  const [isFullScreen, setIsFullScreen] = useState(false)
-  const { onCopy: onCopyTx, hasCopied: hasCopiedTx } = useClipboard(
-    JSON.stringify(decodedTxData, null, 2)
-  )
-  const { onCopy: onCopyResults, hasCopied: hasCopiedResults } = useClipboard(
-    blockResults ? JSON.stringify(serializeBigInt(blockResults), null, 2) : ''
-  )
-  */
 
-  /* RPC FETCH VALIDATORS - COMMENTED OUT FOR GRAPHQL MIGRATION
-  const fetchValidators = async () => {
-    if (tmClient) {
-      try {
-        const endpoint = await rpcManager.getCurrentEndpoint()
-        const validatorsResponse = await getValidators(endpoint)
-        if (validatorsResponse?.validators) {
-          const map: { [key: string]: string } = {}
-          validatorsResponse.validators.forEach((validator: Validator) => {
-            const hexAddress = pubkeyToAddress(validator.consensus_pubkey.key)
-            map[hexAddress] = validator.description.moniker
-          })
-          setValidatorMap(map)
-        }
-      } catch (error) {
-        console.error('Error fetching validators:', error)
-      }
-    }
-  }
-  */
 
   // GraphQL fetch validators (client-side as per migration plan)
   const fetchValidators = async () => {
@@ -265,77 +162,6 @@ export default function DetailBlock() {
     })
   }
 
-  /* RPC DATA FETCHING - COMMENTED OUT FOR GRAPHQL MIGRATION
-  useEffect(() => {
-    if (height) {
-      // Fetch validators first
-      fetchValidators()
-
-      // Use the API endpoint to get block data with proposer_address
-      axios
-        .get(`/api/block-by-height/${height}`)
-        .then(async (response) => {
-          if (response?.data?.block) {
-            const blockData = response.data.block
-            // Construct the block object similar to blocks/index.tsx
-            const constructedBlock = {
-              header: {
-                version: { block: '0', app: '0' },
-                height: blockData.header.height,
-                time: new Date(blockData.header.time),
-                proposerAddress: fromBase64(blockData.header.proposer_address),
-                chainId: blockData.header.chain_id,
-                lastBlockId: blockData.header.last_block_id,
-                lastCommitHash: fromBase64(blockData.header.last_commit_hash),
-                dataHash: fromBase64(blockData.header.data_hash),
-                validatorsHash: fromBase64(blockData.header.validators_hash),
-                nextValidatorsHash: fromBase64(
-                  blockData.header.next_validators_hash
-                ),
-                consensusHash: fromBase64(blockData.header.consensus_hash),
-                appHash: fromBase64(blockData.header.app_hash),
-                lastResultsHash: fromBase64(blockData.header.last_results_hash),
-                evidenceHash: fromBase64(blockData.header.evidence_hash),
-              },
-              txs: blockData.data?.txs || [],
-              lastCommit: blockData.last_commit,
-              evidence: blockData.evidence,
-              id: blockData.block_id?.hash || '',
-            } as any
-            // Store the raw proposer address for the moniker lookup
-            setRawProposerAddress(blockData.header.proposer_address)
-            setBlock(constructedBlock)
-          } else {
-          }
-        })
-        .catch((error) => {
-          console.error('Block details: Error fetching block data:', error)
-          console.error('Block details: Error response:', error.response?.data)
-          console.error('Block details: Error status:', error.response?.status)
-        })
-
-      // Fetch block results
-      getBlockResults(parseInt(Array.isArray(height) ? height[0] : height))
-        .then((results) => {
-          setBlockResults(results)
-          // If vote extensions are in the block results, decode them here
-          if (results?.vote_extensions) {
-            try {
-              const decodedExtensions = JSON.parse(
-                JSON.stringify(results.vote_extensions)
-              )
-              setDecodedTxData(decodedExtensions)
-            } catch (error) {
-              console.error('Error decoding vote extensions:', error)
-            }
-          }
-        })
-        .catch((error) => {
-          console.error('Error fetching block results:', error)
-        })
-    }
-  }, [height])
-  */
 
   // GraphQL data fetching (client-side as per migration plan)
   useEffect(() => {
@@ -419,54 +245,6 @@ export default function DetailBlock() {
     }
   }, [height])
 
-  /* RPC TRANSACTION PROCESSING - COMMENTED OUT FOR GRAPHQL MIGRATION
-  useEffect(() => {
-    if (block?.txs.length && !txs.length) {
-      for (const rawTx of block.txs) {
-        try {
-          // rawTx should be a base64 string from the API
-          let txBytes: Uint8Array
-
-          if (typeof rawTx === 'string') {
-            // It's a base64 string, convert to Uint8Array using Buffer
-            txBytes = Buffer.from(rawTx, 'base64')
-          } else if (rawTx instanceof Uint8Array) {
-            // It's already a Uint8Array
-            txBytes = rawTx
-          } else {
-            console.error('Unknown transaction format:', typeof rawTx)
-            continue
-          }
-
-          // Try to decode as JSON first
-          const textDecoder = new TextDecoder()
-          const jsonString = textDecoder.decode(txBytes)
-
-          // Check if this looks like a vote extension (has block_height field)
-          if (jsonString.includes('"block_height"')) {
-            const jsonData = JSON.parse(jsonString)
-            setDecodedTxData(jsonData)
-          } else {
-            // Only try transaction decoding if it's not a vote extension
-            const data = TxData.decode(txBytes)
-            const hash = sha256(txBytes)
-            setTxs((prevTxs) => [
-              ...prevTxs,
-              {
-                data,
-                hash,
-              },
-            ])
-          }
-        } catch (error) {
-          console.error('Error decoding data:', error)
-        }
-      }
-    }
-  }, [block])
-
-  useEffect(() => {}, [blockResults])
-  */
 
   // Helper functions for rendering transaction data
   const decodeTransaction = (txData: string): { messages: any[], fee: Coin[] | undefined } | null => {

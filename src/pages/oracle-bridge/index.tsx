@@ -153,29 +153,6 @@ export default function OracleBridge() {
     return String(error)
   }
 
-  /* MIGRATED TO GRAPHQL - Commented out RPC API call
-  const fetchOracleData = async () => {
-    try {
-      const response = await fetch(`/api/oracle-data/${oracleQueryId}`)
-      const data = await response.json()
-      if (response.ok) {
-        setOracleData(data)
-        setIsOracleModalOpen(true)
-      } else {
-        throw new Error(data.error || 'Failed to fetch oracle data')
-      }
-    } catch (error) {
-      console.error('Oracle fetch error:', error)
-      toast({
-        title: 'Error fetching oracle data',
-        description: getErrorMessage(error),
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      })
-    }
-  }
-  */
 
   // GraphQL client-side fetching for oracle data
   const fetchOracleData = async () => {

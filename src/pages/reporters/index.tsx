@@ -41,12 +41,6 @@ import NextLink from 'next/link'
 import { FiChevronRight, FiHome, FiCopy } from 'react-icons/fi'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
-/* RPC imports commented out for GraphQL migration
-import { getReporterSelectors } from '@/rpc/query'
-import { stripAddressPrefix } from '@/utils/helper'
-import { useSelector } from 'react-redux'
-import { selectRPCAddress } from '@/store/connectSlice'
-*/
 // GraphQL imports
 import { graphqlQuery } from '@/datasources/graphql/client'
 import { GET_REPORTERS } from '@/datasources/graphql/queries'
@@ -64,19 +58,6 @@ type ReporterData = {
   power: string
 }
 
-/* RPC types commented out for GraphQL migration
-type APIReporter = {
-  address: string
-  metadata: {
-    min_tokens_required: string
-    commission_rate: string
-    jailed: boolean
-    jailed_until: string
-  }
-  power: string
-  selectors: number
-}
-*/
 
 const columnHelper = createColumnHelper<ReporterData>()
 

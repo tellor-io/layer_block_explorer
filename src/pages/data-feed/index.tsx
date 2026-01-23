@@ -63,16 +63,6 @@ import {
 } from '@/datasources/graphql/queries'
 import type { AggregateReportsResponse } from '@/datasources/graphql/types'
 
-/* MIGRATED TO GRAPHQL - Commented out RPC imports
-import { NewBlockEvent, TxEvent } from '@cosmjs/tendermint-rpc'
-import { useSelector } from 'react-redux'
-import { selectTmClient } from '@/store/connectSlice'
-import { selectNewBlock } from '@/store/streamSlice'
-import { timeFromNow } from '@/utils/helper'
-import axios from 'axios'
-import { getReporterCount, decodeQueryData } from '@/rpc/query'
-import { rpcManager } from '@/utils/rpcManager'
-*/
 
 interface OracleReport {
   type: string
@@ -85,23 +75,6 @@ interface OracleReport {
   queryData?: string
 }
 
-/* MIGRATED TO GRAPHQL - Commented out unused interfaces
-interface ReportAttribute {
-  key: string
-  value: string
-  displayValue?: string
-}
-
-interface EventAttribute {
-  key: string
-  value: string
-}
-
-interface AggregateReportEvent {
-  type: string
-  attributes: EventAttribute[]
-}
-*/
 
 // Helper function to normalize query IDs for comparison (handle 0x prefix)
 const normalizeQueryId = (queryId: string): string => {
@@ -128,28 +101,6 @@ const findQueryIdByPairName = (pairName: string, mappings: QueryIdPairMapping[])
   return mapping ? mapping.queryId : null
 }
 
-/* MIGRATED TO GRAPHQL - Commented out RPC helper function
-const fetchReporterData = async (block: NewBlockEvent, attributes: any[]) => {
-  try {
-    const queryIdAttr = attributes.find((attr) => attr.key === 'query_id')
-    const queryId = queryIdAttr?.value
-
-    if (!queryId) {
-      console.warn('No queryId found in attributes')
-      return null
-    }
-
-    const timestamp = block.header.time.getTime().toString()
-    const reporterData = await getReporterCount(queryId, timestamp)
-
-    const valueAttr = attributes.find((attr) => attr.key === 'value')
-    // ... rest of the function
-  } catch (error) {
-    console.error('Error fetching reporter data:', error)
-    return null
-  }
-}
-*/
 
 interface QueryIdPairMapping {
   queryId: string
@@ -840,20 +791,6 @@ export default function DataFeed() {
     }
   }, [aggregateReports.length, filteredReports.length, selectedQueryId, isDateFilterEnabled, fromDate, toDate, dateRange])
 
-/* MIGRATED TO GRAPHQL - Commented out all RPC block processing code
- * 
- * The processBlock function extracted aggregate_report events from block_results.
- * GraphQL aggregateReports query provides this data directly, so we don't need
- * to process blocks anymore.
- */
-
-/* REMOVED: processBlock function
- * REMOVED: processedBlocksRef
- * REMOVED: Block results RPC calls
- * REMOVED: Event extraction logic
- * REMOVED: Redux block streaming dependencies
- * REMOVED: Block cleanup intervals
- */
 
   return (
     <>
