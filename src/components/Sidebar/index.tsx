@@ -70,9 +70,9 @@ export const LinkItems: Array<LinkItemProps> = [
 ]
 export const RefLinkItems: Array<LinkItemProps> = [
   {
-    name: 'Relayer',
+    name: 'Feeds Site',
     icon: SiRelay,
-    route: 'https://relayer.tellor.io/',
+    route: 'https://feeds.tellor.io/',
     isBlank: true,
   },
   {
