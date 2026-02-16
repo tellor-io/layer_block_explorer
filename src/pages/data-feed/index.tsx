@@ -81,9 +81,13 @@ const getQueryPairName = (queryId: string): string => {
   if (cleanQueryId.endsWith('5f3e')) return 'USDN/USD'
   if (cleanQueryId.endsWith('431d')) return 'SAGA/USD'
   if (cleanQueryId.endsWith('318cf')) return 'sUSDe/USD'
-  if (cleanQueryId.endsWith('382d')) return 'yUSD/USD'
+  if (cleanQueryId.endsWith('63882d')) return 'yUSD/USD'
   if (cleanQueryId.endsWith('ebf2e')) return 'wstETH/USD'
   if (cleanQueryId.endsWith('4f23')) return 'stATOM/USD'
+  if (cleanQueryId.endsWith('002510')) return 'sfrxUSD/USD'
+  if (cleanQueryId.endsWith('0809f1')) return 'sUSN/USD'
+  if (cleanQueryId.endsWith('2dcca4')) return 'vyUSD/USD'
+  if (cleanQueryId.endsWith('e04a59')) return 'yETH/USD'
   return queryId
 }
 
@@ -352,10 +356,10 @@ export default function DataFeed() {
                   <Th isNumeric>TOTAL Reprtr Pwr</Th>
                   <Th>Query Type</Th>
                   <Th>Aggregate Method</Th>
-                  <Th>Cycle List</Th>
                   <Th isNumeric>Block Height</Th>
                   <Th isNumeric>Micro Report Height</Th>
                   <Th>Timestamp</Th>
+                  <Th>Cycle List</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -379,7 +383,6 @@ export default function DataFeed() {
                     </Td>
                     <Td>{report.queryType || 'N/A'}</Td>
                     <Td>{report.aggregateMethod || 'N/A'}</Td>
-                    <Td>{report.cycleList ? 'Yes' : 'No'}</Td>
                     <Td isNumeric>
                       <Link
                         href={`/blocks/${report.blockHeight}`}
@@ -392,6 +395,7 @@ export default function DataFeed() {
                     </Td>
                     <Td isNumeric>{report.microReportHeight}</Td>
                     <Td>{report.timestamp.toLocaleString()}</Td>
+                    <Td>{report.cycleList ? 'Yes' : 'No'}</Td>
                   </Tr>
                 ))}
               </Tbody>
