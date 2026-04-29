@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { rpcManager } from '../../../../utils/rpcManager'
+import { LS_ACTIVE_NETWORK } from '@/utils/constant'
 
 export default async function handler(
   req: NextApiRequest,
@@ -22,7 +23,9 @@ export default async function handler(
     const formattedQueryId = queryId.startsWith('0x')
       ? queryId.slice(2)
       : queryId
-    const endpoint = await rpcManager.getCurrentEndpoint()
+    const endpoint = await rpcManager.getCurrentEndpoint(
+      req.cookies[LS_ACTIVE_NETWORK]
+    )
     const baseEndpoint = endpoint.replace('/rpc', '')
 
     // First, fetch snapshots

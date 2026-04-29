@@ -1,5 +1,12 @@
 import axios from 'axios'
-import { RPC_ENDPOINTS, LS_RPC_ADDRESS } from './constant'
+import {
+  LS_ACTIVE_NETWORK,
+  LS_RPC_ADDRESS,
+  LayerNetwork,
+  getDefaultNetwork,
+  getRpcEndpointsForNetwork,
+  normalizeNetwork,
+} from './constant'
 
 /**
  * HYBRID ARCHITECTURE - Phase 3 Migration
@@ -45,6 +52,7 @@ export class RPCManager {
 
   private customEndpoint: string | null = null
   private healthCheckInterval: NodeJS.Timeout | null = null
+  private activeNetwork: LayerNetwork = getDefaultNetwork()
 
   private readonly MAX_FAILURES = 5
   private readonly CIRCUIT_RESET_TIME = 60000
@@ -53,21 +61,20 @@ export class RPCManager {
   private readonly REQUEST_TIMEOUT = 10000 // Increase to 10 seconds
 
   private constructor() {
-    // Initialize state for all endpoints
-    RPC_ENDPOINTS.forEach((endpoint) => {
-      this.state.failures[endpoint] = 0
-      this.state.lastAttempt[endpoint] = 0
-      this.state.isCircuitOpen[endpoint] = false
-    })
-
-    // Try to restore custom endpoint from localStorage
     if (typeof window !== 'undefined') {
+      const savedNetwork = window.localStorage.getItem(LS_ACTIVE_NETWORK)
+      if (savedNetwork) {
+        this.activeNetwork = normalizeNetwork(savedNetwork)
+      }
+      document.cookie = `${LS_ACTIVE_NETWORK}=${this.activeNetwork}; path=/; max-age=31536000`
+
       const savedEndpoint = window.localStorage.getItem(LS_RPC_ADDRESS)
       if (savedEndpoint) {
         this.setCustomEndpoint(savedEndpoint)
       }
     }
 
+    this.initializeStateForEndpoints(this.getAllKnownEndpoints())
     this.startHealthChecks()
   }
 
@@ -76,6 +83,41 @@ export class RPCManager {
       RPCManager.instance = new RPCManager()
     }
     return RPCManager.instance
+  }
+
+  private getAllKnownEndpoints(): string[] {
+    return [
+      ...getRpcEndpointsForNetwork('mainnet'),
+      ...getRpcEndpointsForNetwork('palmito'),
+      ...(this.customEndpoint ? [this.customEndpoint] : []),
+    ]
+  }
+
+  private initializeStateForEndpoints(endpoints: string[]) {
+    endpoints.forEach((endpoint) => {
+      if (!this.state.failures[endpoint]) this.state.failures[endpoint] = 0
+      if (!this.state.lastAttempt[endpoint]) this.state.lastAttempt[endpoint] = 0
+      if (!this.state.isCircuitOpen[endpoint])
+        this.state.isCircuitOpen[endpoint] = false
+    })
+  }
+
+  public getActiveNetwork(): LayerNetwork {
+    return this.activeNetwork
+  }
+
+  public async setActiveNetwork(network: LayerNetwork) {
+    this.activeNetwork = normalizeNetwork(network)
+    this.state.currentIndex = 0
+    this.customEndpoint = null
+    this.state.isConnected = false
+    this.initializeStateForEndpoints(this.getEndpoints())
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(LS_ACTIVE_NETWORK, this.activeNetwork)
+      window.localStorage.removeItem(LS_RPC_ADDRESS)
+      document.cookie = `${LS_ACTIVE_NETWORK}=${this.activeNetwork}; path=/; max-age=31536000`
+    }
+    await this.clearCaches()
   }
 
   private async checkEndpointHealth(endpoint: string): Promise<boolean> {
@@ -139,6 +181,7 @@ export class RPCManager {
       this.state.isCircuitOpen[endpoint] = false
       // Reset current index to ensure we start with the custom endpoint
       this.state.currentIndex = 0
+      this.initializeStateForEndpoints([endpoint])
       // Clear any caches when switching endpoints
       await this.clearCaches()
     } else if (typeof window !== 'undefined') {
@@ -168,18 +211,28 @@ export class RPCManager {
     }
   }
 
-  public async getCurrentEndpoint(): Promise<string> {
-    const availableEndpoints = this.getEndpoints()
+  public getEndpointsForNetwork(network: LayerNetwork): string[] {
+    return getRpcEndpointsForNetwork(network)
+  }
+
+  public async getCurrentEndpoint(networkOverride?: string): Promise<string> {
+    const selectedNetwork = normalizeNetwork(networkOverride || this.activeNetwork)
+    const availableEndpoints = this.getEndpointsForNetwork(selectedNetwork).filter(
+      (endpoint) => !this.state.isCircuitOpen[endpoint]
+    )
     if (availableEndpoints.length === 0) {
       console.warn('No available endpoints, resetting circuit breakers')
       // Reset all circuits if no endpoints are available
-      RPC_ENDPOINTS.forEach((endpoint) => this.resetEndpointState(endpoint))
+      this.getEndpointsForNetwork(selectedNetwork).forEach((endpoint) =>
+        this.resetEndpointState(endpoint)
+      )
       this.state.currentIndex = 0
-      return RPC_ENDPOINTS[0]
+      return this.getEndpointsForNetwork(selectedNetwork)[0]
     }
 
     // If we have a custom endpoint, always return it first
     if (
+      selectedNetwork === this.activeNetwork &&
       this.customEndpoint &&
       availableEndpoints.includes(this.customEndpoint)
     ) {
@@ -194,8 +247,8 @@ export class RPCManager {
 
   public async reportSuccess(endpoint: string) {
     this.state.isConnected = true
-    if (endpoint === RPC_ENDPOINTS[0]) {
-      RPC_ENDPOINTS.forEach((ep) => this.resetEndpointState(ep))
+    if (endpoint === this.getEndpointsForActiveNetwork()[0]) {
+      this.getEndpointsForActiveNetwork().forEach((ep) => this.resetEndpointState(ep))
       this.state.currentIndex = 0
     } else {
       this.resetEndpointState(endpoint)
@@ -210,7 +263,7 @@ export class RPCManager {
 
     if (
       this.state.failures[endpoint] >= this.MAX_FAILURES ||
-      endpoint === RPC_ENDPOINTS[0]
+      endpoint === this.getEndpointsForActiveNetwork()[0]
     ) {
       console.warn(`Circuit breaker triggered for endpoint: ${endpoint}`)
       this.state.isCircuitOpen[endpoint] = true
@@ -219,18 +272,25 @@ export class RPCManager {
       const availableEndpoints = this.getEndpoints()
       if (availableEndpoints.length > 0) {
         const nextEndpoint = availableEndpoints[0]
-        this.state.currentIndex = RPC_ENDPOINTS.indexOf(nextEndpoint)
+        this.state.currentIndex = this.getEndpointsForActiveNetwork().indexOf(
+          nextEndpoint
+        )
         return nextEndpoint
       }
     }
     return endpoint
   }
 
+  public getEndpointsForActiveNetwork(): string[] {
+    return getRpcEndpointsForNetwork(this.activeNetwork)
+  }
+
   public getEndpoints(): string[] {
-    const endpoints = [...RPC_ENDPOINTS]
+    const endpoints = [...this.getEndpointsForActiveNetwork()]
     if (this.customEndpoint && !endpoints.includes(this.customEndpoint)) {
       endpoints.unshift(this.customEndpoint)
     }
+    this.initializeStateForEndpoints(endpoints)
     return endpoints.filter((endpoint) => !this.state.isCircuitOpen[endpoint])
   }
 }

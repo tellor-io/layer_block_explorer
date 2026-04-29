@@ -1,6 +1,7 @@
 import { ethers } from 'ethers'
 
-const ALCHEMY_API_KEY = 'LNVPcHVyc0JJidWoTM_yLDDkM4eEWJ8f'
+const ALCHEMY_API_KEY =
+  process.env.NEXT_PUBLIC_ALCHEMY_API_KEY ?? process.env.ALCHEMY_API_KEY
 
 // Bridge contract addresses for different networks
 const BRIDGE_CONTRACT_ADDRESSES = {
@@ -11,6 +12,12 @@ const BRIDGE_CONTRACT_ADDRESSES = {
 export const getEthereumProvider = (
   layerEndpoint: string
 ): ethers.JsonRpcProvider => {
+  if (!ALCHEMY_API_KEY) {
+    throw new Error(
+      'Missing Alchemy API key. Set NEXT_PUBLIC_ALCHEMY_API_KEY or ALCHEMY_API_KEY.'
+    )
+  }
+
   // Determine Ethereum network based on Layer endpoint
   const isMainnet = layerEndpoint.includes('mainnet.tellorlayer.com')
 

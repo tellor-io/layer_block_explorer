@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 import { rpcManager } from '@/utils/rpcManager'
+import { LS_ACTIVE_NETWORK } from '@/utils/constant'
 
 export default async function handler(
   req: NextApiRequest,
@@ -17,7 +18,9 @@ export default async function handler(
 
   try {
     // Get the current endpoint from the RPC manager
-    const currentEndpoint = await rpcManager.getCurrentEndpoint()
+    const currentEndpoint = await rpcManager.getCurrentEndpoint(
+      req.cookies[LS_ACTIVE_NETWORK]
+    )
 
     // Make the RPC request
     const response = await fetch(currentEndpoint, {
@@ -61,7 +64,9 @@ export default async function handler(
 
     // Report failure to RPC manager
     try {
-      const currentEndpoint = await rpcManager.getCurrentEndpoint()
+      const currentEndpoint = await rpcManager.getCurrentEndpoint(
+        req.cookies[LS_ACTIVE_NETWORK]
+      )
       await rpcManager.reportFailure(currentEndpoint)
     } catch (rpcError) {
       console.error('Error reporting RPC failure:', rpcError)

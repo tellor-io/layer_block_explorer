@@ -1,12 +1,15 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { rpcManager } from '../../utils/rpcManager'
+import { LS_ACTIVE_NETWORK } from '@/utils/constant'
 
 export default async function handler(
-  _req: NextApiRequest,
+  req: NextApiRequest,
   res: NextApiResponse
 ) {
   try {
-    const endpoint = await rpcManager.getCurrentEndpoint()
+    const endpoint = await rpcManager.getCurrentEndpoint(
+      req.cookies[LS_ACTIVE_NETWORK]
+    )
     const baseEndpoint = endpoint.replace('/rpc', '')
 
     const response = await fetch(

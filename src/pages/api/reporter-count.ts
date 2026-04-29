@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import axios from 'axios'
-import { RPC_ENDPOINTS } from '@/utils/constant'
 import { rpcManager } from '@/utils/rpcManager'
 
 // Add a simple in-memory cache
@@ -62,11 +61,12 @@ export default async function handler(
 
   await new Promise((resolve) => setTimeout(resolve, INITIAL_DELAY))
 
-  // Use custom endpoint if provided, otherwise fall back to RPC_ENDPOINTS
+  // Use custom endpoint if provided, otherwise use active network endpoints
+  const activeNetworkEndpoints = rpcManager.getEndpointsForActiveNetwork()
   const endpointsToTry =
     customEndpoint && typeof customEndpoint === 'string'
-      ? [customEndpoint, ...RPC_ENDPOINTS.filter((ep) => ep !== customEndpoint)]
-      : RPC_ENDPOINTS
+      ? [customEndpoint, ...activeNetworkEndpoints.filter((ep) => ep !== customEndpoint)]
+      : activeNetworkEndpoints
 
   for (const endpoint of endpointsToTry) {
     try {

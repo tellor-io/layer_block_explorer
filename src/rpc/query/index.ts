@@ -161,8 +161,10 @@ export const getReporterCount = async (
 }
 
 export const getReporterList = async (): Promise<string[] | undefined> => {
-  const url = `${process.env.NEXT_PUBLIC_RPC_ENDPOINT}/tellor-io/layer/reporter/reporters`
   try {
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
+    const url = `${baseEndpoint}/tellor-io/layer/reporter/reporters`
     const response = await axios.get(url)
     if (response.data && Array.isArray(response.data.reporters)) {
       return response.data.reporters
