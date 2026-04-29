@@ -34,12 +34,13 @@ import {
 } from '@chakra-ui/react'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useSelector } from 'react-redux'
+import { selectRPCAddress } from '@/store/connectSlice'
 import NextLink from 'next/link'
 import { FiChevronRight, FiHome } from 'react-icons/fi'
 // GraphQL imports
 import { graphqlQuery } from '@/datasources/graphql/client'
-import { GET_GOV_PROPOSALS, GET_DASHBOARD_VALIDATORS, GET_ALL_PARAMETERS } from '@/datasources/graphql/queries'
-import { GovProposalsResponse, GovProposal, DashboardValidatorsResponse, AllParametersResponse, PageInfo } from '@/datasources/graphql/types'
+import { GET_GOV_PROPOSALS, GET_DASHBOARD_VALIDATORS, GET_GOV_QUORUM } from '@/datasources/graphql/queries'
+import { GovProposalsResponse, GovProposal, DashboardValidatorsResponse, PageInfo } from '@/datasources/graphql/types'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
 import {
@@ -59,6 +60,16 @@ import { useClipboard, Tooltip } from '@chakra-ui/react'
 import { FiInfo } from 'react-icons/fi'
 import { fromUtf8 } from '@cosmjs/encoding'
 import ProposalTooltip from '@/components/ProposalTooltip'
+
+type GovQuorumResponse = {
+  govParams?: {
+    edges?: Array<{
+      node?: {
+        quorum?: string
+      }
+    }>
+  }
+}
 
 const CopyableTitle = ({
   title,
@@ -209,6 +220,7 @@ const getErrorMessage = (error: unknown): string => {
 }
 
 export default function Proposals() {
+  const rpcAddress = useSelector(selectRPCAddress)
   const [page, setPage] = useState(0)
   const [perPage, setPerPage] = useState(10)
   const [total, setTotal] = useState(0)
@@ -247,7 +259,7 @@ export default function Proposals() {
       // Fetch validators and gov params in parallel
       const [validatorsResponse, paramsResponse] = await Promise.all([
         graphqlQuery<DashboardValidatorsResponse>(GET_DASHBOARD_VALIDATORS),
-        graphqlQuery<AllParametersResponse>(GET_ALL_PARAMETERS),
+        graphqlQuery<GovQuorumResponse>(GET_GOV_QUORUM),
       ])
 
       console.log('Validators Response:', validatorsResponse)
@@ -694,6 +706,18 @@ export default function Proposals() {
       isFetchingRef.current = false
     }
   }, [fetchQuorumRequirement, fetchProposals])
+
+  // Refetch when network switch updates the active RPC endpoint.
+  useEffect(() => {
+    if (!rpcAddress || !mountedRef.current) return
+
+    setPage(0)
+    setPagesCursors([])
+    setError(null)
+    setIsLoading(true)
+    void fetchQuorumRequirement()
+    void fetchProposals()
+  }, [rpcAddress, fetchQuorumRequirement, fetchProposals])
 
   const onChangePagination = useCallback(
     (value: { pageIndex: number; pageSize: number }) => {

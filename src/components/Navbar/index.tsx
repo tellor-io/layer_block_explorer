@@ -289,6 +289,7 @@ export default function Navbar() {
           duration: 3000,
           isClosable: true,
         })
+        router.reload()
       }
     } catch (error) {
       console.error('Error switching network:', error)

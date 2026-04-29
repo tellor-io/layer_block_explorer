@@ -688,6 +688,22 @@ export const GET_ALL_PARAMETERS = `
   }
 `;
 
+/**
+ * Get only governance quorum parameter
+ * Used for: proposals page quorum calculation (schema-safe across networks)
+ */
+export const GET_GOV_QUORUM = `
+  query GetGovQuorum {
+    govParams(first: 1) {
+      edges {
+        node {
+          quorum
+        }
+      }
+    }
+  }
+`;
+
 // ============================================================================
 // AGGREGATE REPORT QUERIES
 // ============================================================================

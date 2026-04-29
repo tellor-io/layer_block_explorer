@@ -69,6 +69,10 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
   const borderColor = useColorModeValue('gray.200', 'gray.600')
   const textColor = useColorModeValue('gray.800', 'white')
   const secondaryTextColor = useColorModeValue('gray.600', 'gray.300')
+  const sectionBgColor = useColorModeValue('gray.50', 'gray.700')
+  const scrollbarTrackColor = useColorModeValue('#f1f1f1', '#2d3748')
+  const scrollbarThumbColor = useColorModeValue('#c1c1c1', '#4a5568')
+  const scrollbarThumbHoverColor = useColorModeValue('#a8a8a8', '#718096')
 
   // Position tooltip to the right of the trigger element, centered vertically
   const updatePosition = useCallback(() => {
@@ -409,7 +413,7 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
               </HStack>
               <Text
                 fontSize="xs"
-                bg={useColorModeValue('gray.50', 'gray.700')}
+                bg={sectionBgColor}
                 p={2}
                 borderRadius="sm"
                 color={textColor}
@@ -445,15 +449,15 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
                           width: '6px',
                         },
                         '&::-webkit-scrollbar-track': {
-                          background: useColorModeValue('#f1f1f1', '#2d3748'),
+                          background: scrollbarTrackColor,
                           borderRadius: '3px',
                         },
                         '&::-webkit-scrollbar-thumb': {
-                          background: useColorModeValue('#c1c1c1', '#4a5568'),
+                          background: scrollbarThumbColor,
                           borderRadius: '3px',
                         },
                         '&::-webkit-scrollbar-thumb:hover': {
-                          background: useColorModeValue('#a8a8a8', '#718096'),
+                          background: scrollbarThumbHoverColor,
                         },
                       }}
                     >
@@ -462,7 +466,7 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
                           key={message.index}
                           w="full"
                           p={3}
-                          bg={useColorModeValue('gray.50', 'gray.700')}
+                          bg={sectionBgColor}
                           borderRadius="sm"
                         >
                           <Text
@@ -485,24 +489,15 @@ const ProposalTooltip: React.FC<ProposalTooltipProps> = ({
                                 width: '4px',
                               },
                               '&::-webkit-scrollbar-track': {
-                                background: useColorModeValue(
-                                  '#f1f1f1',
-                                  '#2d3748'
-                                ),
+                                background: scrollbarTrackColor,
                                 borderRadius: '2px',
                               },
                               '&::-webkit-scrollbar-thumb': {
-                                background: useColorModeValue(
-                                  '#c1c1c1',
-                                  '#4a5568'
-                                ),
+                                background: scrollbarThumbColor,
                                 borderRadius: '2px',
                               },
                               '&::-webkit-scrollbar-thumb:hover': {
-                                background: useColorModeValue(
-                                  '#a8a8a8',
-                                  '#718096'
-                                ),
+                                background: scrollbarThumbHoverColor,
                               },
                             }}
                           >
