@@ -1,20 +1,8 @@
 /**
  * HYBRID DATA ARCHITECTURE - Proposals Page
- * 
- * This page uses GraphQL for governance proposal data:
- * 
- * GraphQL Data Sources (via /src/datasources/graphql/):
- * - Governance proposals list (GET_GOV_PROPOSALS)
- * - Proposal details and metadata
- * - Voting status and timestamps
- * - Proposal messages and types
- * 
- * Migration Notes:
- * - Replaced RPC proposal queries with GraphQL
- * - Added client-side sorting and pagination
- * - Maintained all existing UI/UX functionality
- * - Real-time updates via polling
- * - All RPC code preserved in comments for reference
+ *
+ * Indexer (GraphQL): proposal list, quorum threshold %
+ * Live RPC (stakingCache): total staked for quorum calculation
  */
 
 import Head from 'next/head'
@@ -39,8 +27,9 @@ import NextLink from 'next/link'
 import { FiChevronRight, FiHome } from 'react-icons/fi'
 // GraphQL imports
 import { graphqlQuery } from '@/datasources/graphql/client'
-import { GET_GOV_PROPOSALS, GET_DASHBOARD_VALIDATORS, GET_GOV_QUORUM } from '@/datasources/graphql/queries'
-import { GovProposalsResponse, GovProposal, DashboardValidatorsResponse, PageInfo } from '@/datasources/graphql/types'
+import { GET_GOV_PROPOSALS, GET_GOV_QUORUM } from '@/datasources/graphql/queries'
+import { GovProposalsResponse, GovProposal, PageInfo } from '@/datasources/graphql/types'
+import { stakingCache } from '@/datasources/live/stakingCache'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
 import {
@@ -256,101 +245,31 @@ export default function Proposals() {
   // GraphQL: Fetch quorum requirement and total staked tokens
   const fetchQuorumRequirement = useCallback(async () => {
     try {
-      // Fetch validators and gov params in parallel
-      const [validatorsResponse, paramsResponse] = await Promise.all([
-        graphqlQuery<DashboardValidatorsResponse>(GET_DASHBOARD_VALIDATORS),
+      const [validators, paramsResponse] = await Promise.all([
+        stakingCache.fetchValidators(),
         graphqlQuery<GovQuorumResponse>(GET_GOV_QUORUM),
       ])
 
-      console.log('Validators Response:', validatorsResponse)
-      console.log('Validators Response Structure:', {
-        hasValidators: !!validatorsResponse?.validators,
-        hasEdges: !!validatorsResponse?.validators?.edges,
-        edgesLength: validatorsResponse?.validators?.edges?.length,
-        firstEdge: validatorsResponse?.validators?.edges?.[0],
-      })
+      const activeValidators = validators.filter((validator) =>
+        isActiveValidator(validator.bondStatus)
+      )
 
-      // Calculate total staked tokens from active validators
-      if (validatorsResponse?.validators?.edges && validatorsResponse.validators.edges.length > 0) {
-        const validatorsData = validatorsResponse.validators.edges.map(edge => edge.node)
-        const activeValidators = validatorsData.filter(
-          (validator) => isActiveValidator(validator.bondStatus)
-        )
-        
-        console.log('Validators Processing:', {
-          totalValidators: validatorsData.length,
-          activeValidators: activeValidators.length,
-          sampleValidator: activeValidators[0],
-          sampleTokens: activeValidators[0]?.tokens,
-          sampleBondStatus: activeValidators[0]?.bondStatus,
-        })
-        
-        if (activeValidators.length === 0) {
-          console.warn('No active validators found! All validators:', validatorsData.map(v => ({
-            bondStatus: v.bondStatus,
-            tokens: v.tokens,
-          })))
-        }
-        
-        // Sum tokens from active validators (tokens are in micro-denomination)
-        const totalPower = activeValidators.reduce(
-          (sum: number, validator) => {
-            const tokens = Number(validator.tokens || 0)
-            return sum + tokens
-          },
-          0
-        )
-        
-        // Normalize to get total staked tokens
-        const normalizedTotalStaked = totalPower / 1_000_000
-        setTotalStakedTokens(normalizedTotalStaked)
-        
-        // Debug logging for total staked calculation
-        console.log('=== Total Staked Tokens Calculation ===')
-        console.log('Total Validators:', validatorsData.length)
-        console.log('Active Validators:', activeValidators.length)
-        console.log('Sample Validator:', {
-          operatorAddress: activeValidators[0]?.operatorAddress,
-          bondStatus: activeValidators[0]?.bondStatus,
-          tokens: activeValidators[0]?.tokens,
-          tokensType: typeof activeValidators[0]?.tokens,
-          tokensNumber: Number(activeValidators[0]?.tokens || 0),
-        })
-        console.log('Total Power (raw, micro-denomination):', totalPower)
-        console.log('Normalized Total Staked:', normalizedTotalStaked)
-        console.log('Is Tokens Micro-Denomination:', activeValidators[0] && Number(activeValidators[0].tokens) > 1_000_000)
-        console.log('=======================================')
-      } else {
-        console.error('No validators found in response!', {
-          validatorsResponse,
-          hasValidators: !!validatorsResponse?.validators,
-          hasEdges: !!validatorsResponse?.validators?.edges,
-          edgesLength: validatorsResponse?.validators?.edges?.length,
-        })
-        // Don't set fallback here - let it fail so we can see the error
-        throw new Error('No validators found in GraphQL response')
-      }
+      const totalPower = activeValidators.reduce(
+        (sum, validator) => sum + Number(validator.tokens || 0),
+        0
+      )
+      setTotalStakedTokens(totalPower / 1_000_000)
 
-      // Get quorum from gov params if available
       if (paramsResponse?.govParams?.edges?.[0]?.node?.quorum) {
         const quorumValue = paramsResponse.govParams.edges[0].node.quorum
-        // Quorum is stored as a decimal string (e.g., "0.334000000000000000")
-        // Convert to percentage
         const quorumPercent = (parseFloat(quorumValue) * 100).toFixed(2)
         setQuorumRequired(`${quorumPercent}%`)
       } else {
-        // Fallback: Quorum from genesis file: 0.334000000000000000 (33.4%)
         setQuorumRequired('33.40%')
       }
     } catch (error) {
       console.error('Error fetching quorum requirement:', error)
-      console.error('Error details:', {
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      })
-      // Set fallback values on error
       setQuorumRequired('33.40%')
-      setTotalStakedTokens(1000000)
     }
   }, [])
 

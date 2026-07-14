@@ -1,21 +1,8 @@
 /**
  * HYBRID DATA ARCHITECTURE - Dashboard Page
- * 
- * This page uses a hybrid approach combining GraphQL and RPC data sources:
- * 
- * GraphQL Data Sources (via /src/datasources/graphql/):
- * - Latest blocks (GET_LATEST_BLOCKS)
- * - Validator statistics (GET_VALIDATORS)
- * - Proposal counts (GET_GOV_PROPOSALS)
- * 
- * RPC Data Sources (via /api/ routes):
- * - Current cycle list (/api/current-cycle) - Tellor-specific
- * - Staking amounts (/api/staking-amount) - Tellor-specific
- * - Unstaking amounts (/api/unstaking-amount) - Tellor-specific
- * - Reporter counts (/api/reporter-count) - Tellor-specific
- * 
- * This hybrid approach ensures optimal performance for standard Cosmos data
- * while maintaining real-time access to Tellor-specific module queries.
+ *
+ * Indexer (GraphQL): latest block height/time (GET_SINGLE_LATEST_BLOCK)
+ * Live RPC (/api/*): validators, reporters, staking allowances, cycle, supply
  */
 
 import Head from 'next/head'
@@ -61,19 +48,11 @@ import { BsPersonFillAdd, BsPersonCheck } from 'react-icons/bs'
 import axios from 'axios'
 import ValidatorPowerPieChart from '@/components/ValidatorPowerPieChart'
 import { isActiveValidator } from '@/utils/helper'
-// GraphQL imports
 import { graphqlQuery } from '@/datasources/graphql/client'
-import { 
-  GET_DASHBOARD_VALIDATORS, 
-  GET_DASHBOARD_REPORTERS, 
-  GET_DASHBOARD_LATEST_BLOCK,
-  GET_SINGLE_LATEST_BLOCK 
-} from '@/datasources/graphql/queries'
-import { 
-  DashboardValidatorsResponse, 
-  DashboardReportersResponse, 
-  DashboardLatestBlockResponse 
-} from '@/datasources/graphql/types'
+import { GET_SINGLE_LATEST_BLOCK } from '@/datasources/graphql/queries'
+import { DashboardLatestBlockResponse } from '@/datasources/graphql/types'
+import { useLiveValidators } from '@/datasources/live/useLiveValidators'
+import { fetchLiveReporters } from '@/datasources/live/reporters'
 
 export default function Home() {
   const BOX_ICON_BG = useColorModeValue('#003734', '#eefffb') // Light mode, Dark mode
@@ -82,9 +61,14 @@ export default function Home() {
   const router = useRouter()
   const [latestBlockHeight, setLatestBlockHeight] = useState<string | null>(null)
   const [latestBlockTime, setLatestBlockTime] = useState<Date | null>(null)
-  const [validators, setValidators] = useState<number>(0)
   const [isLoaded, setIsLoaded] = useState(false)
-  const [totalVotingPower, setTotalVotingPower] = useState<string>('0')
+  const [totalVotingPower, setTotalVotingPower] = useState<string | null>(null)
+  const [validatorsError, setValidatorsError] = useState<string | null>(null)
+  const [reportersError, setReportersError] = useState<string | null>(null)
+  const {
+    validators: liveValidators,
+    error: liveValidatorsError,
+  } = useLiveValidators({ pollInterval: 5000 })
   const [stakingAmount, setStakingAmount] = useState<string>('0.0000 TRB')
   const [unstakingAmount, setUnstakingAmount] = useState<string>('0.0000 TRB')
   const [allowedAmountExp, setAllowedAmountExp] = useState<number | undefined>(
@@ -153,55 +137,26 @@ export default function Home() {
     }
   }, [router, cleanupAllPolling])
 
-  // GraphQL data fetching for validators with polling
+  const activeValidatorCount = liveValidators.filter((v) =>
+    isActiveValidator(v.bondStatus)
+  ).length
+
   useEffect(() => {
-    const fetchValidators = async () => {
-      try {
-        const response = await graphqlQuery<DashboardValidatorsResponse>(
-          GET_DASHBOARD_VALIDATORS
-        )
-        
-        if (response?.validators?.edges) {
-          const validatorsData = response.validators.edges.map(edge => edge.node)
-          
-          // Only count active validators using the utility function
-          const activeValidators = validatorsData.filter(
-            (validator) => isActiveValidator(validator.bondStatus)
-          )
-          console.log('Active validators count:', activeValidators.length)
-          setValidators(activeValidators.length)
-
-          // Calculate total voting power from ACTIVE validators only
-          const totalPower = activeValidators.reduce(
-            (acc: bigint, validator) =>
-              acc + BigInt(validator.tokens || 0),
-            BigInt(0)
-          )
-          const powerInMillions = Number(totalPower) / 1_000_000
-          const formattedTotalPower = new Intl.NumberFormat().format(
-            powerInMillions
-          )
-          setTotalVotingPower(formattedTotalPower)
-        }
-      } catch (error) {
-        console.error('Error fetching validators:', error)
-        setValidators(0)
-        setTotalVotingPower('0')
-      }
+    if (liveValidatorsError) {
+      setValidatorsError(liveValidatorsError)
+      setTotalVotingPower(null)
+      return
     }
-
-    // Initial fetch
-    fetchValidators()
-
-    // Set up polling every 5 seconds
-    const interval = setInterval(fetchValidators, 5000)
-    intervalsRef.current.push(interval)
-
-    return () => {
-      clearInterval(interval)
-      intervalsRef.current = intervalsRef.current.filter(i => i !== interval)
-    }
-  }, [])
+    setValidatorsError(null)
+    const active = liveValidators.filter((v) => isActiveValidator(v.bondStatus))
+    const totalPower = active.reduce(
+      (acc, v) => acc + BigInt(v.tokens || '0'),
+      BigInt(0)
+    )
+    setTotalVotingPower(
+      new Intl.NumberFormat().format(Number(totalPower) / 1_000_000)
+    )
+  }, [liveValidators, liveValidatorsError])
 
   // Fetch staking amount data
   useEffect(() => {
@@ -238,36 +193,27 @@ export default function Home() {
     }
   }, [])
 
-  // GraphQL data fetching for reporters with polling
   useEffect(() => {
     const fetchReporters = async () => {
       try {
-        const response = await graphqlQuery<DashboardReportersResponse>(
-          GET_DASHBOARD_REPORTERS
-        )
-        
-        if (response?.reporters?.edges) {
-          const reportersData = response.reporters.edges.map(edge => edge.node)
-          setReporterCount(reportersData.length)
-        } else {
-          setReporterCount(0)
-        }
+        const response = await fetchLiveReporters()
+        setReporterCount(response.count)
+        setReportersError(null)
       } catch (error) {
         console.error('Error fetching reporters:', error)
-        setReporterCount(0)
+        setReportersError(
+          error instanceof Error ? error.message : 'Failed to fetch reporters'
+        )
       }
     }
 
-    // Initial fetch
     fetchReporters()
-
-    // Set up polling every 5 seconds
     const interval = setInterval(fetchReporters, 5000)
     intervalsRef.current.push(interval)
 
     return () => {
       clearInterval(interval)
-      intervalsRef.current = intervalsRef.current.filter(i => i !== interval)
+      intervalsRef.current = intervalsRef.current.filter((i) => i !== interval)
     }
   }, [])
 
@@ -503,7 +449,8 @@ export default function Home() {
                   color={BOX_ICON_COLOR}
                   icon={BsPersonFillAdd}
                   name="Reporters"
-                  value={reporterCount}
+                  value={reportersError ?? reporterCount}
+                  isError={!!reportersError}
                 />
               </Skeleton>
             </GridItem>
@@ -515,7 +462,8 @@ export default function Home() {
                   color={BOX_ICON_COLOR}
                   icon={FaUserCheck}
                   name="Validators"
-                  value={validators}
+                  value={validatorsError ?? activeValidatorCount}
+                  isError={!!validatorsError}
                 />
               </Skeleton>
             </GridItem>
@@ -547,8 +495,15 @@ export default function Home() {
                   color={BOX_ICON_COLOR}
                   icon={HiUserGroup}
                   name="Total Voting Power (Val)"
-                  value={totalVotingPower + ' TRB'}
-                  formatNumber={true}
+                  value={
+                    validatorsError
+                      ? validatorsError
+                      : totalVotingPower != null
+                        ? totalVotingPower + ' TRB'
+                        : ''
+                  }
+                  formatNumber={!validatorsError && totalVotingPower != null}
+                  isError={!!validatorsError}
                 />
               </Skeleton>
             </GridItem>
@@ -666,6 +621,7 @@ interface BoxInfoProps extends FlexProps {
   value: string | number | React.ReactNode | undefined
   formatNumber?: boolean
   suffix?: string
+  isError?: boolean
 }
 
 const BoxInfo = ({
@@ -676,6 +632,7 @@ const BoxInfo = ({
   value,
   formatNumber = false,
   suffix = '',
+  isError = false,
   ...rest
 }: BoxInfoProps) => {
   let formattedValue = value
@@ -714,7 +671,14 @@ const BoxInfo = ({
         <Icon fontSize="20" color={color} as={icon} />
       </Box>
       <Box textAlign="center">
-        <Heading size={'md'}>{formattedValue}</Heading>
+        <Heading
+          size={'md'}
+          color={isError ? 'red.500' : undefined}
+          fontSize={isError ? 'sm' : undefined}
+          noOfLines={isError ? 2 : undefined}
+        >
+          {formattedValue}
+        </Heading>
       </Box>
       <Text size={'sm'}>{name}</Text>
     </VStack>
