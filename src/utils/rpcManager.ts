@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { stakingCache } from '@/datasources/live/stakingCache'
 import {
   LS_ACTIVE_NETWORK,
   LS_RPC_ADDRESS,
@@ -53,6 +54,9 @@ export class RPCManager {
   private customEndpoint: string | null = null
   private healthCheckInterval: NodeJS.Timeout | null = null
   private activeNetwork: LayerNetwork = getDefaultNetwork()
+  private isNetworkSwitching = false
+  private networkListeners = new Set<() => void>()
+  private switchingListeners = new Set<() => void>()
 
   private readonly MAX_FAILURES = 5
   private readonly CIRCUIT_RESET_TIME = 60000
@@ -106,6 +110,36 @@ export class RPCManager {
     return this.activeNetwork
   }
 
+  public getIsNetworkSwitching(): boolean {
+    return this.isNetworkSwitching
+  }
+
+  /** Subscribe to active-network changes (for useSyncExternalStore). */
+  public subscribe(listener: () => void): () => void {
+    this.networkListeners.add(listener)
+    return () => {
+      this.networkListeners.delete(listener)
+    }
+  }
+
+  /** Subscribe to soft-refresh / switching UI state. */
+  public subscribeSwitching(listener: () => void): () => void {
+    this.switchingListeners.add(listener)
+    return () => {
+      this.switchingListeners.delete(listener)
+    }
+  }
+
+  public setNetworkSwitching(isSwitching: boolean) {
+    if (this.isNetworkSwitching === isSwitching) return
+    this.isNetworkSwitching = isSwitching
+    this.switchingListeners.forEach((listener) => listener())
+  }
+
+  private notifyNetworkListeners() {
+    this.networkListeners.forEach((listener) => listener())
+  }
+
   public async setActiveNetwork(network: LayerNetwork) {
     this.activeNetwork = normalizeNetwork(network)
     this.state.currentIndex = 0
@@ -116,8 +150,10 @@ export class RPCManager {
       window.localStorage.setItem(LS_ACTIVE_NETWORK, this.activeNetwork)
       window.localStorage.removeItem(LS_RPC_ADDRESS)
       document.cookie = `${LS_ACTIVE_NETWORK}=${this.activeNetwork}; path=/; max-age=31536000`
+      stakingCache.clear()
     }
     await this.clearCaches()
+    this.notifyNetworkListeners()
   }
 
   private async checkEndpointHealth(endpoint: string): Promise<boolean> {
@@ -174,6 +210,7 @@ export class RPCManager {
       // Save to localStorage
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(LS_RPC_ADDRESS, endpoint)
+        stakingCache.clear()
       }
       // Initialize state for custom endpoint
       this.state.failures[endpoint] = 0

@@ -70,6 +70,7 @@ import {
   getNetworkLabel,
   getRpcEndpointsForNetwork,
 } from '../../utils/constant'
+import { useActiveNetwork } from '@/hooks/useActiveNetwork'
 
 const heightRegex = /^\d+$/
 const txhashRegex = /^[A-Z\d]{64}$/
@@ -105,7 +106,7 @@ export default function Navbar() {
   const dispatch = useDispatch()
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [newRPCAddress, setNewRPCAddress] = useState(rpcAddress)
-  const activeNetwork = rpcManager.getActiveNetwork()
+  const activeNetwork = useActiveNetwork()
   const targetNetwork: LayerNetwork =
     activeNetwork === 'mainnet' ? 'palmito' : 'mainnet'
 
@@ -275,24 +276,29 @@ export default function Navbar() {
         return
       }
 
-      await rpcManager.setActiveNetwork(targetNetwork)
-      const tmClient = await connectWebsocketClient(primaryEndpoint)
-      if (tmClient) {
-        dispatch(setConnectState(true))
-        dispatch(setTmClient(tmClient))
-        dispatch(setRPCAddress(primaryEndpoint))
-        onClose() // Close the modal
-        toast({
-          title: 'Network Switched',
-          description: `Connected to ${getNetworkLabel(targetNetwork)}.`,
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        })
-        router.reload()
+      rpcManager.setNetworkSwitching(true)
+      try {
+        await rpcManager.setActiveNetwork(targetNetwork)
+        const tmClient = await connectWebsocketClient(primaryEndpoint)
+        if (tmClient) {
+          dispatch(setConnectState(true))
+          dispatch(setTmClient(tmClient))
+          dispatch(setRPCAddress(primaryEndpoint))
+          onClose()
+          toast({
+            title: 'Network Switched',
+            description: `Connected to ${getNetworkLabel(targetNetwork)}.`,
+            status: 'success',
+            duration: 3000,
+            isClosable: true,
+          })
+        }
+      } finally {
+        rpcManager.setNetworkSwitching(false)
       }
     } catch (error) {
       console.error('Error switching network:', error)
+      rpcManager.setNetworkSwitching(false)
       toast({
         title: 'Network Switch Failed',
         description: 'Failed to connect to the selected network RPC endpoint.',

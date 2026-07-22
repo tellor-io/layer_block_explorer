@@ -22,7 +22,10 @@ export function normalizeValidator(raw: Record<string, unknown>): LiveValidator 
     (commission.commissionRates as Record<string, string>) ||
     {}
 
-  const bondStatus = String(raw.bond_status || raw.bondStatus || '')
+  // Cosmos staking REST uses `status` (e.g. BOND_STATUS_BONDED), not bond_status
+  const bondStatus = String(
+    raw.status || raw.bond_status || raw.bondStatus || ''
+  )
 
   return {
     operatorAddress: String(raw.operator_address || raw.operatorAddress || ''),

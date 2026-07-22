@@ -131,6 +131,20 @@ class StakingCache {
     return this.fetchValidators(true)
   }
 
+  /** Drop all cached staking data (e.g. after network switch). */
+  clear() {
+    this.validators = {
+      data: null,
+      fetchedAt: 0,
+      error: null,
+      isLoading: false,
+      inflightPromise: null,
+    }
+    this.delegations.clear()
+    this.delegationAccessOrder = []
+    this.notify()
+  }
+
   async fetchDelegatorCount(validatorAddress: string): Promise<number> {
     const existing = this.delegations.get(validatorAddress)
     const now = Date.now()
