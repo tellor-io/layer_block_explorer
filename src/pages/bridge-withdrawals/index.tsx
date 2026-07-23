@@ -217,7 +217,7 @@ export default function BridgeWithdrawals() {
         <meta name="description" content="View Bridge Withdrawals" />
       </Head>
       <main>
-        <HStack h="24px" mb={8}>
+        <HStack h="24px" mb={2}>
           <Heading size={'md'}>Bridge Withdrawals</Heading>
           <Divider borderColor={'gray'} size="10px" orientation="vertical" />
           <Link
@@ -235,6 +235,10 @@ export default function BridgeWithdrawals() {
           <Icon fontSize="16" as={FiChevronRight} />
           <Text>Bridge Withdrawals</Text>
         </HStack>
+        <Text fontSize="sm" color="gray.500" mb={6}>
+          Data updates every 5 minutes and may not reflect the latest on-chain
+          activity.
+        </Text>
 
         <Box
           bg={useColorModeValue('light-container', 'dark-container')}

@@ -343,7 +343,7 @@ export default function BridgeDeposits() {
         <meta name="description" content="View Bridge Deposits" />
       </Head>
       <main>
-        <HStack h="24px" mb={8}>
+        <HStack h="24px" mb={2}>
           <Heading size={'md'}>Bridge Deposits</Heading>
           <Divider borderColor={'gray'} size="10px" orientation="vertical" />
           <Link
@@ -361,6 +361,10 @@ export default function BridgeDeposits() {
           <Icon fontSize="16" as={FiChevronRight} />
           <Text>Bridge Deposits</Text>
         </HStack>
+        <Text fontSize="sm" color="gray.500" mb={6}>
+          Data updates every 5 minutes and may not reflect the latest on-chain
+          activity.
+        </Text>
 
         <Box
           bg={useColorModeValue('light-container', 'dark-container')}
