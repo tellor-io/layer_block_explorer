@@ -267,11 +267,8 @@ export default function Blocks() {
         setIsLoading(true)
         setError(null)
 
-        // Fetch validators first
-        await fetchValidators()
-
-        // Fetch first page with initial pageSize
-        await fetchFirstPage(pageSize)
+        // Fetch validators (for proposer monikers) and first page in parallel
+        await Promise.all([fetchValidators(), fetchFirstPage(pageSize)])
         setPageIndex(0)
         
         // Initialize last seen block height after first load

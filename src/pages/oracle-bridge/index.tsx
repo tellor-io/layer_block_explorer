@@ -130,6 +130,11 @@ const PRICE_PAIRS = [
     queryId:
       '0x611fd0e88850bf0cc036d96d04d47605c90b993485c2971e022b5751bbb04f23',
   },
+  {
+    name: 'sFRXUSD/USD',
+    queryId:
+      '0xab30caa3e7827a27c153063bce02c0b260b29c0c164040c003f0f9ec66002510',
+  },
 ]
 
 export default function OracleBridge() {
