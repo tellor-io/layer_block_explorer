@@ -712,9 +712,8 @@ export const GET_GOV_QUORUM = `
  * Get latest aggregate reports with pagination
  * Used for: /data-feed page (real-time oracle reports)
  * 
- * Note: queryType and aggregateMethod are not available in GraphQL aggregateReports.
- * These may need to be fetched from RPC /api/reporter-count or may be available
- * in queryData field if decoded.
+ * Note: queryType is not a GraphQL field — decode from queryData on the client.
+ * aggregateMethod is not indexed (SpotPrice UI defaults to weighted-median).
  */
 export const GET_LATEST_AGGREGATE_REPORTS = `
   query GetLatestAggregateReports($first: Int, $after: Cursor) {

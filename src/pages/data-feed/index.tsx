@@ -1,18 +1,12 @@
 /**
  * Data Feed Page - GraphQL Migration Complete
- * 
+ *
  * Data Sources:
- * - GraphQL: Aggregate reports (GET_SINGLE_LATEST_AGGREGATE_REPORTS)
- * 
- * Migration Status: ✅ Full GraphQL Migration
- * - ✅ Aggregate reports fetched directly from GraphQL
- * - ✅ No block event parsing needed
- * - ✅ Simpler architecture with direct report queries
- * - ⚠️  queryType/aggregateMethod removed from UI (not available in GraphQL)
- * 
- * GraphQL Schema Verified:
- * - aggregateReports query available and tested ✅
- * - Fields: queryId, value, blockHeight, timestamp, totalReporters, totalPower, cyclist
+ * - GraphQL: Aggregate reports (GET_LATEST_AGGREGATE_REPORTS + filters)
+ *
+ * Notes:
+ * - queryType is decoded from queryData (ABI first string)
+ * - aggregateMethod is not indexed; SpotPrice defaults to weighted-median
  */
 
 import { useState, useEffect, useRef } from 'react'
@@ -68,10 +62,13 @@ interface OracleReport {
   type: string
   queryId: string
   value: string
+  numberOfReporters: string
   microReportHeight: string
   blockHeight: number
   timestamp: Date
-  aggregatePower?: number
+  queryType?: string
+  aggregateMethod?: string
+  totalPower?: number
   queryData?: string
 }
 
@@ -99,6 +96,72 @@ const getQueryPairName = (queryId: string, configMappings: QueryIdPairMapping[])
 const findQueryIdByPairName = (pairName: string, mappings: QueryIdPairMapping[]): string | null => {
   const mapping = mappings.find(m => m.pairName === pairName)
   return mapping ? mapping.queryId : null
+}
+
+/**
+ * Extract the ABI-encoded query type string from Tellor queryData hex.
+ * Format starts with: (string queryType, ...)
+ */
+const decodeQueryType = (queryData?: string): string => {
+  if (!queryData) return 'N/A'
+  try {
+    const cleanHex = queryData.startsWith('0x') ? queryData.slice(2) : queryData
+    if (!/^[0-9a-fA-F]+$/.test(cleanHex) || cleanHex.length < 128) {
+      return 'N/A'
+    }
+
+    const queryTypeOffset = Number(BigInt('0x' + cleanHex.slice(0, 64)))
+    const lengthStart = queryTypeOffset * 2
+    if (lengthStart + 64 > cleanHex.length) return 'N/A'
+
+    const queryTypeLength = Number(BigInt('0x' + cleanHex.slice(lengthStart, lengthStart + 64)))
+    const dataStart = lengthStart + 64
+    const dataEnd = dataStart + queryTypeLength * 2
+    if (queryTypeLength <= 0 || dataEnd > cleanHex.length) return 'N/A'
+
+    let queryType = ''
+    for (let i = dataStart; i < dataEnd; i += 2) {
+      queryType += String.fromCharCode(parseInt(cleanHex.slice(i, i + 2), 16))
+    }
+
+    return queryType.replace(/\0/g, '').trim() || 'N/A'
+  } catch {
+    return 'N/A'
+  }
+}
+
+/**
+ * Decode aggregate report value. SpotPrice values are uint256 (18 decimals);
+ * longer ABI payloads are left as hex.
+ */
+const decodeReportValue = (rawValue: string, queryType: string): string => {
+  try {
+    const cleanHex = rawValue.startsWith('0x') ? rawValue.slice(2) : rawValue
+    if (!/^[0-9a-fA-F]+$/.test(cleanHex)) {
+      return rawValue
+    }
+
+    // SpotPrice (and similar) values are a single uint256 — typically 64 hex chars
+    if (queryType === 'SpotPrice' && cleanHex.length <= 66) {
+      const valueInEth = Number(BigInt(`0x${cleanHex}`)) / 1e18
+      return valueInEth.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    }
+
+    // Short numeric hex values — treat as 18-decimal numbers
+    if (cleanHex.length <= 66) {
+      const valueInEth = Number(BigInt(`0x${cleanHex}`)) / 1e18
+      return valueInEth.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    }
+  } catch (error) {
+    console.debug('Error decoding hex value:', error)
+  }
+  return rawValue
 }
 
 
@@ -192,34 +255,29 @@ export default function DataFeed() {
   // Helper function to map GraphQL reports to OracleReport format
   const mapReportsToOracleFormat = (reports: any[]): OracleReport[] => {
     return reports.map(report => {
-      // Decode hex value to decimal
-      let decodedValue = report.value
-      try {
-        if (report.value.match(/^[0-9a-fA-F]+$/)) {
-          const valueInWei = BigInt(`0x${report.value}`)
-          const valueInEth = Number(valueInWei) / 1e18
-          decodedValue = valueInEth.toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })
-        }
-      } catch (error) {
-        console.debug('Error decoding hex value:', error)
-      }
-      
+      const queryType = decodeQueryType(report.queryData)
+      const decodedValue = decodeReportValue(report.value, queryType)
+
       // Parse timestamp - GraphQL returns UTC timestamps without Z suffix
-      const timestamp = report.timestamp.endsWith('Z') 
+      const timestamp = report.timestamp.endsWith('Z')
         ? new Date(report.timestamp)
         : new Date(report.timestamp + 'Z')
-      
+
+      // aggregateMethod is not indexed; SpotPrice on Layer uses weighted-median
+      const aggregateMethod =
+        queryType === 'SpotPrice' ? 'weighted-median' : 'N/A'
+
       return {
         type: 'aggregate_report',
         queryId: report.queryId,
         value: decodedValue,
+        numberOfReporters: String(report.totalReporters ?? 0),
         microReportHeight: report.microReportHeight,
         blockHeight: parseInt(report.blockHeight),
         timestamp: timestamp,
-        aggregatePower: report.aggregatePower ? parseFloat(report.aggregatePower) : undefined,
+        queryType,
+        aggregateMethod,
+        totalPower: report.totalPower != null ? parseFloat(report.totalPower) : undefined,
         queryData: report.queryData,
       } as OracleReport
     })
@@ -1002,27 +1060,38 @@ export default function DataFeed() {
                 <Tr>
                   <Th>Name</Th>
                   <Th isNumeric>Value</Th>
-                  <Th isNumeric>Aggregate Power</Th>
+                  <Th isNumeric># Reporters</Th>
+                  <Th isNumeric>TOTAL Reprtr Pwr</Th>
+                  <Th>Query Type</Th>
+                  <Th>Aggregate Method</Th>
                   <Th isNumeric>Block Height</Th>
                   <Th isNumeric>Micro Report Height</Th>
                   <Th>Timestamp</Th>
-                  <Th>Cycle List</Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {filteredReports.map((report, index) => (
-                  <Tr key={index}>
+                  <Tr key={`${report.queryId}-${report.blockHeight}-${index}`}>
                     <Td>
                       <Text isTruncated maxW="200px" title={report.queryId}>
                         {getQueryPairName(report.queryId, queryIdMappings)}
                       </Text>
                     </Td>
                     <Td isNumeric>
-                      {report.value.startsWith('$') ? report.value : `$${report.value}`}
+                      {report.queryType === 'SpotPrice'
+                        ? report.value.startsWith('$')
+                          ? report.value
+                          : `$${report.value}`
+                        : report.value}
                     </Td>
+                    <Td isNumeric>{report.numberOfReporters}</Td>
                     <Td isNumeric>
-                      {report.aggregatePower?.toLocaleString() + ' TRB' || 'N/A'}
+                      {report.totalPower != null
+                        ? `${report.totalPower.toLocaleString()} TRB`
+                        : '0 TRB'}
                     </Td>
+                    <Td>{report.queryType || 'N/A'}</Td>
+                    <Td>{report.aggregateMethod || 'N/A'}</Td>
                     <Td isNumeric>
                       <Link
                         href={`/blocks/${report.blockHeight}`}
@@ -1034,17 +1103,7 @@ export default function DataFeed() {
                       </Link>
                     </Td>
                     <Td isNumeric>{report.microReportHeight}</Td>
-                    <Td>
-                      {report.timestamp.toLocaleString(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        hour12: true
-                      })}
-                    </Td>
+                    <Td>{report.timestamp.toLocaleString()}</Td>
                   </Tr>
                 ))}
               </Tbody>
