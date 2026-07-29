@@ -10,10 +10,6 @@ import {
 } from './constant'
 
 /**
- * HYBRID ARCHITECTURE - Phase 3 Migration
- * 
- * This RPCManager now handles only Tellor-specific data endpoints that are not available in GraphQL.
- * 
  * GraphQL Data Sources (via /src/datasources/graphql/):
  * - Blocks, Validators, Proposals, Delegations, Reporters (basic data)
  * 
@@ -27,10 +23,6 @@ import {
  * - EVM validators (/api/evm-validators)
  * - Reporter counts (/api/reporter-count)
  * - Reporter selectors (/api/reporter-selectors/[reporter])
- * 
- * This hybrid approach ensures we get the best of both worlds:
- * - Fast, indexed data from GraphQL for standard Cosmos operations
- * - Real-time, Tellor-specific data from RPC for custom module queries
  */
 
 interface RPCState {
