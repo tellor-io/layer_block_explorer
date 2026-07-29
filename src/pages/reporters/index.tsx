@@ -24,6 +24,7 @@ import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
 import { fetchLiveReporters, mapReporterToTableRow } from '@/datasources/live/reporters'
 import { getReporterSelectors } from '@/rpc/query'
+import { convertRateToPercent } from '@/utils/helper'
 
 type ReporterData = {
   id: string
@@ -93,10 +94,11 @@ const columns = [
   columnHelper.accessor('commission_rate', {
     header: () => <div style={{ width: '80px', textAlign: 'left' }}>Commsn</div>,
     meta: { isNumeric: true },
-    cell: (props) => {
-      const percentage = (parseFloat(props.getValue()) / Math.pow(10, 18)) * 100
-      return <div style={{ width: '80px', textAlign: 'left' }}>{percentage.toFixed(0) + '%'}</div>
-    },
+    cell: (props) => (
+      <div style={{ width: '80px', textAlign: 'left' }}>
+        {convertRateToPercent(props.getValue())}
+      </div>
+    ),
   }),
   columnHelper.accessor('jailed', {
     header: () => <div style={{ width: '60px', textAlign: 'left' }}>Jailed</div>,

@@ -57,15 +57,25 @@ export const convertVotingPower = (tokens: string): number => {
   return Math.round(Number(tokens) / 10 ** 6)
 }
 
+/**
+ * Format a rate as a percentage string.
+ * Accepts Cosmos SDK Dec strings (e.g. "0.100000000000000000" = 10%)
+ * and legacy scaled integers (e.g. "100000000000000000" = 10%).
+ */
 export const convertRateToPercent = (rate: string | undefined): string => {
   if (!rate) {
     return ``
   }
-  const commission = (Number(rate) / 10 ** 16).toLocaleString(undefined, {
+  const n = Number(rate)
+  if (!Number.isFinite(n)) {
+    return ``
+  }
+  // Cos Dec ratios are in [0, 1]; values above that are treated as 1e18-scaled ints.
+  const percent = Math.abs(n) <= 1 ? n * 100 : (n / 10 ** 18) * 100
+  return `${percent.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })
-  return `${commission}%`
+  })}%`
 }
 
 export const displayCoin = (deposit: Coin) => {
