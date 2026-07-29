@@ -22,7 +22,8 @@ export default async function handler(
     const { data } = await fetchWithRpcFailover(
       req,
       (base) =>
-        `${base}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations?pagination.limit=${limit}`
+        // count_total is required — Cosmos returns pagination.total as "0" without it
+        `${base}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations?pagination.limit=${limit}&pagination.count_total=true`
     )
 
     const raw = data as {
@@ -50,10 +51,16 @@ export default async function handler(
           return normalized
         })
 
-    const count =
+    const parsedTotal =
       raw.pagination?.total != null
         ? parseInt(String(raw.pagination.total), 10)
-        : delegationResponses.length
+        : NaN
+    // Prefer pagination.total when count_total was honored; otherwise use response length
+    // (count-only with limit=1 cannot infer a true zero vs missing total from length alone,
+    // so a finite total — including 0 — wins when present).
+    const count = Number.isFinite(parsedTotal)
+      ? parsedTotal
+      : delegationResponses.length
 
     res.status(200).json({ delegations, count })
   } catch (error) {

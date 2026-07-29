@@ -182,7 +182,7 @@ class StakingCache {
     const response = await fetchValidatorDelegations(validatorAddress, false)
     this.setDelegationEntry(validatorAddress, {
       delegations: response.delegations,
-      count: response.count,
+      count: response.delegations.length || response.count,
       fetchedAt: now,
       fullList: true,
     })
