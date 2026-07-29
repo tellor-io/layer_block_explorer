@@ -1,93 +1,77 @@
-import { NextApiRequest, NextApiResponse } from 'next'
-import { rpcManager } from '@/utils/rpcManager'
+/*
+ * DEPRECATED: This API endpoint has been migrated to GraphQL
+ * 
+ * This endpoint was replaced by GraphQL queries in Phase 2 of the migration.
+ * Validator delegations data is now fetched directly from GraphQL in components.
+ * 
+ * Migration Date: Phase 2
+ * Replacement: Direct GraphQL queries in validator detail components
+ * 
+ * Original implementation preserved below for reference:
+ */
+
+/*
+import type { NextApiRequest, NextApiResponse } from 'next'
+import { graphqlQuery } from '../../../datasources/graphql/client'
+import { GET_DELEGATIONS_BY_VALIDATOR } from '../../../datasources/graphql/queries'
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
-
-  const { validatorAddress } = req.query
-
-  if (!validatorAddress || typeof validatorAddress !== 'string') {
-    return res.status(400).json({ error: 'Validator address is required' })
-  }
-
   try {
-    // Get the current endpoint from the RPC manager, with fallback options like validators API
-    const endpoint =
-      (req.query.endpoint as string) ||
-      (req.query.rpc as string) ||
-      (await rpcManager.getCurrentEndpoint())
-    // Remove /rpc from the endpoint for API calls
-    const baseEndpoint = endpoint.replace('/rpc', '')
+    const { validatorAddress } = req.query
 
-
-    // Retry logic with exponential backoff
-    const maxRetries = 3
-    const baseDelay = 1000 // 1 second
-    let lastError: any = null
-    
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const response = await fetch(
-          `${baseEndpoint}/cosmos/staking/v1beta1/validators/${validatorAddress}/delegations`
-        )
-
-        if (response.ok) {
-          const data = await response.json()
-          await rpcManager.reportSuccess(endpoint)
-          return res.status(200).json(data)
-        }
-
-        // If not the last attempt, wait and retry
-        if (attempt < maxRetries) {
-          const delay = baseDelay * Math.pow(2, attempt) // Exponential backoff: 1s, 2s, 4s
-          await new Promise(resolve => setTimeout(resolve, delay))
-          continue
-        }
-
-        // Last attempt failed
-        const errorText = await response.text()
-        lastError = { status: response.status, text: errorText }
-        
-      } catch (error) {
-        lastError = error
-        
-        // If not the last attempt, wait and retry
-        if (attempt < maxRetries) {
-          const delay = baseDelay * Math.pow(2, attempt)
-          await new Promise(resolve => setTimeout(resolve, delay))
-          continue
-        }
-      }
+    if (!validatorAddress || typeof validatorAddress !== 'string') {
+      return res.status(400).json({
+        error: 'Validator address is required',
+      })
     }
 
-    // All retries failed
-    await rpcManager.reportFailure(endpoint)
-
-    // Return empty delegations if all retries fail
-    return res.status(200).json({
-      delegation_responses: [],
-      error: `RPC request failed after ${maxRetries + 1} attempts: ${lastError?.status || 'Network error'} - ${lastError?.text || lastError?.message || 'Unknown error'}`,
+    // Use GraphQL to fetch delegations for the validator
+    const result = await graphqlQuery(GET_DELEGATIONS_BY_VALIDATOR, {
+      validatorAddressId: validatorAddress,
+      first: 1000 // Get up to 1000 delegations to count them
     })
-  } catch (error) {
-    console.error('Error fetching validator delegations:', error)
 
-    // Report failure to RPC manager
-    try {
-      const currentEndpoint = await rpcManager.getCurrentEndpoint()
-      await rpcManager.reportFailure(currentEndpoint)
-    } catch (rpcError) {
-      console.error('Error reporting RPC failure:', rpcError)
+    if (!result.delegations) {
+      throw new Error('No delegations data returned from GraphQL')
     }
 
-    // Return empty delegations instead of error for better UX
-    return res.status(200).json({
-      delegation_responses: [],
-      error: `Exception: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    // Convert GraphQL response to expected format
+    const delegations = result.delegations.edges.map((edge: any) => ({
+      delegatorAddress: edge.node.delegatorAddress,
+      validatorAddressId: edge.node.validatorAddressId,
+      shares: edge.node.shares,
+    }))
+
+    const data = {
+      delegations,
+      count: delegations.length
+    }
+
+    res.status(200).json(data)
+  } catch (error) {
+    console.error('API Route Error:', error)
+    res.status(500).json({
+      error: 'Failed to fetch validator delegations',
+      details: error instanceof Error ? error.message : 'Unknown error',
     })
   }
+}
+*/
+
+// Return deprecation notice
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  res.status(410).json({
+    error: 'This API endpoint has been deprecated',
+    message: 'Validator delegations data is now fetched directly from GraphQL in components',
+    migrationPhase: 'Phase 2',
+    replacement: 'Direct GraphQL queries in validator detail components'
+  })
 }

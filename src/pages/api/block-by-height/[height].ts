@@ -1,3 +1,16 @@
+/*
+ * DEPRECATED: This API endpoint has been migrated to GraphQL
+ * 
+ * This endpoint was replaced by GraphQL queries in Phase 2 of the migration.
+ * Block data is now fetched directly from GraphQL in components.
+ * 
+ * Migration Date: Phase 2
+ * Replacement: Direct GraphQL queries in /src/pages/blocks/[height].tsx
+ * 
+ * Original implementation preserved below for reference:
+ */
+
+/*
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { rpcManager } from '../../../utils/rpcManager'
 import { Tendermint37Client } from '@cosmjs/tendermint-rpc'
@@ -70,4 +83,20 @@ export default async function handler(
       response: (error as any)?.response?.data,
     })
   }
+}
+*/
+
+// Return deprecation notice
+import type { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  res.status(410).json({
+    error: 'This API endpoint has been deprecated',
+    message: 'Block data is now fetched directly from GraphQL in components',
+    migrationPhase: 'Phase 2',
+    replacement: 'Direct GraphQL queries in /src/pages/blocks/[height].tsx'
+  })
 }

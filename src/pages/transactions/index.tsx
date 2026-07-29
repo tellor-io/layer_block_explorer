@@ -16,83 +16,72 @@ import {
   Tr,
   useColorModeValue,
   Tag,
+  Spinner,
+  Center,
 } from '@chakra-ui/react'
 import { useEffect, useState } from 'react'
-import { useSelector } from 'react-redux'
 import NextLink from 'next/link'
 import { FiChevronRight, FiHome } from 'react-icons/fi'
-import { selectTmClient } from '@/store/connectSlice'
-import { selectNewBlock } from '@/store/streamSlice'
-import { TxEvent } from '@cosmjs/tendermint-rpc'
 import { timeFromNow, trimHash, getTypeMsg } from '@/utils/helper'
-import { toHex, fromBase64 } from '@cosmjs/encoding'
-import { TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
+import { graphqlQuery } from '@/datasources/graphql/client'
+import { GET_TRANSACTIONS } from '@/datasources/graphql/queries'
+import { TransactionsResponse, Transaction } from '@/datasources/graphql/types'
 
 const MAX_ROWS = 50
 
-interface Tx {
-  TxEvent: TxEvent
-  Timestamp: Date
-}
-
 export default function Transactions() {
-  const [txs, setTxs] = useState<Tx[]>([])
-  const tmClient = useSelector(selectTmClient)
-  const newBlock = useSelector(selectNewBlock)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const containerBg = useColorModeValue('light-container', 'dark-container')
   const txHashColor = useColorModeValue('light-theme', 'dark-theme')
 
-  const updateTxs = (txEvent: TxEvent) => {
-    const tx = {
-      TxEvent: txEvent,
-      Timestamp: new Date(),
-    }
-
-    if (txs.length) {
-      const exists = txs.some(
-        (existingTx) =>
-          existingTx.TxEvent.hash === txEvent.hash &&
-          existingTx.Timestamp.getTime() === tx.Timestamp.getTime()
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const response = await graphqlQuery<TransactionsResponse>(
+        GET_TRANSACTIONS,
+        { first: MAX_ROWS }
       )
-
-      if (!exists && txEvent.height >= txs[0].TxEvent.height) {
-        setTxs((prevTx) => [tx, ...prevTx.slice(0, MAX_ROWS - 1)])
+      
+      if (response.transactions?.edges) {
+        const txs = response.transactions.edges.map(edge => edge.node)
+        setTransactions(txs)
       }
-    } else {
-      setTxs([tx])
+    } catch (err) {
+      console.error('Failed to fetch transactions:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch transactions')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const renderMessages = (data: any) => {
+  const renderMessages = (txData: string) => {
     try {
-      if (!data) {
-        console.warn('No transaction data found')
-        return null
+      if (!txData) {
+        return <Text>No data</Text>
       }
 
-      // Decode the transaction data
-      let decodedTx
+      // Try to decode the transaction data if it's base64 encoded
       try {
-        decodedTx = TxBody.decode(data)
-        return decodedTx.messages.map((msg: any, index: number) => (
-          <Text key={index}>{msg.typeUrl}</Text>
-        ))
+        // For now, just show that we have transaction data
+        // In a real implementation, you might want to decode the txData
+        return <Tag colorScheme="cyan">Transaction</Tag>
       } catch (decodeError) {
         console.error('Failed to decode transaction:', decodeError)
-        return 'Error decoding transaction'
+        return <Text>Error decoding</Text>
       }
     } catch (error) {
       console.error('Error rendering message:', error)
-      return null
+      return <Text>Error</Text>
     }
   }
 
   useEffect(() => {
-    if (newBlock?.txs?.length) {
-      for (const tx of newBlock.txs) {
-      }
-    }
-  }, [newBlock])
+    fetchTransactions()
+  }, [])
 
   return (
     <>
@@ -132,48 +121,58 @@ export default function Transactions() {
           p={4}
           overflowX="auto"
         >
-          <TableContainer>
-            <Table variant="simple">
-              <Thead>
-                <Tr>
-                  <Th>Tx Hash</Th>
-                  <Th>Height</Th>
-                  <Th>Messages</Th>
-                  <Th>Time</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {txs.map((tx) => (
-                  <Tr key={toHex(tx.TxEvent.hash)}>
-                    <Td>
-                      <Link
-                        as={NextLink}
-                        href={'/txs/' + toHex(tx.TxEvent.hash).toUpperCase()}
-                        style={{ textDecoration: 'none' }}
-                        _focus={{ boxShadow: 'none' }}
-                      >
-                        <Text color={txHashColor}>
-                          {trimHash(tx.TxEvent.hash)}
-                        </Text>
-                      </Link>
-                    </Td>
-                    <Td>
-                      <Link
-                        as={NextLink}
-                        href={'/blocks/' + tx.TxEvent.height}
-                        style={{ textDecoration: 'none' }}
-                        _focus={{ boxShadow: 'none' }}
-                      >
-                        <Text color={txHashColor}>{tx.TxEvent.height}</Text>
-                      </Link>
-                    </Td>
-                    <Td>{renderMessages(tx.TxEvent.result.data)}</Td>
-                    <Td>{timeFromNow(tx.Timestamp.toISOString())}</Td>
+          {loading ? (
+            <Center py={8}>
+              <Spinner size="lg" />
+            </Center>
+          ) : error ? (
+            <Center py={8}>
+              <Text color="red.500">Error: {error}</Text>
+            </Center>
+          ) : (
+            <TableContainer>
+              <Table variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th>Tx Hash</Th>
+                    <Th>Height</Th>
+                    <Th>Messages</Th>
+                    <Th>Time</Th>
                   </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </TableContainer>
+                </Thead>
+                <Tbody>
+                  {transactions.map((tx) => (
+                    <Tr key={tx.id}>
+                      <Td>
+                        <Link
+                          as={NextLink}
+                          href={'/txs/' + tx.id.toUpperCase()}
+                          style={{ textDecoration: 'none' }}
+                          _focus={{ boxShadow: 'none' }}
+                        >
+                          <Text color={txHashColor}>
+                            {trimHash(tx.id)}
+                          </Text>
+                        </Link>
+                      </Td>
+                      <Td>
+                        <Link
+                          as={NextLink}
+                          href={'/blocks/' + tx.blockHeight}
+                          style={{ textDecoration: 'none' }}
+                          _focus={{ boxShadow: 'none' }}
+                        >
+                          <Text color={txHashColor}>{tx.blockHeight}</Text>
+                        </Link>
+                      </Td>
+                      <Td>{renderMessages(tx.txData)}</Td>
+                      <Td>{timeFromNow(tx.timestamp)}</Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </TableContainer>
+          )}
         </Box>
       </main>
     </>

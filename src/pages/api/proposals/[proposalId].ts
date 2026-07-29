@@ -1,3 +1,16 @@
+/*
+ * DEPRECATED: This API endpoint has been migrated to GraphQL
+ * 
+ * This endpoint was replaced by GraphQL queries in Phase 2 of the migration.
+ * Individual proposal data is now fetched directly from GraphQL in components.
+ * 
+ * Migration Date: Phase 2
+ * Replacement: Direct GraphQL queries in proposal detail components
+ * 
+ * Original implementation preserved below for reference:
+ */
+
+/*
 import { NextApiRequest, NextApiResponse } from 'next'
 import { rpcManager } from '../../../utils/rpcManager'
 import { queryProposalVotes } from '../../../rpc/abci'
@@ -180,4 +193,20 @@ export default async function handler(
       details: error instanceof Error ? error.message : 'Unknown error',
     })
   }
+}
+*/
+
+// Return deprecation notice
+import { NextApiRequest, NextApiResponse } from 'next'
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  res.status(410).json({
+    error: 'This API endpoint has been deprecated',
+    message: 'Individual proposal data is now fetched directly from GraphQL in components',
+    migrationPhase: 'Phase 2',
+    replacement: 'Direct GraphQL queries in proposal detail components'
+  })
 }

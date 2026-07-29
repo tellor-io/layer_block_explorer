@@ -67,6 +67,7 @@ export const LinkItems: Array<LinkItemProps> = [
   { name: 'Parameters', icon: FiSliders, route: '/parameters' },
   { name: 'Layer Blobs', icon: TbChartBubbleFilled, route: '/oracle-bridge' },
   { name: 'Bridge Deposits', icon: FaBridge, route: '/bridge-deposits' },
+  { name: 'Bridge Withdrawals', icon: FaBridge, route: '/bridge-withdrawals' },
 ]
 export const RefLinkItems: Array<LinkItemProps> = [
   {

@@ -1,29 +1,21 @@
 import { ReactNode, useEffect, useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
+import { useDispatch } from 'react-redux'
 import { Box, Flex, useColorModeValue } from '@chakra-ui/react'
 import Sidebar from '../Sidebar'
 import Navbar from '../Navbar'
 import LoadingPage from '../LoadingPage'
 import {
-  selectConnectState,
-  selectTmClient,
   setConnectState,
   setTmClient,
   setRPCAddress,
 } from '@/store/connectSlice'
-import { subscribeNewBlock, subscribeTx } from '@/rpc/subscribe'
-import {
-  setNewBlock,
-  selectNewBlock,
-  setTxEvent,
-  selectTxEvent,
-  setSubsNewBlock,
-  setSubsTxEvent,
-} from '@/store/streamSlice'
-import { NewBlockEvent, TxEvent } from '@cosmjs/tendermint-rpc'
 import { connectWebsocketClient } from '@/rpc/client'
 import { rpcManager } from '@/utils/rpcManager'
-import { toHex } from '@cosmjs/encoding'
+import { getNetworkLabel } from '@/utils/constant'
+import {
+  useActiveNetwork,
+  useIsNetworkSwitching,
+} from '@/hooks/useActiveNetwork'
 
 interface LayoutProps {
   children?: ReactNode
@@ -32,21 +24,10 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const dispatch = useDispatch()
   const colorModeValue = useColorModeValue('light-bg', 'dark-bg')
-
-  const connectState = useSelector(selectConnectState)
-  const tmClient = useSelector(selectTmClient)
-  const newBlock = useSelector(selectNewBlock)
-  const txEvent = useSelector(selectTxEvent)
+  const activeNetwork = useActiveNetwork()
+  const isNetworkSwitching = useIsNetworkSwitching()
 
   const [isLoading, setIsLoading] = useState(true)
-
-  const updateNewBlock = (event: NewBlockEvent): void => {
-    dispatch(setNewBlock(event))
-  }
-
-  const updateTxEvent = (event: TxEvent): void => {
-    dispatch(setTxEvent(event))
-  }
 
   const connect = async (address: string) => {
     try {
@@ -93,16 +74,6 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   useEffect(() => {
-    if (tmClient) {
-      const subscription = subscribeNewBlock(tmClient, updateNewBlock)
-      dispatch(setSubsNewBlock(subscription))
-
-      const txSubscription = subscribeTx(tmClient, updateTxEvent)
-      dispatch(setSubsTxEvent(txSubscription))
-    }
-  }, [tmClient, dispatch])
-
-  useEffect(() => {
     if (isLoading) {
       const initializeConnection = async () => {
         const endpoint = await rpcManager.getCurrentEndpoint()
@@ -131,7 +102,15 @@ export default function Layout({ children }: LayoutProps) {
             width="100%"
             overflowX="auto"
           >
-            {children}
+            {isNetworkSwitching ? (
+              <LoadingPage
+                fullViewport={false}
+                message={`Loading ${getNetworkLabel(activeNetwork)} data...`}
+              />
+            ) : (
+              // Remount page content on network change so all mounts re-fetch
+              <Box key={activeNetwork}>{children}</Box>
+            )}
           </Box>
         </Flex>
       </Box>

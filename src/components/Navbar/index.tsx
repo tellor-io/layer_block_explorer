@@ -53,13 +53,24 @@ import {
   FiGithub,
   FiAlertCircle,
 } from 'react-icons/fi'
+/* MIGRATED TO GRAPHQL - Commented out Redux newBlock import
 import { selectNewBlock } from '@/store/streamSlice'
+*/
 import { MoonIcon, SunIcon } from '@chakra-ui/icons'
 import { StatusResponse } from '@cosmjs/tendermint-rpc'
 import { connectWebsocketClient, validateConnection } from '@/rpc/client'
+// GraphQL imports for latest block
+import { graphqlQuery } from '@/datasources/graphql/client'
+import { GET_SINGLE_LATEST_BLOCK } from '@/datasources/graphql/queries'
+import { DashboardLatestBlockResponse } from '@/datasources/graphql/types'
 import { LinkItems, RefLinkItems, NavItem } from '@/components/Sidebar'
 import { rpcManager } from '../../utils/rpcManager'
-import { RPC_ENDPOINTS } from '../../utils/constant'
+import {
+  LayerNetwork,
+  getNetworkLabel,
+  getRpcEndpointsForNetwork,
+} from '../../utils/constant'
+import { useActiveNetwork } from '@/hooks/useActiveNetwork'
 
 const heightRegex = /^\d+$/
 const txhashRegex = /^[A-Z\d]{64}$/
@@ -77,7 +88,11 @@ export default function Navbar() {
   const router = useRouter()
   const tmClient = useSelector(selectTmClient)
   const rpcAddress = useSelector(selectRPCAddress)
-  const newBlock = useSelector(selectNewBlock)
+  /* MIGRATED TO GRAPHQL - Commented out Redux newBlock selector
+   * Now using local state from GraphQL query instead
+   */
+  // const newBlock = useSelector(selectNewBlock)
+  const [latestBlockHeight, setLatestBlockHeight] = useState<string | null>(null)
   const [status, setStatus] = useState<StatusResponse | null>(null)
   const [search, setSearch] = useState('')
   const { isOpen, onOpen, onClose } = useDisclosure()
@@ -91,6 +106,9 @@ export default function Navbar() {
   const dispatch = useDispatch()
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [newRPCAddress, setNewRPCAddress] = useState(rpcAddress)
+  const activeNetwork = useActiveNetwork()
+  const targetNetwork: LayerNetwork =
+    activeNetwork === 'mainnet' ? 'palmito' : 'mainnet'
 
   useEffect(() => {
     if (tmClient) {
@@ -99,6 +117,34 @@ export default function Navbar() {
       })
     }
   }, [tmClient])
+
+  useEffect(() => {
+    setNewRPCAddress(rpcAddress)
+  }, [rpcAddress])
+
+  // GraphQL data fetching for latest block height (only when modal opens)
+  // This replaces the Redux newBlock state that was populated by RPC subscriptions
+  // Only fetches when the network info modal is opened - no continuous polling needed
+  useEffect(() => {
+    if (isOpen) {
+      const fetchLatestBlock = async () => {
+        try {
+          const response = await graphqlQuery<DashboardLatestBlockResponse>(GET_SINGLE_LATEST_BLOCK)
+          
+          if (response?.blocks?.edges?.[0]?.node) {
+            const block = response.blocks.edges[0].node
+            // Update local state instead of Redux (migrated from RPC subscription)
+            setLatestBlockHeight(block.blockHeight)
+          }
+        } catch (error) {
+          console.error('Error fetching latest block from GraphQL in Navbar:', error)
+        }
+      }
+
+      // Fetch once when modal opens
+      fetchLatestBlock()
+    }
+  }, [isOpen])
 
   const handleSearch = () => {
     if (heightRegex.test(search)) {
@@ -203,18 +249,14 @@ export default function Navbar() {
     }
   }
 
-  const handleSwitchRPC = async () => {
+  const handleSwitchNetwork = async () => {
     try {
-      // Get the current endpoint and find the other one
-      const currentEndpoint = rpcAddress
-      const otherEndpoint = RPC_ENDPOINTS.find(
-        (endpoint) => endpoint !== currentEndpoint
-      )
-
-      if (!otherEndpoint) {
+      const nextEndpoints = getRpcEndpointsForNetwork(targetNetwork)
+      const primaryEndpoint = nextEndpoints[0]
+      if (!primaryEndpoint) {
         toast({
           title: 'Error',
-          description: 'Unable to determine alternative endpoint.',
+          description: `No RPC endpoint configured for ${getNetworkLabel(targetNetwork)}.`,
           status: 'error',
           duration: 3000,
           isClosable: true,
@@ -222,12 +264,11 @@ export default function Navbar() {
         return
       }
 
-      // Validate the other endpoint
-      const isValid = await validateConnection(otherEndpoint)
+      const isValid = await validateConnection(primaryEndpoint)
       if (!isValid) {
         toast({
           title: 'Connection Error',
-          description: `Unable to connect to ${otherEndpoint}`,
+          description: `Unable to connect to ${primaryEndpoint}`,
           status: 'error',
           duration: 5000,
           isClosable: true,
@@ -235,28 +276,32 @@ export default function Navbar() {
         return
       }
 
-      // Set the other endpoint in the manager
-      rpcManager.setCustomEndpoint(otherEndpoint)
-
-      const tmClient = await connectWebsocketClient(otherEndpoint)
-      if (tmClient) {
-        dispatch(setConnectState(true))
-        dispatch(setTmClient(tmClient))
-        dispatch(setRPCAddress(otherEndpoint))
-        onClose() // Close the modal
-        toast({
-          title: 'RPC Connection Established',
-          description: `Switched to: ${otherEndpoint}`,
-          status: 'success',
-          duration: 3000,
-          isClosable: true,
-        })
+      rpcManager.setNetworkSwitching(true)
+      try {
+        await rpcManager.setActiveNetwork(targetNetwork)
+        const tmClient = await connectWebsocketClient(primaryEndpoint)
+        if (tmClient) {
+          dispatch(setConnectState(true))
+          dispatch(setTmClient(tmClient))
+          dispatch(setRPCAddress(primaryEndpoint))
+          onClose()
+          toast({
+            title: 'Network Switched',
+            description: `Connected to ${getNetworkLabel(targetNetwork)}.`,
+            status: 'success',
+            duration: 3000,
+            isClosable: true,
+          })
+        }
+      } finally {
+        rpcManager.setNetworkSwitching(false)
       }
     } catch (error) {
-      console.error('Error switching RPC:', error)
+      console.error('Error switching network:', error)
+      rpcManager.setNetworkSwitching(false)
       toast({
-        title: 'Connection Error',
-        description: 'Failed to connect to the alternative RPC endpoint.',
+        title: 'Network Switch Failed',
+        description: 'Failed to connect to the selected network RPC endpoint.',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -439,7 +484,7 @@ export default function Navbar() {
 
             <Text>
               <strong>Latest Block Height:</strong>{' '}
-              {newBlock?.header.height ?? status?.syncInfo.latestBlockHeight}
+              {latestBlockHeight ?? status?.syncInfo.latestBlockHeight}
             </Text>
             <HStack>
               <Text>
@@ -459,12 +504,10 @@ export default function Navbar() {
               size="sm"
               variant="outline"
               colorScheme="blue"
-              onClick={handleSwitchRPC}
+              onClick={handleSwitchNetwork}
               mt={2}
             >
-              {rpcAddress === RPC_ENDPOINTS[0]
-                ? 'Switch to Palmito Testnet'
-                : 'Switch to Mainnet'}
+              {`Switch to ${getNetworkLabel(targetNetwork)}`}
             </Button>
           </ModalBody>
           <ModalFooter>

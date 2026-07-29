@@ -28,7 +28,6 @@ import {
   isBraveBrowser,
 } from '@/rpc/client'
 import { rpcManager } from '@/utils/rpcManager'
-import { RPC_ENDPOINTS } from '@/utils/constant'
 
 const chainList = [
   {
@@ -60,7 +59,7 @@ export default function Connect() {
       setError(false)
       setState('submitting')
 
-      const endpoints = [...RPC_ENDPOINTS]
+      const endpoints = [...rpcManager.getEndpointsForActiveNetwork()]
       if (rpcAddress && !endpoints.includes(rpcAddress)) {
         endpoints.unshift(rpcAddress)
       }

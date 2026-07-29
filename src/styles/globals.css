@@ -31,3 +31,26 @@ a {
 * {
   font-family: inherit;
 }
+
+/* Date Picker Styles */
+.rdp {
+  --rdp-cell-size: 40px;
+  --rdp-accent-color: var(--chakra-colors-blue-500);
+  --rdp-background-color: var(--chakra-colors-gray-100);
+  --rdp-accent-color-dark: var(--chakra-colors-blue-400);
+  --rdp-background-color-dark: var(--chakra-colors-gray-700);
+  --rdp-outline: 2px solid var(--rdp-accent-color);
+  --rdp-outline-selected: 3px solid var(--rdp-accent-color);
+  margin: 0;
+}
+
+.rdp-day_selected,
+.rdp-day_selected:focus-visible,
+.rdp-day_selected:hover {
+  background-color: var(--rdp-accent-color);
+  color: white;
+}
+
+.rdp-day:hover:not([disabled]) {
+  background-color: var(--rdp-background-color);
+}

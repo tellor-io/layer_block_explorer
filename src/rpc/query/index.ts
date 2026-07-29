@@ -161,8 +161,10 @@ export const getReporterCount = async (
 }
 
 export const getReporterList = async (): Promise<string[] | undefined> => {
-  const url = `${process.env.NEXT_PUBLIC_RPC_ENDPOINT}/tellor-io/layer/reporter/reporters`
   try {
+    const endpoint = await rpcManager.getCurrentEndpoint()
+    const baseEndpoint = endpoint.replace('/rpc', '')
+    const url = `${baseEndpoint}/tellor-io/layer/reporter/reporters`
     const response = await axios.get(url)
     if (response.data && Array.isArray(response.data.reporters)) {
       return response.data.reporters
@@ -338,15 +340,12 @@ export function decodeQueryData(queryId: string, queryData?: string): any {
   }
 }
 
-export const getValidators = async (endpoint: string): Promise<any> => {
+export const getValidators = async (endpoint?: string): Promise<any> => {
   try {
-    const response = await axios.get('/api/validators', {
-      params: { endpoint },
+    const response = await axios.get('/api/validators/live', {
+      params: endpoint ? { endpoint } : undefined,
     })
-
-    const data = response.data
-
-    return data
+    return response.data
   } catch (error) {
     console.error('Failed to fetch validators:', error)
     throw error
@@ -355,18 +354,9 @@ export const getValidators = async (endpoint: string): Promise<any> => {
 
 export async function getTotalReporterCount(): Promise<number> {
   try {
-    // First try to get reporters list
-    const response = await fetch('/api/reporters')
+    const response = await fetch('/api/reporters/live')
     const data = await response.json()
-
-    if (data && Array.isArray(data.reporters)) {
-      return data.reporters.length
-    }
-
-    // Fallback to reporter-selectors count if reporters list fails
-    const countResponse = await fetch('/api/reporter-selectors/count')
-    const countData = await countResponse.json()
-    return countData.count || 0
+    return data?.count ?? data?.reporters?.length ?? 0
   } catch (error) {
     console.error('Error fetching total reporter count:', error)
     return 0
@@ -395,10 +385,10 @@ export const getEvmValidators = async (endpoint: string) => {
   }
 }
 
-export const getReporters = async (endpoint: string) => {
+export const getReporters = async (endpoint?: string) => {
   try {
-    const response = await axios.get('/api/reporters', {
-      params: { endpoint },
+    const response = await axios.get('/api/reporters/live', {
+      params: endpoint ? { endpoint } : undefined,
     })
     return response.data
   } catch (error) {

@@ -6,6 +6,7 @@ import {
   getBridgeContractAddress,
 } from '@/utils/ethereumProvider'
 import { rpcManager } from '@/utils/rpcManager'
+import { LS_ACTIVE_NETWORK } from '@/utils/constant'
 
 interface APIDeposit {
   id: number
@@ -36,14 +37,14 @@ let provider: ethers.JsonRpcProvider | null = null
 let lastLayerEndpoint: string | null = null
 
 // Initialize contract
-const getContract = async (forcedEndpoint?: string) => {
+const getContract = async (forcedEndpoint?: string, network?: string) => {
   let layerEndpoint: string
 
   if (forcedEndpoint && typeof forcedEndpoint === 'string') {
     layerEndpoint = forcedEndpoint
     console.log('Using forced endpoint:', layerEndpoint)
   } else {
-    layerEndpoint = await rpcManager.getCurrentEndpoint()
+    layerEndpoint = await rpcManager.getCurrentEndpoint(network)
     console.log('Using rpcManager endpoint:', layerEndpoint)
   }
 
@@ -66,8 +67,13 @@ export default async function handler(
 
     switch (method) {
       case 'deposits': {
-        const contract = await getContract(forcedEndpoint as string)
-        const layerEndpoint = await rpcManager.getCurrentEndpoint()
+        const contract = await getContract(
+          forcedEndpoint as string,
+          req.cookies[LS_ACTIVE_NETWORK]
+        )
+        const layerEndpoint = await rpcManager.getCurrentEndpoint(
+          req.cookies[LS_ACTIVE_NETWORK]
+        )
         try {
           const depositId = await contract.depositId()
 
@@ -108,13 +114,19 @@ export default async function handler(
 
       case 'withdrawClaimed': {
         const { id } = req.query
-        const contract = await getContract(forcedEndpoint as string)
+        const contract = await getContract(
+          forcedEndpoint as string,
+          req.cookies[LS_ACTIVE_NETWORK]
+        )
         const claimed = await contract.withdrawClaimed(id)
         return res.status(200).json({ claimed })
       }
 
       case 'depositId': {
-        const contract = await getContract(forcedEndpoint as string)
+        const contract = await getContract(
+          forcedEndpoint as string,
+          req.cookies[LS_ACTIVE_NETWORK]
+        )
         const id = await contract.depositId()
         return res.status(200).json({ id: id.toString() })
       }

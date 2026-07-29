@@ -1,7 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import axios from 'axios'
-import { RPC_ENDPOINTS } from '@/utils/constant'
-import { rpcManager } from '@/utils/rpcManager'
+import {
+  getNetworkFromRequest,
+  getRpcEndpointsFromRequest,
+} from '@/utils/rpcFailover'
 
 // Add a simple in-memory cache
 const cache = new Map<
@@ -44,7 +46,8 @@ export default async function handler(
       .json({ error: 'Query ID and timestamp are required' })
   }
 
-  const cacheKey = `${queryId}-${timestamp}`
+  const network = getNetworkFromRequest(req)
+  const cacheKey = `${network}-${queryId}-${timestamp}`
   const cachedData = cache.get(cacheKey)
 
   if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
@@ -62,11 +65,12 @@ export default async function handler(
 
   await new Promise((resolve) => setTimeout(resolve, INITIAL_DELAY))
 
-  // Use custom endpoint if provided, otherwise fall back to RPC_ENDPOINTS
+  // Cookie selects network; server rpcManager singleton alone is always mainnet-default
+  const networkEndpoints = getRpcEndpointsFromRequest(req)
   const endpointsToTry =
     customEndpoint && typeof customEndpoint === 'string'
-      ? [customEndpoint, ...RPC_ENDPOINTS.filter((ep) => ep !== customEndpoint)]
-      : RPC_ENDPOINTS
+      ? [customEndpoint, ...networkEndpoints.filter((ep) => ep !== customEndpoint)]
+      : networkEndpoints
 
   for (const endpoint of endpointsToTry) {
     try {

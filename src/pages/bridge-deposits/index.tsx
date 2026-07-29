@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Box,
-  Container,
   Heading,
   Table,
   Thead,
@@ -22,360 +21,298 @@ import {
   Divider,
   Tooltip,
   useToast,
+  Flex,
+  Select,
+  IconButton,
 } from '@chakra-ui/react'
-import {
-  type Deposit as BridgeDeposit,
-  generateDepositQueryId,
-  generateWithdrawalQueryId,
-} from '@/utils/bridgeContract'
+import { ChevronLeftIcon, ChevronRightIcon, ArrowLeftIcon } from '@chakra-ui/icons'
 import { formatEther } from 'ethers'
 import Head from 'next/head'
 import NextLink from 'next/link'
 import { FiHome, FiChevronRight, FiCopy } from 'react-icons/fi'
-import { ethers } from 'ethers'
-import { RPCManager } from '@/utils/rpcManager'
+import { graphqlQuery } from '@/datasources/graphql/client'
+import {
+  GET_BRIDGE_DEPOSITS,
+  GET_AGGREGATE_REPORTS_BY_QUERY_ID,
+} from '@/datasources/graphql/queries'
+import type {
+  BridgeDepositsResponse,
+  AggregateReportsResponse,
+  PageInfo,
+} from '@/datasources/graphql/types'
+import { generateDepositQueryId } from '@/utils/bridgeContract'
+
+interface Deposit {
+  id: number
+  depositId: number
+  sender: string
+  recipient: string
+  amount: bigint
+  tip: bigint
+  blockHeight: bigint | null
+  blockTimestamp: Date
+  reported: boolean
+  claimed: boolean
+}
 
 interface ReportStatus {
   isReported: boolean
   data?: any
 }
 
-interface Deposit extends BridgeDeposit {
-  blockTimestamp?: Date
-}
+type PageCursors = { startCursor: string | null; endCursor: string | null }
 
-interface ClaimStatus {
-  claimed: boolean
-}
-
-interface WithdrawalClaimStatus {
-  claimed: boolean
-}
-
-interface Withdrawal {
-  id: number
-  sender: string
-  recipient: string
-  amount: bigint
-  blockHeight: bigint
-  blockTimestamp?: Date
-  reported: boolean
-  reportData?: any
-  claimed: boolean
-}
-
-interface APIDeposit {
-  id: number
-  sender: string
-  recipient: string
-  amount: string
-  tip: string
-  blockHeight: string
-  blockTimestamp?: string
-}
+const PAGE_SIZE_OPTIONS = [10, 20, 30, 50]
 
 export default function BridgeDeposits() {
   const [deposits, setDeposits] = useState<Deposit[]>([])
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
   const [reportStatuses, setReportStatuses] = useState<
     Record<number, ReportStatus>
   >({})
-  const [claimStatuses, setClaimStatuses] = useState<
-    Record<number, ClaimStatus>
-  >({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = useState(10)
+  const [pageInfo, setPageInfo] = useState<PageInfo | null>(null)
+  const [pagesCursors, setPagesCursors] = useState<PageCursors[]>([])
+  const pagesCursorsRef = useRef<PageCursors[]>([])
   const toast = useToast()
 
-  // Function to fetch report status for a deposit
-  const fetchReportStatus = async (depositId: number) => {
+  useEffect(() => {
+    pagesCursorsRef.current = pagesCursors
+  }, [pagesCursors])
+
+  const fetchReportDetails = async (depositId: number) => {
     try {
       const queryId = generateDepositQueryId(depositId)
-      const rpcManager = RPCManager.getInstance()
-      const currentEndpoint = await rpcManager.getCurrentEndpoint()
-      const response = await fetch(
-        `/api/oracle-data/${queryId}?endpoint=${encodeURIComponent(
-          currentEndpoint
-        )}`
-      )
 
-      if (!response.ok) {
-        return { isReported: false }
-      }
-
-      const data = await response.json()
-      const hasValidData =
-        data && data.aggregate && data.aggregate.aggregate_value
-      return {
-        isReported: hasValidData,
-        data: hasValidData ? data : undefined,
-      }
-    } catch (error) {
-      console.error(
-        `Error fetching report status for deposit ${depositId}:`,
-        error
-      )
-      return { isReported: false }
-    }
-  }
-
-  // Function to fetch claim status for a deposit with retry logic
-  const fetchClaimStatus = async (depositId: number) => {
-    const maxRetries = 3
-    const retryDelay = 1000 // 1 second
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const rpcManager = RPCManager.getInstance()
-        const endpoint = await rpcManager.getCurrentEndpoint()
-        const baseEndpoint = endpoint.replace('/rpc', '')
-
-        const response = await fetch(
-          `${baseEndpoint}/layer/bridge/get_deposit_claimed/${depositId}`,
-          {
-            // Add timeout to prevent hanging requests
-            signal: AbortSignal.timeout(10000), // 10 second timeout
-          }
-        )
-
-        if (!response.ok) {
-          if (attempt === maxRetries) {
-            throw new Error(
-              `External API responded with status: ${response.status}`
-            )
-          }
-          // Wait before retrying
-          await new Promise((resolve) => setTimeout(resolve, retryDelay))
-          continue
+      const response = await graphqlQuery<AggregateReportsResponse>(
+        GET_AGGREGATE_REPORTS_BY_QUERY_ID,
+        {
+          queryId: queryId,
+          first: 1,
         }
-
-        const data = await response.json()
-
-        // Check if the response has the expected structure
-        if (typeof data.claimed === 'boolean') {
-          return { claimed: data.claimed }
-        } else if (typeof data === 'boolean') {
-          return { claimed: data }
-        } else {
-          console.warn(
-            `Unexpected claim status format for deposit ${depositId}:`,
-            data
-          )
-          return { claimed: false }
-        }
-      } catch (error) {
-        if (attempt === maxRetries) {
-          // On final attempt, return false instead of throwing
-          return { claimed: false }
-        }
-
-        // Wait before retrying
-        await new Promise((resolve) => setTimeout(resolve, retryDelay))
-      }
-    }
-
-    return { claimed: false }
-  }
-
-  // Function to fetch withdrawal claim status
-  const fetchWithdrawalClaimStatus = async (withdrawalId: number) => {
-    try {
-      const rpcManager = RPCManager.getInstance()
-      const currentEndpoint = await rpcManager.getCurrentEndpoint()
-      const response = await fetch(
-        `/api/ethereum/bridge?method=withdrawClaimed&id=${withdrawalId}&endpoint=${encodeURIComponent(
-          currentEndpoint
-        )}`
-      )
-      if (!response.ok) {
-        throw new Error(
-          `External API responded with status: ${response.status}`
-        )
-      }
-      const data = await response.json()
-      return { claimed: data.claimed }
-    } catch (error) {
-      console.error(
-        `Error fetching withdrawal claim status for ID ${withdrawalId}:`,
-        error
-      )
-      return { claimed: false }
-    }
-  }
-
-  // Function to fetch withdrawals
-  const fetchWithdrawals = async () => {
-    try {
-      const rpcManager = RPCManager.getInstance()
-      const endpoint = await rpcManager.getCurrentEndpoint()
-      const baseEndpoint = endpoint.replace('/rpc', '')
-
-      const response = await fetch(
-        `${baseEndpoint}/layer/bridge/get_last_withdrawal_id`
-      )
-      if (!response.ok) {
-        throw new Error(
-          `External API responded with status: ${response.status}`
-        )
-      }
-      const data = await response.json()
-      const lastWithdrawalId = Number(data.withdrawal_id)
-
-      const withdrawalPromises = []
-      const claimStatusPromises = []
-      for (let i = 1; i <= lastWithdrawalId; i++) {
-        withdrawalPromises.push(fetchWithdrawalData(i))
-        claimStatusPromises.push(fetchWithdrawalClaimStatus(i))
-      }
-
-      const [withdrawals, claimStatuses] = await Promise.all([
-        Promise.all(withdrawalPromises),
-        Promise.all(claimStatusPromises),
-      ])
-
-      const filteredWithdrawals = withdrawals.filter(
-        (w): w is NonNullable<typeof w> => w !== null
-      )
-      const combinedWithdrawals = filteredWithdrawals.map(
-        (withdrawal, index) => ({
-          ...withdrawal,
-          claimed: claimStatuses[index].claimed,
-        })
-      ) as Withdrawal[]
-
-      setWithdrawals(combinedWithdrawals)
-    } catch (error) {
-      console.error('Error fetching withdrawals:', error)
-    }
-  }
-
-  // Function to fetch individual withdrawal data
-  const fetchWithdrawalData = async (withdrawalId: number) => {
-    try {
-      const rpcManager = RPCManager.getInstance()
-      const endpoint = await rpcManager.getCurrentEndpoint()
-      const baseEndpoint = endpoint.replace('/rpc', '')
-
-      const queryId = generateWithdrawalQueryId(withdrawalId)
-      const response = await fetch(
-        `${baseEndpoint}/tellor-io/layer/oracle/get_current_aggregate_report/${queryId}`
       )
 
-      if (!response.ok) {
-        throw new Error(
-          `External API responded with status: ${response.status}`
-        )
+      if (!response.aggregateReports.edges.length) {
+        return null
       }
 
-      const data = await response.json()
-      const encodedData = data.aggregate?.aggregate_value
-      if (!encodedData) {
-        throw new Error('No aggregate value found')
+      const latestReport = response.aggregateReports.edges[0].node
+      const hasValidData = latestReport.value && latestReport.value.length > 0
+
+      if (!hasValidData) {
+        return null
       }
-
-      const sender = '0x' + encodedData.slice(0, 64).slice(-40)
-      const amountHex = encodedData.slice(128, 192)
-      const rawAmount = BigInt('0x' + amountHex.replace(/^0+/, ''))
-      const amount = rawAmount * BigInt(10 ** 14)
-
-      const recipientLength = parseInt(encodedData.slice(256, 320), 16)
-      const recipientStart = 320
-      const recipient = Buffer.from(
-        encodedData.slice(recipientStart, recipientStart + recipientLength * 2),
-        'hex'
-      ).toString('utf8')
 
       return {
-        id: withdrawalId,
-        sender,
-        recipient,
-        amount,
-        blockHeight: BigInt(data.aggregate?.height || '0'),
-        blockTimestamp: new Date(Number(data.timestamp)),
-        reported: true,
-        reportData: data,
-        claimed: false,
+        aggregate: {
+          aggregate_value: latestReport.value,
+          query_id: latestReport.queryId,
+          block_height: latestReport.blockHeight,
+          timestamp: latestReport.timestamp,
+          total_reporters: latestReport.totalReporters,
+          aggregate_power: latestReport.aggregatePower,
+          micro_report_height: latestReport.microReportHeight,
+        },
+        queryId: latestReport.queryId,
+        value: latestReport.value,
+        blockHeight: latestReport.blockHeight,
+        timestamp: latestReport.timestamp,
+        queryData: latestReport.queryData,
       }
-    } catch (error) {
-      console.error(`Error fetching withdrawal ${withdrawalId}:`, error)
+    } catch (err) {
+      console.error(
+        `Error fetching report details for deposit ${depositId}:`,
+        err
+      )
       return null
     }
   }
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setError(null)
+  const mapDeposits = (response: BridgeDepositsResponse): Deposit[] =>
+    response.bridgeDeposits.edges.map((edge) => {
+      const node = edge.node
+      const timestamp = new Date(Number(node.timestamp) * 1000)
 
-        // Fetch deposits using new API endpoint with current endpoint
-        const rpcManager = RPCManager.getInstance()
-        const currentEndpoint = await rpcManager.getCurrentEndpoint()
-        const response = await fetch(
-          `/api/ethereum/bridge?method=deposits&endpoint=${encodeURIComponent(
-            currentEndpoint
-          )}`
-        )
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
-        const { deposits } = await response.json()
-        if (!Array.isArray(deposits)) {
-          throw new Error('Expected deposits to be an array')
-        }
-
-        const formattedDeposits: Deposit[] = deposits.map(
-          (deposit: APIDeposit) => ({
-            ...deposit,
-            amount: BigInt(deposit.amount),
-            tip: BigInt(deposit.tip),
-            blockHeight: BigInt(deposit.blockHeight),
-            blockTimestamp: deposit.blockTimestamp
-              ? new Date(deposit.blockTimestamp)
-              : undefined,
-          })
-        )
-
-        setDeposits(formattedDeposits)
-
-        // Fetch report statuses and claim statuses for all deposits
-        const [statuses, claims] = await Promise.all([
-          Promise.all(
-            formattedDeposits.map((deposit) => fetchReportStatus(deposit.id))
-          ),
-          Promise.all(
-            formattedDeposits.map((deposit) => fetchClaimStatus(deposit.id))
-          ),
-        ])
-
-        const statusMap: Record<number, ReportStatus> = {}
-        const claimMap: Record<number, ClaimStatus> = {}
-
-        formattedDeposits.forEach((deposit, index) => {
-          statusMap[deposit.id] = statuses[index]
-          claimMap[deposit.id] = claims[index]
-        })
-
-        setReportStatuses(statusMap)
-        setClaimStatuses(claimMap)
-
-        // Fetch withdrawals
-        await fetchWithdrawals()
-
-        setLoading(false)
-      } catch (error) {
-        console.error('Error fetching data:', error)
-        setError(
-          'Failed to fetch data. Please check your network connection and try again.'
-        )
-        setLoading(false)
+      return {
+        id: node.depositId,
+        depositId: node.depositId,
+        sender: node.sender,
+        recipient: node.recipient,
+        amount: BigInt(node.amount),
+        tip: BigInt(node.tip),
+        blockHeight: node.blockHeight ? BigInt(node.blockHeight) : null,
+        blockTimestamp: timestamp,
+        reported: node.reported,
+        claimed: node.claimed,
       }
+    })
+
+  const loadReportStatuses = async (formattedDeposits: Deposit[]) => {
+    const reportedDeposits = formattedDeposits.filter((d) => d.reported)
+    const reportDetails = await Promise.all(
+      reportedDeposits.map((deposit) =>
+        fetchReportDetails(deposit.depositId).then((data) => ({
+          depositId: deposit.depositId,
+          data,
+        }))
+      )
+    )
+
+    const statusMap: Record<number, ReportStatus> = {}
+    formattedDeposits.forEach((deposit) => {
+      statusMap[deposit.depositId] = {
+        isReported: deposit.reported,
+        data: reportDetails.find((r) => r.depositId === deposit.depositId)
+          ?.data,
+      }
+    })
+    setReportStatuses(statusMap)
+  }
+
+  const applyPageResponse = async (
+    response: BridgeDepositsResponse,
+    nextPageIndex: number,
+    replaceCursors: boolean
+  ) => {
+    if (!response.bridgeDeposits?.edges) {
+      throw new Error('Invalid response from GraphQL')
     }
 
-    fetchData()
+    const formattedDeposits = mapDeposits(response)
+    setDeposits(formattedDeposits)
+    setPageInfo(response.bridgeDeposits.pageInfo)
+
+    const cursors: PageCursors = {
+      startCursor: response.bridgeDeposits.pageInfo.startCursor,
+      endCursor: response.bridgeDeposits.pageInfo.endCursor,
+    }
+
+    if (replaceCursors || nextPageIndex === 0) {
+      setPagesCursors([cursors])
+    } else if (nextPageIndex >= pagesCursorsRef.current.length) {
+      setPagesCursors((prev) => [...prev, cursors])
+    } else {
+      setPagesCursors((prev) => {
+        const next = [...prev]
+        next[nextPageIndex] = cursors
+        return next
+      })
+    }
+
+    setPageIndex(nextPageIndex)
+    await loadReportStatuses(formattedDeposits)
+  }
+
+  const fetchPage = useCallback(
+    async (after: string | null | undefined, size: number) => {
+      return graphqlQuery<BridgeDepositsResponse>(GET_BRIDGE_DEPOSITS, {
+        first: size,
+        ...(after ? { after } : {}),
+        orderBy: ['DEPOSIT_ID_DESC'],
+      })
+    },
+    []
+  )
+
+  const fetchFirstPage = useCallback(
+    async (size: number) => {
+      setError(null)
+      setLoading(true)
+      try {
+        const response = await fetchPage(null, size)
+        await applyPageResponse(response, 0, true)
+      } catch (err) {
+        console.error('Error fetching deposits:', err)
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to fetch data. Please check your network connection and try again.'
+        )
+        setDeposits([])
+      } finally {
+        setLoading(false)
+      }
+    },
+    [fetchPage]
+  )
+
+  useEffect(() => {
+    fetchFirstPage(pageSize)
+    // Initial load only; later page/size changes use handlers below
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Helper function to format the date
+  const handleFirstPage = async () => {
+    if (pageIndex === 0 || loading) return
+    await fetchFirstPage(pageSize)
+  }
+
+  const handlePreviousPage = async () => {
+    if (pageIndex === 0 || loading) return
+
+    try {
+      setLoading(true)
+      setError(null)
+      const prevPageIndex = pageIndex - 1
+
+      if (prevPageIndex === 0) {
+        const response = await fetchPage(null, pageSize)
+        await applyPageResponse(response, 0, true)
+      } else {
+        const prevPageCursors = pagesCursorsRef.current[prevPageIndex - 1]
+        if (!prevPageCursors?.endCursor) {
+          const response = await fetchPage(null, pageSize)
+          await applyPageResponse(response, 0, true)
+        } else {
+          const response = await fetchPage(prevPageCursors.endCursor, pageSize)
+          await applyPageResponse(response, prevPageIndex, false)
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching previous deposits page:', err)
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to fetch previous page. Please try again.'
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleNextPage = async () => {
+    if (!pageInfo?.hasNextPage || loading) return
+
+    try {
+      setLoading(true)
+      setError(null)
+      const currentPageCursors = pagesCursorsRef.current[pageIndex]
+      const after =
+        currentPageCursors?.endCursor || pageInfo.endCursor || null
+      if (!after) {
+        throw new Error('No cursor available for next page')
+      }
+      const response = await fetchPage(after, pageSize)
+      await applyPageResponse(response, pageIndex + 1, false)
+    } catch (err) {
+      console.error('Error fetching next deposits page:', err)
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Failed to fetch next page. Please try again.'
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePageSizeChange = async (newSize: number) => {
+    setPageSize(newSize)
+    await fetchFirstPage(newSize)
+  }
+
   const formatDate = (date: Date | undefined) => {
     if (!date) return 'Unknown'
     return date.toLocaleString('en-US', {
@@ -389,28 +326,6 @@ export default function BridgeDeposits() {
     })
   }
 
-  // Helper function to format aggregate power (add this near your other helper functions)
-  const formatAggregatePower = (power: string | undefined) => {
-    if (!power) return '0'
-    return (Number(power) / 1_000_000).toString()
-  }
-
-  // Helper function to format the report data for tooltip
-  const formatReportData = (data: any) => {
-    if (!data?.aggregate) return ''
-
-    const timestamp = new Date(Number(data.timestamp))
-    return `Aggregate Power: ${
-      data.aggregate.aggregate_power
-    }\n\nDate: ${formatDate(timestamp)}`
-  }
-
-  // Combine and sort all transactions
-  const allTransactions = [...deposits, ...withdrawals].sort(
-    (a, b) => Number(b.blockHeight) - Number(a.blockHeight)
-  )
-
-  // Add this new function for copying addresses
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
     toast({
@@ -428,7 +343,7 @@ export default function BridgeDeposits() {
         <meta name="description" content="View Bridge Deposits" />
       </Head>
       <main>
-        <HStack h="24px" mb={8}>
+        <HStack h="24px" mb={2}>
           <Heading size={'md'}>Bridge Deposits</Heading>
           <Divider borderColor={'gray'} size="10px" orientation="vertical" />
           <Link
@@ -446,6 +361,10 @@ export default function BridgeDeposits() {
           <Icon fontSize="16" as={FiChevronRight} />
           <Text>Bridge Deposits</Text>
         </HStack>
+        <Text fontSize="sm" color="gray.500" mb={6}>
+          Data updates every 5 minutes and may not reflect the latest on-chain
+          activity.
+        </Text>
 
         <Box
           bg={useColorModeValue('light-container', 'dark-container')}
@@ -453,11 +372,11 @@ export default function BridgeDeposits() {
           boxShadow="xl"
           p={6}
         >
-          {loading ? (
+          {loading && deposits.length === 0 ? (
             <Center py={10}>
               <Spinner size="xl" />
             </Center>
-          ) : error ? (
+          ) : error && deposits.length === 0 ? (
             <Alert status="error" borderRadius="md">
               <AlertIcon />
               <AlertDescription>{error}</AlertDescription>
@@ -468,158 +387,196 @@ export default function BridgeDeposits() {
               <AlertDescription>No deposits found.</AlertDescription>
             </Alert>
           ) : (
-            <Box overflowX="auto" maxW="100%" width="100%">
-              <Table variant="simple" width="100%">
-                <Thead>
-                  <Tr>
-                    <Th>Type</Th>
-                    <Th>ID</Th>
-                    <Th>Sender</Th>
-                    <Th>Recipient</Th>
-                    <Th isNumeric>Amount (TRB)</Th>
-                    <Th>Time</Th>
-                    <Th>Reported</Th>
-                    <Th>Claimed</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {allTransactions.map((tx) => (
-                    <Tr
-                      key={`${'tip' in tx ? 'deposit' : 'withdrawal'}-${tx.id}`}
-                    >
-                      <Td>
-                        <Text color={'tip' in tx ? 'blue.500' : 'green.500'}>
-                          {'tip' in tx ? 'Deposit' : 'Withdrawal'}
-                        </Text>
-                      </Td>
-                      <Td>{tx.id}</Td>
-                      <Td>
-                        <Tooltip
-                          label="Click to copy address"
-                          placement="top"
-                          hasArrow
-                        >
-                          <HStack
-                            spacing={1}
-                            cursor="pointer"
-                            onClick={() => copyToClipboard(tx.sender)}
-                            _hover={{ color: 'blue.500' }}
+            <>
+              <Box overflowX="auto" maxW="100%" width="100%" opacity={loading ? 0.6 : 1}>
+                <Table variant="simple" width="100%">
+                  <Thead>
+                    <Tr>
+                      <Th>Type</Th>
+                      <Th>ID</Th>
+                      <Th>Sender</Th>
+                      <Th>Recipient</Th>
+                      <Th isNumeric>Amount (TRB)</Th>
+                      <Th>Time</Th>
+                      <Th>Reported</Th>
+                      <Th>Claimed</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {deposits.map((deposit) => (
+                      <Tr key={`deposit-${deposit.depositId}`}>
+                        <Td>
+                          <Text color="blue.500">Deposit</Text>
+                        </Td>
+                        <Td>{deposit.depositId}</Td>
+                        <Td>
+                          <Tooltip
+                            label="Click to copy address"
+                            placement="top"
+                            hasArrow
                           >
-                            <Text isTruncated maxW="150px" title={tx.sender}>
-                              {tx.sender}
-                            </Text>
-                            <Icon as={FiCopy} boxSize={3} opacity={0.7} />
-                          </HStack>
-                        </Tooltip>
-                      </Td>
-                      <Td>
-                        <Tooltip
-                          label="Click to copy address"
-                          placement="top"
-                          hasArrow
-                        >
-                          <HStack
-                            spacing={1}
-                            cursor="pointer"
-                            onClick={() => copyToClipboard(tx.recipient)}
-                            _hover={{ color: 'blue.500' }}
-                          >
-                            <Text isTruncated maxW="150px" title={tx.recipient}>
-                              {tx.recipient}
-                            </Text>
-                            <Icon as={FiCopy} boxSize={3} opacity={0.7} />
-                          </HStack>
-                        </Tooltip>
-                      </Td>
-                      <Td isNumeric>
-                        {'tip' in tx
-                          ? formatEther(tx.amount)
-                          : formatEther(tx.amount / BigInt(100))}
-                      </Td>
-                      <Td>
-                        <Tooltip
-                          label={`Block #${tx.blockHeight.toString()}`}
-                          placement="top"
-                          hasArrow
-                        >
-                          <Text>{formatDate(tx.blockTimestamp)}</Text>
-                        </Tooltip>
-                      </Td>
-                      <Td>
-                        {'tip' in tx ? (
-                          reportStatuses[tx.id]?.isReported ? (
-                            <Tooltip
-                              label={
-                                <Box>
-                                  <Text>
-                                    Aggregate Power:{' '}
-                                    {
-                                      reportStatuses[tx.id].data?.aggregate
-                                        ?.aggregate_power
-                                    }
-                                  </Text>
-                                  <Text>
-                                    Date:{' '}
-                                    {formatDate(
-                                      new Date(
-                                        Number(
-                                          reportStatuses[tx.id].data?.timestamp
-                                        )
-                                      )
-                                    )}
-                                  </Text>
-                                </Box>
-                              }
-                              placement="top"
-                              hasArrow
+                            <HStack
+                              spacing={1}
+                              cursor="pointer"
+                              onClick={() => copyToClipboard(deposit.sender)}
+                              _hover={{ color: 'blue.500' }}
                             >
-                              <Text color="green.500">True</Text>
-                            </Tooltip>
-                          ) : (
-                            <Text color="red.500">False</Text>
-                          )
-                        ) : tx.reported ? (
+                              <Text
+                                isTruncated
+                                maxW="150px"
+                                title={deposit.sender}
+                              >
+                                {deposit.sender}
+                              </Text>
+                              <Icon as={FiCopy} boxSize={3} opacity={0.7} />
+                            </HStack>
+                          </Tooltip>
+                        </Td>
+                        <Td>
+                          <Tooltip
+                            label="Click to copy address"
+                            placement="top"
+                            hasArrow
+                          >
+                            <HStack
+                              spacing={1}
+                              cursor="pointer"
+                              onClick={() => copyToClipboard(deposit.recipient)}
+                              _hover={{ color: 'blue.500' }}
+                            >
+                              <Text
+                                isTruncated
+                                maxW="150px"
+                                title={deposit.recipient}
+                              >
+                                {deposit.recipient}
+                              </Text>
+                              <Icon as={FiCopy} boxSize={3} opacity={0.7} />
+                            </HStack>
+                          </Tooltip>
+                        </Td>
+                        <Td isNumeric>{formatEther(deposit.amount)}</Td>
+                        <Td>
                           <Tooltip
                             label={
-                              <Box>
-                                <Text>
-                                  Aggregate Power:{' '}
-                                  {formatAggregatePower(
-                                    tx.reportData?.aggregate?.aggregate_power
-                                  )}
-                                </Text>
-                                <Text>
-                                  Date: {formatDate(tx.blockTimestamp)}
-                                </Text>
-                              </Box>
+                              deposit.blockHeight
+                                ? `Block #${deposit.blockHeight.toString()}`
+                                : 'Block height not available'
                             }
                             placement="top"
                             hasArrow
                           >
-                            <Text color="green.500">True</Text>
+                            <Text>{formatDate(deposit.blockTimestamp)}</Text>
                           </Tooltip>
-                        ) : (
-                          <Text color="red.500">False</Text>
-                        )}
-                      </Td>
-                      <Td>
-                        {'tip' in tx ? (
-                          claimStatuses[tx.id]?.claimed ? (
+                        </Td>
+                        <Td>
+                          {deposit.reported ? (
+                            reportStatuses[deposit.depositId]?.data ? (
+                              <Tooltip
+                                label={
+                                  <Box>
+                                    <Text>
+                                      Aggregate Power:{' '}
+                                      {
+                                        reportStatuses[deposit.depositId].data
+                                          ?.aggregate?.aggregate_power
+                                      }
+                                    </Text>
+                                    <Text>
+                                      Date:{' '}
+                                      {formatDate(
+                                        new Date(
+                                          Number(
+                                            reportStatuses[deposit.depositId]
+                                              .data?.timestamp
+                                          )
+                                        )
+                                      )}
+                                    </Text>
+                                  </Box>
+                                }
+                                placement="top"
+                                hasArrow
+                              >
+                                <Text color="green.500">True</Text>
+                              </Tooltip>
+                            ) : (
+                              <Text color="green.500">True</Text>
+                            )
+                          ) : (
+                            <Text color="red.500">False</Text>
+                          )}
+                        </Td>
+                        <Td>
+                          {deposit.claimed ? (
                             <Text color="green.500">True</Text>
                           ) : (
                             <Text color="red.500">False</Text>
-                          )
-                        ) : tx.claimed ? (
-                          <Text color="green.500">True</Text>
-                        ) : (
-                          <Text color="red.500">False</Text>
-                        )}
-                      </Td>
-                    </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-            </Box>
+                          )}
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </Box>
+
+              <Flex
+                mt={4}
+                justify="space-between"
+                align="center"
+                wrap="wrap"
+                gap={4}
+              >
+                <Flex align="center" gap={2}>
+                  <Select
+                    w={32}
+                    value={pageSize}
+                    onChange={(e) =>
+                      handlePageSizeChange(Number(e.target.value))
+                    }
+                    disabled={loading}
+                  >
+                    {PAGE_SIZE_OPTIONS.map((size) => (
+                      <option key={size} value={size}>
+                        Show {size}
+                      </option>
+                    ))}
+                  </Select>
+                  <Text fontSize="sm" color="gray.500">
+                    Page {pageIndex + 1}
+                  </Text>
+                </Flex>
+                <Flex align="center" gap={2}>
+                  <Tooltip label="First Page">
+                    <IconButton
+                      onClick={handleFirstPage}
+                      isDisabled={pageIndex === 0 || loading}
+                      icon={<ArrowLeftIcon h={3} w={3} />}
+                      aria-label="First Page"
+                      size="sm"
+                    />
+                  </Tooltip>
+                  <Tooltip label="Previous Page">
+                    <IconButton
+                      onClick={handlePreviousPage}
+                      isDisabled={pageIndex === 0 || loading}
+                      icon={<ChevronLeftIcon h={6} w={6} />}
+                      aria-label="Previous Page"
+                      size="sm"
+                    />
+                  </Tooltip>
+                  <Tooltip label="Next Page">
+                    <IconButton
+                      onClick={handleNextPage}
+                      isDisabled={!pageInfo?.hasNextPage || loading}
+                      icon={<ChevronRightIcon h={6} w={6} />}
+                      aria-label="Next Page"
+                      size="sm"
+                    />
+                  </Tooltip>
+                </Flex>
+              </Flex>
+            </>
           )}
         </Box>
       </main>

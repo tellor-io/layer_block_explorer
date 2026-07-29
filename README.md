@@ -31,6 +31,21 @@
 
 `Tellor Layer Block Explorer` is only a frontend app, meaning there is no cache or pre-processing. It pulls data from RPC as needed.
 
+## Network Configuration
+
+Set network-specific RPC and GraphQL sources as comma-separated lists (first value is primary, later values are fallback):
+
+- `NEXT_PUBLIC_MAINNET_RPC_ENDPOINTS`
+- `NEXT_PUBLIC_PALMITO_RPC_ENDPOINTS`
+- `NEXT_PUBLIC_MAINNET_GRAPHQL_ENDPOINTS`
+- `NEXT_PUBLIC_PALMITO_GRAPHQL_ENDPOINTS`
+- `NEXT_PUBLIC_MAINNET_GRAPHQL_USERNAME`
+- `NEXT_PUBLIC_MAINNET_GRAPHQL_PASSWORD`
+- `NEXT_PUBLIC_PALMITO_GRAPHQL_USERNAME`
+- `NEXT_PUBLIC_PALMITO_GRAPHQL_PASSWORD`
+
+Server-side routes also read non-public equivalents (without the `NEXT_PUBLIC_` prefix), but client-side GraphQL requires `NEXT_PUBLIC_` values.
+
 ## Contributing
 
 Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are greatly appreciated.

@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { RPCManager } from '@/utils/rpcManager'
+import { rpcManager } from '../../utils/rpcManager'
+import { LS_ACTIVE_NETWORK } from '@/utils/constant'
+import { decodeSpotPriceQueryData } from '../../utils/tellorQueryDecoder'
 
 // Define interface for cache structure
 interface CacheData {
@@ -14,15 +16,16 @@ let cache: CacheData = {
 }
 
 export default async function handler(
-  _req: NextApiRequest,
+  req: NextApiRequest,
   res: NextApiResponse
 ) {
   try {
-    const rpcManager = RPCManager.getInstance()
-    const endpoint = await rpcManager.getCurrentEndpoint()
+    const endpoint = await rpcManager.getCurrentEndpoint(
+      req.cookies[LS_ACTIVE_NETWORK]
+    )
     const baseEndpoint = endpoint.replace('/rpc', '')
 
-    const targetUrl = `${baseEndpoint}/tellor-io/layer/oracle/current_cyclelist_query`
+    const targetUrl = `${baseEndpoint}/tellor-io/layer/oracle/get_cycle_list`
     const response = await fetch(targetUrl)
 
     if (!response.ok) {
@@ -30,33 +33,27 @@ export default async function handler(
     }
 
     const data = await response.json()
-    const asciiData = Buffer.from(data.query_data, 'hex').toString('ascii')
+    
+    // The RPC endpoint returns cycle_list as an array of hex-encoded query data strings
+    // Each string represents one pair in the current cycle list
+    if (!data.cycle_list || !Array.isArray(data.cycle_list)) {
+      throw new Error('Unexpected response format: cycle_list is missing or not an array')
+    }
+    
+    const queryDataArray = data.cycle_list
 
-    // Extract currency pairs, ignoring "SpotPrice"
-    const matches =
-      asciiData
-        .match(/[a-z]{3}/g)
-        ?.filter((match) => match !== 'pot' && match !== 'ric') || []
-
-    if (matches && matches.length >= 2) {
-      for (let i = 0; i < matches.length - 1; i += 2) {
-        const base = matches[i]
-        const quote = matches[i + 1]
-        const currentPair = {
-          queryParams: `${base.toUpperCase()}/${quote.toUpperCase()}`,
-        }
-
-        // Only add if not already in cache
-        if (
-          !cache.data.some(
-            (pair) => pair.queryParams === currentPair.queryParams
-          )
-        ) {
-          cache.data.push(currentPair)
-        }
+    // Decode each query data string to get the pair
+    const decodedPairs: string[] = []
+    for (const hexData of queryDataArray) {
+      const pair = decodeSpotPriceQueryData(hexData)
+      if (pair) {
+        decodedPairs.push(pair)
       }
     }
 
+    // Replace cache with the full decoded list from RPC endpoint
+    // This ensures we always have the complete current cycle list
+    cache.data = decodedPairs.map((pair) => ({ queryParams: pair }))
     cache.lastUpdated = new Date()
 
     res.status(200).json({
@@ -64,13 +61,6 @@ export default async function handler(
       lastUpdated: cache.lastUpdated,
     })
   } catch (error) {
-    if (cache.data.length > 0) {
-      return res.status(200).json({
-        cycleList: cache.data,
-        lastUpdated: cache.lastUpdated,
-        fromCache: true,
-      })
-    }
     console.error('API Route Error:', error)
     res.status(500).json({
       error: 'Failed to fetch current cycle',
