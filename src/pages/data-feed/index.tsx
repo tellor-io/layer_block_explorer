@@ -870,7 +870,7 @@ export default function DataFeed() {
           padding: '1rem',
         }}
       >
-        <Box p={4} borderRadius={4} mb={4}>
+        <Box p={4} borderRadius="2xl" mb={4}>
           <HStack h="24px">
             <Heading size={'md'}>Live Aggregate Reports</Heading>
             <Divider borderColor={'gray'} size="10px" orientation="vertical" />
@@ -891,7 +891,7 @@ export default function DataFeed() {
           </HStack>
         </Box>
 
-        <Box shadow={'base'} borderRadius={4} p={4}>
+        <Box border="1px solid" borderColor={useColorModeValue('border.light', 'border.dark')} borderRadius="2xl" p={4}>
           <HStack mb={4} justify="space-between" align="flex-start">
             <Text fontSize="2xl">
               Aggregate Reports

@@ -396,7 +396,7 @@ export interface ParsedTransactionData {
 
 /**
  * Aggregate Report from GraphQL indexer
- * Represents an aggregated oracle report from the Tellor Layer blockchain
+ * Represents an aggregated oracle report from the Tellor blockchain
  */
 export interface AggregateReport {
   nodeId: string;

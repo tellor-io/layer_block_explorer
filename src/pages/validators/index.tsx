@@ -206,7 +206,9 @@ export default function Validators() {
   const { highlight } = router.query
   const [page, setPage] = useState(0)
   const [perPage, setPerPage] = useState(10)
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'votingPower', desc: true },
+  ])
   const [delegatorCounts, setDelegatorCounts] = useState<Map<string, number>>(new Map())
   const [countsLoading, setCountsLoading] = useState(true)
   const highlightBgColor = useColorModeValue('gray.100', 'gray.700')
@@ -345,12 +347,13 @@ export default function Validators() {
         {delegatorSortDisabled && (
           <Text fontSize="sm" color="gray.500" mt={2}>Loading delegator counts…</Text>
         )}
-        <Box mt={8} bg={useColorModeValue('light-container', 'dark-container')} shadow={'base'} borderRadius={4} p={4} overflowX="auto">
+        <Box mt={8} bg={useColorModeValue('light-container', 'dark-container')} border="1px solid" borderColor={useColorModeValue('border.light', 'border.dark')} borderRadius="2xl" p={4} overflowX="auto">
           <DataTable<ValidatorData>
             columns={columns}
             data={displayValidators}
             total={sortedRows.length}
             isLoading={isLoading && !liveValidators.length}
+            initialSorting={[{ id: 'votingPower', desc: true }]}
             onChangePagination={(value: { pageIndex: number; pageSize: number }) => {
               setPage(value.pageIndex)
               setPerPage(value.pageSize)

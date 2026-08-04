@@ -16,6 +16,7 @@ import {
   Button,
   Heading,
   DrawerOverlay,
+  HStack,
   VStack,
 } from '@chakra-ui/react'
 import {
@@ -36,7 +37,7 @@ import {
   FiChevronDown,
 } from 'react-icons/fi'
 import { IconType } from 'react-icons'
-import { RiBearSmileFill, RiBankLine } from 'react-icons/ri'
+import { RiBearSmileFill, RiBankLine, RiArrowRightSLine } from 'react-icons/ri'
 import { FaUserCheck } from 'react-icons/fa'
 import { FaBridge } from 'react-icons/fa6'
 
@@ -56,6 +57,8 @@ interface LinkItemProps {
   icon: IconType
   route: string
   isBlank?: boolean
+  leadingIcon?: IconType
+  flipLeadingIcon?: boolean
 }
 export const LinkItems: Array<LinkItemProps> = [
   { name: 'Home', icon: FiHome, route: '/' },
@@ -66,8 +69,19 @@ export const LinkItems: Array<LinkItemProps> = [
   { name: 'Proposals', icon: GiGavel, route: '/proposals' },
   { name: 'Parameters', icon: FiSliders, route: '/parameters' },
   { name: 'Layer Blobs', icon: TbChartBubbleFilled, route: '/oracle-bridge' },
-  { name: 'Bridge Deposits', icon: FaBridge, route: '/bridge-deposits' },
-  { name: 'Bridge Withdrawals', icon: FaBridge, route: '/bridge-withdrawals' },
+  {
+    name: 'Bridge Deposits',
+    icon: FaBridge,
+    leadingIcon: RiArrowRightSLine,
+    route: '/bridge-deposits',
+  },
+  {
+    name: 'Bridge Withdrawals',
+    icon: FaBridge,
+    leadingIcon: RiArrowRightSLine,
+    flipLeadingIcon: true,
+    route: '/bridge-withdrawals',
+  },
 ]
 export const RefLinkItems: Array<LinkItemProps> = [
   {
@@ -98,7 +112,7 @@ export default function Sidebar({ onClose, children }: SidebarProps) {
   const { isOpen, onOpen, onClose: closeDrawer } = useDisclosure()
 
   return (
-    <Box minH="100vh" bg={useColorModeValue('gray.100', 'gray.900')}>
+    <Box minH="100vh" bg={useColorModeValue('light-bg', 'dark-bg')}>
       <SidebarContent
         onClose={closeDrawer}
         display={{ base: 'none', md: 'block' }}
@@ -166,9 +180,9 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
     <Box
       ref={scrollRef}
       transition="3s ease"
-      bg={useColorModeValue('light-container', 'dark-container')}
+      bg={useColorModeValue('light-bg', 'dark-bg')}
       borderRight="1px"
-      borderRightColor={useColorModeValue('gray.200', 'gray.700')}
+      borderRightColor={useColorModeValue('border.soft', 'border.dark-soft')}
       w={{ base: 'full', md: 60 }}
       pos="fixed"
       h="100vh"
@@ -182,28 +196,36 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
           width: '6px',
         },
         '&::-webkit-scrollbar-thumb': {
-          background: useColorModeValue('gray.300', 'gray.700'),
+          background: useColorModeValue('opal.200', 'border.dark'),
           borderRadius: '24px',
         },
       }}
       {...rest}
     >
-      <Box flex="1" pt="20px" pb="80px" minH="min-content">
-        <VStack spacing={4} align="stretch" w="100%">
+      <Box flex="1" pt="24px" pb="80px" px="4" minH="min-content">
+        <VStack spacing={1} align="stretch" w="100%">
           <Box>
             {LinkItems.map((link) => (
-              <NavItem key={link.name} icon={link.icon} route={link.route}>
+              <NavItem
+                key={link.name}
+                icon={link.icon}
+                route={link.route}
+                leadingIcon={link.leadingIcon}
+                flipLeadingIcon={link.flipLeadingIcon}
+              >
                 {link.name}
               </NavItem>
             ))}
             <Heading
               mt="6"
-              p="4"
-              mx="4"
+              px="3"
+              pb="1.5"
               size={'xs'}
+              fontSize="11px"
+              letterSpacing="0.12em"
               textTransform="uppercase"
-              textColor={useColorModeValue('gray.500', 'gray.100')}
-              fontWeight="medium"
+              textColor={useColorModeValue('opal.500', '#6B928D')}
+              fontWeight="500"
             >
               Links
             </Heading>
@@ -227,7 +249,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
           position="fixed"
           bottom="20px"
           left={{ base: 'calc(240px - 40px)', md: 'calc(240px - 40px)' }}
-          bg={useColorModeValue('light-theme', 'dark-theme')}
+          bg={useColorModeValue('pine.950', 'emerald.500')}
           borderRadius="full"
           p="2"
           opacity="0.8"
@@ -249,7 +271,7 @@ const SidebarContent = ({ onClose, ...rest }: SidebarProps) => {
         >
           <Icon
             as={FiChevronDown}
-            color={useColorModeValue('white', 'black')}
+            color={useColorModeValue('pine.50', 'pine.950')}
             fontSize="16px"
           />
         </Box>
@@ -263,17 +285,24 @@ interface NavItemProps extends FlexProps {
   children: string | number
   route: string
   isBlank?: boolean
+  leadingIcon?: IconType
+  flipLeadingIcon?: boolean
 }
 export const NavItem = ({
   icon,
   children,
   route,
   isBlank,
+  leadingIcon,
+  flipLeadingIcon,
   ...rest
 }: NavItemProps) => {
   const router = useRouter()
   const [isSelected, setIsSelected] = useState(false)
-  const selectedColor = 'sidebar-selected' // Using the theme token
+  const activeBg = useColorModeValue('pine.950', 'emerald.500')
+  const activeColor = useColorModeValue('pine.50', 'pine.950')
+  const idleColor = useColorModeValue('pine.950', 'pine.50')
+  const hoverBg = useColorModeValue('opal.100', 'rgba(255,255,255,0.04)')
 
   useEffect(() => {
     if (route === '/') {
@@ -293,39 +322,41 @@ export const NavItem = ({
     >
       <Flex
         align="center"
-        p="4"
-        mx="4"
+        px="3"
+        py="2.5"
+        my="0.5"
         borderRadius="lg"
         role="group"
         cursor="pointer"
-        bg={
-          isSelected
-            ? useColorModeValue('light-theme', 'dark-theme')
-            : 'transparent'
-        }
-        color={
-          isSelected
-            ? useColorModeValue('white', 'black')
-            : useColorModeValue('black', 'white')
-        }
+        fontSize="13px"
+        fontWeight={500}
+        letterSpacing="0.01em"
+        bg={isSelected ? activeBg : 'transparent'}
+        color={isSelected ? activeColor : idleColor}
         _hover={{
-          bg: 'button-hover',
-          color: 'black', // Matching the button hover text color
+          bg: isSelected ? activeBg : hoverBg,
+          color: isSelected ? activeColor : idleColor,
         }}
         {...rest}
       >
-        {icon && (
-          <Icon
-            mr="4"
-            fontSize="16"
-            _groupHover={{
-              color: isSelected
-                ? selectedColor
-                : useColorModeValue('light-theme', 'dark-theme'),
-            }}
-            as={icon}
-          />
-        )}
+        <HStack
+          spacing={0}
+          mr="3"
+          align="center"
+          justify="flex-start"
+          w="28px"
+          flexShrink={0}
+        >
+          {leadingIcon && (
+            <Icon
+              fontSize="14"
+              as={leadingIcon}
+              transform={flipLeadingIcon ? 'scaleX(-1)' : undefined}
+              ml="-2px"
+            />
+          )}
+          <Icon fontSize="16" as={icon} />
+        </HStack>
         {children}
       </Flex>
     </Link>
@@ -340,11 +371,11 @@ const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
     <Flex
       ml={{ base: 0, md: 60 }}
       px={{ base: 4, md: 24 }}
-      height="20"
+      height="16"
       alignItems="center"
-      bg={useColorModeValue('light-container', 'dark-container')}
+      bg={useColorModeValue('light-bg', 'dark-bg')}
       borderBottomWidth="1px"
-      borderBottomColor={useColorModeValue('gray.200', 'gray.700')}
+      borderBottomColor={useColorModeValue('border.soft', 'border.dark-soft')}
       justifyContent="flex-start"
       {...rest}
     >
@@ -355,8 +386,15 @@ const MobileNav = ({ onOpen, ...rest }: MobileProps) => {
         icon={<FiMenu />}
       />
 
-      <Text fontSize="2xl" ml="8" fontFamily="monospace" fontWeight="bold">
-        Tellor Explorer
+      <Text
+        fontSize="13px"
+        ml="4"
+        fontWeight={500}
+        letterSpacing="0.04em"
+        textTransform="lowercase"
+        color={useColorModeValue('opal.700', '#8FB6B2')}
+      >
+        layer explorer
       </Text>
     </Flex>
   )

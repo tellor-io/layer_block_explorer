@@ -50,8 +50,8 @@ export default function DistributionParameters() {
     <Box
       mt={6}
       bg={useColorModeValue('light-container', 'dark-container')}
-      shadow={'base'}
-      borderRadius={4}
+      border="1px solid" borderColor={useColorModeValue('border.light', 'border.dark')}
+      borderRadius="2xl"
       p={6}
       hidden={isHidden}
     >

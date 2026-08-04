@@ -448,8 +448,8 @@ export default function DetailBlock() {
           <Box
             mt={8}
             bg={useColorModeValue('light-container', 'dark-container')}
-            shadow={'base'}
-            borderRadius={4}
+            border="1px solid" borderColor={useColorModeValue('border.light', 'border.dark')}
+            borderRadius="2xl"
             p={4}
           >
             <Text>Loading block data...</Text>
@@ -458,8 +458,8 @@ export default function DetailBlock() {
           <Box
             mt={8}
             bg={useColorModeValue('light-container', 'dark-container')}
-            shadow={'base'}
-            borderRadius={4}
+            border="1px solid" borderColor={useColorModeValue('border.light', 'border.dark')}
+            borderRadius="2xl"
             p={4}
           >
             <Text color="red.500">Error: {error}</Text>
@@ -468,8 +468,8 @@ export default function DetailBlock() {
           <Box
             mt={8}
             bg={useColorModeValue('light-container', 'dark-container')}
-            shadow={'base'}
-            borderRadius={4}
+            border="1px solid" borderColor={useColorModeValue('border.light', 'border.dark')}
+            borderRadius="2xl"
             p={4}
           >
             <Heading size={'md'} mb={4}>
@@ -559,8 +559,8 @@ export default function DetailBlock() {
           <Box
             mt={8}
             bg={useColorModeValue('light-container', 'dark-container')}
-            shadow={'base'}
-            borderRadius={4}
+            border="1px solid" borderColor={useColorModeValue('border.light', 'border.dark')}
+            borderRadius="2xl"
             p={4}
           >
             <Heading size={'md'} mb={4}>

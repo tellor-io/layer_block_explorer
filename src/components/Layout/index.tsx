@@ -90,7 +90,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <Box minH="100vh" bg={colorModeValue} position="relative" width="100%">
       <Navbar />
-      <Box pt="80px" width="100%">
+      <Box pt="64px" width="100%">
         <Flex width="100%">
           <Box display={{ base: 'none', md: 'block' }}>
             <Sidebar />
@@ -98,9 +98,17 @@ export default function Layout({ children }: LayoutProps) {
           <Box
             flex={1}
             ml={{ base: 0, md: 60 }}
-            p="4"
+            px={{ base: 4, md: 9 }}
+            pt={{ base: 5, md: 7 }}
+            pb={{ base: 8, md: 10 }}
             width="100%"
             overflowX="auto"
+            sx={{
+              '@media (min-width: 62em) and (max-height: 700px)': {
+                paddingTop: '16px',
+                paddingBottom: '16px',
+              },
+            }}
           >
             {isNetworkSwitching ? (
               <LoadingPage

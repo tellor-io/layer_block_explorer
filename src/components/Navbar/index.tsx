@@ -309,45 +309,50 @@ export default function Navbar() {
     }
   }
 
+  const topbarBg = useColorModeValue('light-bg', 'dark-bg')
+  const topbarBorder = useColorModeValue('border.soft', 'border.dark-soft')
+  const rpcBg = useColorModeValue('white', 'dark-container')
+  const rpcBorder = useColorModeValue('border.light', 'border.dark')
+  const rpcColor = useColorModeValue('opal.700', '#8FB6B2')
+
   return (
     <Box
-      bg={useColorModeValue('light-container', 'dark-container')}
-      px={4}
+      bg={topbarBg}
+      px={{ base: 4, md: 7 }}
       position="fixed"
       top={0}
       left={0}
       right={0}
       zIndex={2}
       width="100%"
+      borderBottom="1px solid"
+      borderBottomColor={topbarBorder}
     >
-      <Flex h="80px" alignItems={'center'} justifyContent={'space-between'}>
-        <Flex alignItems={'center'} h="full">
-          <Box px={0} py={4}>
-            <Flex alignItems="center" gap={4}>
-              <Image
-                src={useColorModeValue('/AllDrk.png', '/AllWht.png')}
-                alt="Tellor Logo"
-                height={{ base: '40px', md: 'min(4vw, 50px)' }}
-                width={{ base: 'auto', md: 'auto' }}
-                objectFit="contain"
-                transition="height 0.2s ease-in-out"
-              />
-            </Flex>
-          </Box>
+      <Flex h="64px" alignItems={'center'} justifyContent={'space-between'} gap={4}>
+        <Flex alignItems={'center'} h="full" gap={3} minW={0}>
+          <Image
+            src={useColorModeValue('/AllDrk.png', '/AllWht.png')}
+            alt="Tellor Logo"
+            height={{ base: '28px', md: '32px' }}
+            width="auto"
+            objectFit="contain"
+            flexShrink={0}
+          />
         </Flex>
-        <Flex alignItems={'center'}>
+        <Flex alignItems={'center'} gap={2}>
           {/* Mobile menu button */}
           <IconButton
             display={{ base: 'flex', md: 'none' }}
             onClick={onMenuOpen}
             icon={<FiMenu />}
             aria-label="Open menu"
-            size="md"
+            size="sm"
+            variant="outline"
           />
 
           {/* Existing buttons */}
-          <HStack display={{ base: 'none', md: 'flex' }}>
-            <HStack maxW="md">
+          <HStack display={{ base: 'none', md: 'flex' }} spacing={2}>
+            <HStack maxW="md" spacing={2}>
               <Input
                 placeholder="Search by height / txhash / address"
                 value={search}
@@ -357,15 +362,40 @@ export default function Navbar() {
                     handleSearch()
                   }
                 }}
+                w="320px"
               />
               <IconButton
                 aria-label="Search"
                 icon={<FiSearch />}
                 onClick={handleSearch}
+                size="md"
+                variant="outline"
               />
             </HStack>
-            <Skeleton isLoaded={!!status}>
-              <Button leftIcon={<Icon as={FiRadio} />} onClick={onOpen}>
+            <Skeleton isLoaded={!!status} borderRadius="full">
+              <Button
+                onClick={onOpen}
+                variant="outline"
+                size="sm"
+                fontFamily="mono"
+                fontSize="12px"
+                fontWeight={500}
+                px={3}
+                h="36px"
+                bg={rpcBg}
+                borderColor={rpcBorder}
+                color={rpcColor}
+                leftIcon={
+                  <Box
+                    w="7px"
+                    h="7px"
+                    borderRadius="full"
+                    bg="emerald.500"
+                    boxShadow="0 0 0 3px rgba(8, 212, 130, 0.18)"
+                    flexShrink={0}
+                  />
+                }
+              >
                 {status?.nodeInfo.network === 'tellor-1'
                   ? 'Mainnet'
                   : status?.nodeInfo.network === 'layertest-4'
@@ -377,6 +407,8 @@ export default function Navbar() {
               aria-label="Toggle color mode"
               icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}
               onClick={toggleColorMode}
+              size="md"
+              variant="outline"
             />
           </HStack>
         </Flex>
@@ -438,6 +470,8 @@ export default function Navbar() {
                   key={link.name}
                   icon={link.icon}
                   route={link.route}
+                  leadingIcon={link.leadingIcon}
+                  flipLeadingIcon={link.flipLeadingIcon}
                   onClick={onMenuClose}
                 >
                   {link.name}
@@ -503,7 +537,6 @@ export default function Navbar() {
             <Button
               size="sm"
               variant="outline"
-              colorScheme="blue"
               onClick={handleSwitchNetwork}
               mt={2}
             >
@@ -511,7 +544,7 @@ export default function Navbar() {
             </Button>
           </ModalBody>
           <ModalFooter>
-            <Button colorScheme="blue" mr={3} onClick={onClose}>
+            <Button mr={3} onClick={onClose}>
               Close
             </Button>
           </ModalFooter>
@@ -531,7 +564,7 @@ export default function Navbar() {
             />
           </ModalBody>
           <ModalFooter>
-            <Button colorScheme="blue" mr={3} onClick={handleEditRPCAddress}>
+            <Button mr={3} onClick={handleEditRPCAddress}>
               Save
             </Button>
             <Button variant="ghost" onClick={() => setIsEditModalOpen(false)}>

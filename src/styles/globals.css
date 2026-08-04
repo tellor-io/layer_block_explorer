@@ -1,5 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
 :root {
   --font-pp-neue-montreal: 'PP Neue Montreal', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+
+  /* Tellor brand scales */
+  --pine-50: #eefffb;
+  --pine-950: #003734;
+  --emerald-500: #08d482;
+  --opal-100: #dcebea;
+  --opal-200: #b9d6d4;
+  --opal-500: #4d7d7f;
+  --opal-700: #335052;
 }
 
 html,
@@ -22,23 +35,23 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
-}
-
 * {
   font-family: inherit;
+}
+
+.mono,
+[data-mono] {
+  font-family: var(--font-mono) !important;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Date Picker Styles */
 .rdp {
   --rdp-cell-size: 40px;
-  --rdp-accent-color: var(--chakra-colors-blue-500);
-  --rdp-background-color: var(--chakra-colors-gray-100);
-  --rdp-accent-color-dark: var(--chakra-colors-blue-400);
-  --rdp-background-color-dark: var(--chakra-colors-gray-700);
+  --rdp-accent-color: var(--emerald-500);
+  --rdp-background-color: var(--opal-100);
+  --rdp-accent-color-dark: #76ffc7;
+  --rdp-background-color-dark: #002624;
   --rdp-outline: 2px solid var(--rdp-accent-color);
   --rdp-outline-selected: 3px solid var(--rdp-accent-color);
   margin: 0;
@@ -48,7 +61,7 @@ a {
 .rdp-day_selected:focus-visible,
 .rdp-day_selected:hover {
   background-color: var(--rdp-accent-color);
-  color: white;
+  color: var(--pine-950);
 }
 
 .rdp-day:hover:not([disabled]) {

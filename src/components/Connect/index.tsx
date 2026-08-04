@@ -146,7 +146,7 @@ export default function Connect() {
             Tellor Explorer
           </Heading>
           <Text as={'h2'} fontSize="lg" textAlign={'center'} mb={5}>
-            Tellor Layer Block Explorer
+            Tellor Block Explorer
           </Text>
           <Stack
             direction={{ base: 'column', md: 'row' }}
