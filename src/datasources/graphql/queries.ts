@@ -1,5 +1,5 @@
 /**
- * GraphQL Query Definitions for Tellor Layer Block Explorer
+ * GraphQL Query Definitions for Tellor Block Explorer
  * 
  * All query strings for fetching data from the GraphQL indexer at https://subgraph.sagemode.me
  */

@@ -29,36 +29,12 @@
       "pairName": "tBTC/USD"
     },
     {
-      "queryId": "0xd62f132d9d04dde6e223d4366c48b47cd9f90228acdc6fa755dab93266db5176",
-      "pairName": "KING/USD"
-    },
-    {
-      "queryId": "0x59ae85cec665c779f18255dd4f3d97821e6a122691ee070b9a26888bc2a0e45a",
-      "pairName": "sUSDS/USD"
-    },
-    {
-      "queryId": "0xe010d752f28dcd2804004d0b57ab1bdc4eca092895d49160204120af11d15f3e",
-      "pairName": "USDN/USD"
-    },
-    {
-      "queryId": "0x74c9cfdfd2e4a00a9437bf93bf6051e18e604a976f3fa37faafe0bb5a039431d",
-      "pairName": "SAGA/USD"
-    },
-    {
       "queryId": "0x03731257e35c49e44b267640126358e5decebdd8f18b5e8f229542ec86e318cf",
       "pairName": "sUSDe/USD"
     },
     {
-      "queryId": "0x35155b44678db9e9e021c2cf49dd20c31b49e03415325c2beffb5221cf63882d",
-      "pairName": "yUSD/USD"
-    },
-    {
       "queryId": "0x1962cde2f19178fe2bb2229e78a6d386e6406979edc7b9a1966d89d83b3ebf2e",
       "pairName": "wstETH/USD"
-    },
-    {
-      "queryId": "0x611fd0e88850bf0cc036d96d04d47605c90b993485c2971e022b5751bbb04f23",
-      "pairName": "stATOM/USD"
     },
     {
       "queryId": "0xab30caa3e7827a27c153063bce02c0b260b29c0c164040c003f0f9ec66002510",

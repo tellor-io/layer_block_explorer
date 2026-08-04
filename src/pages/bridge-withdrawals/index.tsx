@@ -242,8 +242,9 @@ export default function BridgeWithdrawals() {
 
         <Box
           bg={useColorModeValue('light-container', 'dark-container')}
-          borderRadius="lg"
-          boxShadow="xl"
+          borderRadius="2xl"
+          border="1px solid"
+          borderColor={useColorModeValue('border.light', 'border.dark')}
           p={6}
         >
           {loading && withdrawals.length === 0 ? (

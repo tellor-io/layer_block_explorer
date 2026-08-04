@@ -136,7 +136,9 @@ export default function Reporters() {
   const [pageSize, setPageSize] = useState(10)
   const [allData, setAllData] = useState<ReporterData[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: 'power', desc: true },
+  ])
   const toast = useToast()
 
   useEffect(() => {
@@ -223,12 +225,13 @@ export default function Reporters() {
           <Icon fontSize="16" as={FiChevronRight} />
           <Text>Reporters</Text>
         </HStack>
-        <Box mt={8} bg={useColorModeValue('light-container', 'dark-container')} shadow={'base'} borderRadius={4} p={4} overflowX="auto">
+        <Box mt={8} bg={useColorModeValue('light-container', 'dark-container')} border="1px solid" borderColor={useColorModeValue('border.light', 'border.dark')} borderRadius="2xl" p={4} overflowX="auto">
           <DataTable
             columns={columns}
             data={data}
             total={sortedData.length}
             isLoading={isLoading}
+            initialSorting={[{ id: 'power', desc: true }]}
             onChangePagination={(value: { pageIndex: number; pageSize: number }) => {
               setPageIndex(value.pageIndex)
               setPageSize(value.pageSize)

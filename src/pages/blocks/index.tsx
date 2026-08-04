@@ -102,11 +102,11 @@ export default function Blocks() {
   const tabBg = useColorModeValue('light-theme', 'dark-theme')
   const tabTextColor = useColorModeValue('gray.600', 'gray.200')
   const tabHoverColor = useColorModeValue('black', 'black')
-  const linkColor = useColorModeValue('light-theme', '#45ffe1')
+  const linkColor = useColorModeValue('light-theme', 'emerald.300')
   const txLinkColor = useColorModeValue('light-theme', 'dark-theme')
-  const selectedTextColor = useColorModeValue('white', 'black')
-  const selectedBgColor = useColorModeValue('light-theme', 'dark-theme')
-  const heightLinkColor = useColorModeValue('light-theme', '#45ffe1')
+  const selectedTextColor = useColorModeValue('pine.50', 'pine.950')
+  const selectedBgColor = useColorModeValue('pine.950', 'emerald.500')
+  const heightLinkColor = useColorModeValue('light-theme', 'emerald.300')
   const txHashColor = useColorModeValue('light-theme', 'dark-theme')
 
   const tabStyles = useMemo(
@@ -629,7 +629,7 @@ export default function Blocks() {
           <Icon fontSize="16" as={FiChevronRight} />
           <Text>Blocks</Text>
         </HStack>
-        <Box mt={8} bg={containerBg} shadow={'base'} borderRadius={4} p={4}>
+        <Box mt={8} bg={containerBg} border="1px solid" borderColor={useColorModeValue('border.light', 'border.dark')} borderRadius="2xl" p={4}>
           <Tabs variant="unstyled">
             <TabList>
               <Tab

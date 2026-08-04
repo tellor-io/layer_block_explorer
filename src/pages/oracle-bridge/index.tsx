@@ -571,8 +571,8 @@ export default function OracleBridge() {
         <Box
           mt={8}
           bg={useColorModeValue('light-container', 'dark-container')}
-          shadow={'base'}
-          borderRadius={4}
+          border="1px solid" borderColor={useColorModeValue('border.light', 'border.dark')}
+          borderRadius="2xl"
           p={4}
         >
           <VStack spacing={4} align="stretch">

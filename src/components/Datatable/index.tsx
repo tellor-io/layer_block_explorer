@@ -45,6 +45,7 @@ export type DataTableProps<Data extends object> = {
   onChangePagination: Function
   onChangeSorting?: (sorting: SortingState) => void
   serverSideSorting?: boolean
+  initialSorting?: SortingState
 }
 
 export default function DataTable<Data extends object>({
@@ -55,8 +56,9 @@ export default function DataTable<Data extends object>({
   onChangePagination,
   onChangeSorting,
   serverSideSorting = false,
+  initialSorting = [],
 }: DataTableProps<Data>) {
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>(initialSorting)
   const [pageCount, setPageCount] = useState(0)
 
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({

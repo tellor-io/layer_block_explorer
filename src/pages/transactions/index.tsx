@@ -116,8 +116,8 @@ export default function Transactions() {
         <Box
           mt={8}
           bg={containerBg}
-          shadow={'base'}
-          borderRadius={4}
+          border="1px solid" borderColor={useColorModeValue('border.light', 'border.dark')}
+          borderRadius="2xl"
           p={4}
           overflowX="auto"
         >

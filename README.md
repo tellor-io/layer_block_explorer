@@ -1,8 +1,8 @@
 <div align="center">
-  <h1 align="center">Layer Block Explorer</h1>
+  <h1 align="center">Tellor Block Explorer</h1>
 
   <p align="center">
-     Blockchain Explorer for Tellor Layer
+     Blockchain Explorer for Tellor
     <br />
     <br />
     <a href="https://github.com/tellor-io/layer_block_explorer/issues">Report Issues</a>
@@ -16,7 +16,7 @@
 
 </div>
 
-`Layer Block Explorer` is a light explorer for Tellor Layer built on top of the [dexplorer] (https://github.com/arifintahu/dexplorer/)template.
+`Tellor Block Explorer` is a light explorer for Tellor built on top of the [dexplorer] (https://github.com/arifintahu/dexplorer/)template.
 
 ## Features
 
@@ -29,7 +29,7 @@
 
 ## How is Dexplorer different from other explorers?
 
-`Tellor Layer Block Explorer` is only a frontend app, meaning there is no cache or pre-processing. It pulls data from RPC as needed.
+`Tellor Block Explorer` is only a frontend app, meaning there is no cache or pre-processing. It pulls data from RPC as needed.
 
 ## Network Configuration
 

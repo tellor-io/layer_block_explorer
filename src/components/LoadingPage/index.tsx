@@ -9,7 +9,7 @@ import {
 import Head from 'next/head'
 
 export default function LoadingPage({
-  message = 'Connecting to Tellor Layer Block Explorer...',
+  message = 'Connecting to Tellor Block Explorer...',
   fullViewport = true,
 }: {
   message?: string
@@ -19,7 +19,7 @@ export default function LoadingPage({
     <>
       {fullViewport && (
         <Head>
-          <title>Tellor Layer Block Explorer</title>
+          <title>Tellor Block Explorer</title>
           <meta name="description" content="Tellor Explorer" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
           <link rel="icon" href="/favicon.ico" />

@@ -687,8 +687,8 @@ export default function Proposals() {
         <Box
           mt={8}
           bg={useColorModeValue('light-container', 'dark-container')}
-          shadow={'base'}
-          borderRadius={4}
+          border="1px solid" borderColor={useColorModeValue('border.light', 'border.dark')}
+          borderRadius="2xl"
           p={4}
           overflowX="auto"
           width={['100%', '100%', '100%', 'auto']}
