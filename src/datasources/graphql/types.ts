@@ -127,7 +127,7 @@ export interface GovProposal {
   votingStartTime: string; // ISO timestamp
   votingEndTime: string; // ISO timestamp
   messages: string; // Comma-separated message types
-  tallyResults?: string | null; // JSON string: {"tally":{"yes_count":"...","abstain_count":"...","no_count":"...","no_with_veto_count":"..."},"totalPower":"..."}
+  tallyResults?: string | null; // JSON: {"tally":{"yes"|"yes_count":"...","no"|"no_count":"...","abstain"|"abstain_count":"...","no_with_veto"|"no_with_veto_count":"..."},"totalPower":"..."} — vote counts micro-denom; totalPower normalized at vote time
 }
 
 export interface GovProposalsResponse {

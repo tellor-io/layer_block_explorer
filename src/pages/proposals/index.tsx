@@ -1,8 +1,8 @@
 /**
  * HYBRID DATA ARCHITECTURE - Proposals Page
  *
- * Indexer (GraphQL): proposal list, quorum threshold %
- * Live RPC (stakingCache): total staked for quorum calculation
+ * Indexer (GraphQL): proposal list, tally results (incl. totalPower at vote time), quorum threshold %
+ * Quorum % / Quorum Met use tallyResults.totalPower (historical), not live staking.
  */
 
 import Head from 'next/head'
@@ -29,7 +29,6 @@ import { FiChevronRight, FiHome } from 'react-icons/fi'
 import { graphqlQuery } from '@/datasources/graphql/client'
 import { GET_GOV_PROPOSALS, GET_GOV_QUORUM } from '@/datasources/graphql/queries'
 import { GovProposalsResponse, GovProposal, PageInfo } from '@/datasources/graphql/types'
-import { stakingCache } from '@/datasources/live/stakingCache'
 import DataTable from '@/components/Datatable'
 import { createColumnHelper } from '@tanstack/react-table'
 import {
@@ -37,7 +36,6 @@ import {
   displayDate,
   convertRateToPercent,
   convertVotingPower,
-  isActiveValidator,
 } from '@/utils/helper'
 import {
   proposalStatus,
@@ -217,9 +215,8 @@ export default function Proposals() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [quorumRequired, setQuorumRequired] = useState<string>('')
-  const [totalStakedTokens, setTotalStakedTokens] = useState<number>(0)
+  const [quorumReady, setQuorumReady] = useState(false)
   const quorumRequiredRef = useRef<string>('')
-  const totalStakedTokensRef = useRef<number>(0)
   const toast = useToast()
   const isFetchingRef = useRef(false)
   const mountedRef = useRef(true)
@@ -236,39 +233,26 @@ export default function Proposals() {
   useEffect(() => {
     quorumRequiredRef.current = quorumRequired
   }, [quorumRequired])
-  
-  useEffect(() => {
-    totalStakedTokensRef.current = totalStakedTokens
-  }, [totalStakedTokens])
 
 
-  // GraphQL: Fetch quorum requirement and total staked tokens
+  // GraphQL: quorum threshold % only (total power comes from each proposal's tallyResults)
   const fetchQuorumRequirement = useCallback(async () => {
     try {
-      const [validators, paramsResponse] = await Promise.all([
-        stakingCache.fetchValidators(),
-        graphqlQuery<GovQuorumResponse>(GET_GOV_QUORUM),
-      ])
-
-      const activeValidators = validators.filter((validator) =>
-        isActiveValidator(validator.bondStatus)
-      )
-
-      const totalPower = activeValidators.reduce(
-        (sum, validator) => sum + Number(validator.tokens || 0),
-        0
-      )
-      setTotalStakedTokens(totalPower / 1_000_000)
+      const paramsResponse = await graphqlQuery<GovQuorumResponse>(GET_GOV_QUORUM)
 
       if (paramsResponse?.govParams?.edges?.[0]?.node?.quorum) {
         const quorumValue = paramsResponse.govParams.edges[0].node.quorum
         const quorumPercent = (parseFloat(quorumValue) * 100).toFixed(2)
-        setQuorumRequired(`${quorumPercent}%`)
+        const quorumStr = `${quorumPercent}%`
+        quorumRequiredRef.current = quorumStr
+        setQuorumRequired(quorumStr)
       } else {
+        quorumRequiredRef.current = '33.40%'
         setQuorumRequired('33.40%')
       }
     } catch (error) {
       console.error('Error fetching quorum requirement:', error)
+      quorumRequiredRef.current = '33.40%'
       setQuorumRequired('33.40%')
     }
   }, [])
@@ -298,7 +282,12 @@ export default function Proposals() {
 
   // GraphQL: Fetch proposals with pagination
   const fetchProposals = useCallback(async () => {
-    if (isFetchingRef.current || !mountedRef.current) {
+    // Quorum threshold must already be loaded so Quorum Met? is not "Unknown".
+    if (
+      isFetchingRef.current ||
+      !mountedRef.current ||
+      !quorumRequiredRef.current
+    ) {
       return
     }
 
@@ -439,7 +428,8 @@ export default function Proposals() {
         )
 
         // Parse tally results from JSON string
-        // Expected format: {"tally":{"yes_count":"...","abstain_count":"...","no_count":"...","no_with_veto_count":"..."},"totalPower":"..."}
+        // Indexer format: {"tally":{"yes":"...","no":"...","abstain":"...","no_with_veto":"..."},"totalPower":"..."}
+        // Also supports cosmos-style *_count keys. Vote counts are micro-denom; totalPower is already normalized.
         let voteResults: {
           hasVotes: boolean
           voteDistribution: {
@@ -461,11 +451,13 @@ export default function Proposals() {
             const tallyData = JSON.parse(proposal.tallyResults)
             const tally = tallyData.tally || {}
             
-            // Extract vote counts - need to determine if they're in micro-denomination or already normalized
-            const yesCount = Number(tally.yes_count || '0')
-            const noCount = Number(tally.no_count || '0')
-            const abstainCount = Number(tally.abstain_count || '0')
-            const noWithVetoCount = Number(tally.no_with_veto_count || '0')
+            // Support both indexer keys (yes) and cosmos keys (yes_count)
+            const yesCount = Number(tally.yes_count || tally.yes || '0')
+            const noCount = Number(tally.no_count || tally.no || '0')
+            const abstainCount = Number(tally.abstain_count || tally.abstain || '0')
+            const noWithVetoCount = Number(
+              tally.no_with_veto_count || tally.no_with_veto || '0'
+            )
             
             // Determine if vote counts are in micro-denomination or already normalized
             const sampleValue = yesCount || noCount || abstainCount || noWithVetoCount || 0
@@ -480,16 +472,16 @@ export default function Proposals() {
             const abstainNormalized = normalizeValue(abstainCount)
             const vetoNormalized = normalizeValue(noWithVetoCount)
             
-            // Sum of all votes cast (normalized) - this is the numerator
+            // Sum of all votes cast (normalized) - numerator for % of total power
             const totalVotesCast = yesNormalized + noNormalized + abstainNormalized + vetoNormalized
-            
-            // totalPower in JSON is the total possible power (total staked tokens) - already normalized
-            // This is the denominator for calculating % of total power
-            const totalStakedPower = tallyData.totalPower !== undefined && tallyData.totalPower !== null
-              ? Number(tallyData.totalPower)
-              : 0
 
-            // Calculate percentages - individual vote percentages are % of votes cast (not % of total staked)
+            // totalPower from tally is the bonded power at vote time (already normalized)
+            const totalPowerAtVote =
+              tallyData.totalPower !== undefined && tallyData.totalPower !== null
+                ? Number(tallyData.totalPower)
+                : 0
+
+            // Calculate percentages - individual vote percentages are % of votes cast
             const formatVote = (normalizedVote: number) => {
               const percentage = totalVotesCast > 0 ? (normalizedVote / totalVotesCast) * 100 : 0
               return {
@@ -507,49 +499,8 @@ export default function Proposals() {
                   abstain: formatVote(abstainNormalized),
                   veto: formatVote(vetoNormalized),
                 },
-                totalPower: totalVotesCast, // Total votes cast (for display)
-                totalStakedPower: totalStakedPower, // Total possible power (for quorum calculation)
-              }
-              
-              // Debug logging for proposal 1
-              if (proposal.proposalId === 1 && voteResults.voteDistribution) {
-                const requiredQuorum = parseFloat((quorumRequiredRef.current || '0').replace('%', ''))
-                const quorumPct = voteResults.totalStakedPower && voteResults.totalStakedPower > 0
-                  ? (voteResults.totalPower / voteResults.totalStakedPower) * 100
-                  : 0
-                
-                console.log('=== Proposal 1 Vote Calculation Debug ===')
-                console.log('Raw Tally Data:', JSON.stringify(tallyData, null, 2))
-                console.log('Vote Counts (raw):', {
-                  yesCount,
-                  noCount,
-                  abstainCount,
-                  noWithVetoCount,
-                })
-                console.log('Format Detection:', {
-                  sampleValue,
-                  isMicroDenomination,
-                })
-                console.log('Normalized Vote Counts:', {
-                  yesNormalized,
-                  noNormalized,
-                  abstainNormalized,
-                  vetoNormalized,
-                })
-                console.log('Total Votes Cast (sum of normalized votes):', totalVotesCast)
-                console.log('Total Staked Power (from JSON, total possible):', {
-                  fromJSON: tallyData.totalPower,
-                  type: typeof tallyData.totalPower,
-                  used: voteResults.totalStakedPower,
-                })
-                console.log('Quorum Calculation:', {
-                  requiredQuorum: `${requiredQuorum}%`,
-                  currentQuorum: `${quorumPct.toFixed(2)}%`,
-                  quorumMet: quorumPct >= requiredQuorum,
-                  calculation: `(${totalVotesCast} / ${voteResults.totalStakedPower}) * 100 = ${quorumPct.toFixed(2)}%`,
-                })
-                console.log('Vote Distribution:', voteResults.voteDistribution)
-                console.log('==========================================')
+                totalPower: totalVotesCast,
+                totalStakedPower: totalPowerAtVote,
               }
             }
           }
@@ -557,22 +508,21 @@ export default function Proposals() {
           console.warn('Failed to parse tally results for proposal', proposal.proposalId, error)
         }
 
-        // Calculate quorum status
-        // totalStakedPower from JSON is the total possible power (already normalized)
-        // totalPower is the sum of votes cast (already normalized)
-        // % of Total Power = (totalPower / totalStakedPower) * 100
+        // % of Total Power = (votes cast / totalPower at vote time) * 100
+        // Cap at 100% when vote sum exceeds totalPower due to rounding.
         let quorumMet = false
         let currentQuorumPercentage = '0%'
+        const totalPowerAtVote = voteResults.totalStakedPower ?? 0
+        const requiredQuorumStr = quorumRequiredRef.current
 
-        if (voteResults.hasVotes && quorumRequiredRef.current && voteResults.totalStakedPower && voteResults.totalStakedPower > 0) {
-          const requiredQuorum = parseFloat(quorumRequiredRef.current.replace('%', ''))
-          // Both are already normalized, so direct comparison
-          const currentQuorum = (voteResults.totalPower / voteResults.totalStakedPower) * 100
+        if (voteResults.hasVotes && requiredQuorumStr && totalPowerAtVote > 0) {
+          const requiredQuorum = parseFloat(requiredQuorumStr.replace('%', ''))
+          const currentQuorum = Math.min(
+            100,
+            (voteResults.totalPower / totalPowerAtVote) * 100
+          )
           currentQuorumPercentage = `${currentQuorum.toFixed(2)}%`
           quorumMet = currentQuorum >= requiredQuorum
-        } else if (voteResults.hasVotes && quorumRequiredRef.current && (!voteResults.totalStakedPower || voteResults.totalStakedPower === 0)) {
-          // If totalStakedPower is not available, we can't calculate accurately
-          console.warn('Cannot calculate quorum: totalStakedPower not available in tally results.')
         }
 
         return {
@@ -583,7 +533,7 @@ export default function Proposals() {
           votingEnd: votingEnd,
           voteResults: voteResults,
           quorum: {
-            required: quorumRequiredRef.current || 'Unknown',
+            required: requiredQuorumStr,
             met: quorumMet,
             percentage: currentQuorumPercentage,
           },
@@ -614,29 +564,40 @@ export default function Proposals() {
     }
   }, [page, perPage, fetchFirstPage, fetchNextPage])
 
+  // 1) Load quorum threshold first (do not map proposals until ready).
   useEffect(() => {
     mountedRef.current = true
+    setQuorumReady(false)
     setIsLoading(true)
-    fetchQuorumRequirement()
-    fetchProposals()
+    setError(null)
+
+    const loadQuorum = async () => {
+      await fetchQuorumRequirement()
+      if (!mountedRef.current) return
+      setQuorumReady(true)
+    }
+    void loadQuorum()
 
     return () => {
       mountedRef.current = false
       isFetchingRef.current = false
     }
-  }, [fetchQuorumRequirement, fetchProposals])
+  }, [fetchQuorumRequirement, rpcAddress])
 
-  // Refetch when network switch updates the active RPC endpoint.
+  // 2) Fetch/map proposals only after quorum threshold is ready (also on page changes).
   useEffect(() => {
-    if (!rpcAddress || !mountedRef.current) return
+    if (!quorumReady || !mountedRef.current) return
 
+    setIsLoading(true)
+    void fetchProposals()
+  }, [quorumReady, fetchProposals])
+
+  // Reset pagination when RPC endpoint changes (quorum effect above also re-runs).
+  useEffect(() => {
+    if (!rpcAddress) return
     setPage(0)
     setPagesCursors([])
-    setError(null)
-    setIsLoading(true)
-    void fetchQuorumRequirement()
-    void fetchProposals()
-  }, [rpcAddress, fetchQuorumRequirement, fetchProposals])
+  }, [rpcAddress])
 
   const onChangePagination = useCallback(
     (value: { pageIndex: number; pageSize: number }) => {
