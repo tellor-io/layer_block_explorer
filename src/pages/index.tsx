@@ -197,7 +197,10 @@ export default function Home() {
     const fetchReporters = async () => {
       try {
         const response = await fetchLiveReporters()
-        setReporterCount(response.count)
+        setReporterCount(
+          response.reporters.filter((r) => parseInt(r.power || '0', 10) > 0)
+            .length
+        )
         setReportersError(null)
       } catch (error) {
         console.error('Error fetching reporters:', error)
@@ -487,7 +490,7 @@ export default function Home() {
                   bgColor={BOX_ICON_BG}
                   color={BOX_ICON_COLOR}
                   icon={BsPersonFillAdd}
-                  name="Reporters"
+                  name="Staked Reporters"
                   value={reportersError ?? reporterCount}
                   isError={!!reportersError}
                 />
