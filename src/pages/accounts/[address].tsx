@@ -50,7 +50,7 @@ import {
 } from '@/datasources/graphql/types'
 
 // How many recent blocks the account transaction search covers
-const ACCOUNT_TX_BLOCK_WINDOW = 1_000_000
+const ACCOUNT_TX_BLOCK_WINDOW = 10000
 
 export default function DetailAccount() {
   const router = useRouter()
