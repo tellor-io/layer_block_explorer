@@ -2,6 +2,7 @@ import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import duration from 'dayjs/plugin/duration'
 import utc from 'dayjs/plugin/utc'
+import { sha256 } from '@cosmjs/crypto'
 import { toHex } from '@cosmjs/encoding'
 import { bech32 } from 'bech32'
 import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin'
@@ -146,5 +147,34 @@ export const bytesToBech32ConsensusAddress = (byteString: string): string => {
   } catch (error) {
     console.error('Failed to convert bytes to bech32 consensus address:', error)
     return byteString // Return original if conversion fails
+  }
+}
+
+const ed25519PubkeyBase64 = (consensusPubkey: unknown): string | null => {
+  if (!consensusPubkey) return null
+  if (typeof consensusPubkey === 'string') {
+    const trimmed = consensusPubkey.trim()
+    if (trimmed.startsWith('{')) {
+      return ed25519PubkeyBase64(JSON.parse(trimmed))
+    }
+    return trimmed
+  }
+  if (typeof consensusPubkey === 'object' && 'key' in consensusPubkey) {
+    const key = (consensusPubkey as { key?: unknown }).key
+    return typeof key === 'string' ? key : null
+  }
+  return null
+}
+
+// CometBFT address is the first 20 bytes of sha256(ed25519 pubkey).
+export const consensusPubkeyToBech32Address = (consensusPubkey: unknown): string | null => {
+  try {
+    const key = ed25519PubkeyBase64(consensusPubkey)
+    if (!key) return null
+    const hash = sha256(Buffer.from(key, 'base64')).slice(0, 20)
+    return bech32.encode('tellorvalcons', bech32.toWords(Buffer.from(hash)))
+  } catch (error) {
+    console.error('Failed to convert consensus pubkey to bech32 address:', error)
+    return null
   }
 }

@@ -1,5 +1,17 @@
-import { convertRateToPercent } from '@/utils/helper'
+import { consensusPubkeyToBech32Address, convertRateToPercent } from '@/utils/helper'
 import type { LiveValidator, LiveValidatorsResponse } from './types'
+
+export function monikerByConsensusAddress(
+  validators: Array<Pick<LiveValidator, 'consensusPubkey' | 'description' | 'operatorAddress'>>
+): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const validator of validators) {
+    const consensusAddress = consensusPubkeyToBech32Address(validator.consensusPubkey)
+    if (!consensusAddress) continue
+    map[consensusAddress] = validator.description.moniker || validator.operatorAddress
+  }
+  return map
+}
 
 export function bondStatusToNum(bondStatus: string): number {
   switch (bondStatus) {
