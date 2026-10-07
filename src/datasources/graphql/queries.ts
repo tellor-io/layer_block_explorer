@@ -394,8 +394,13 @@ export const GET_TRANSACTION_BY_HASH = `
  * Used for: /accounts/[address] page
  */
 export const GET_TRANSACTIONS_BY_ACCOUNT = `
-  query GetTransactionsByAccount($address: String!, $first: Int, $after: Cursor) {
-    transactions(first: $first, after: $after, where: { txData: { contains: $address } }) {
+  query GetTransactionsByAccount($address: String!, $minHeight: BigFloat!, $first: Int, $after: Cursor) {
+    transactions(
+      first: $first
+      after: $after
+      orderBy: BLOCK_HEIGHT_DESC
+      filter: { blockHeight: { greaterThan: $minHeight }, txData: { includes: $address } }
+    ) {
       edges {
         node {
           nodeId
