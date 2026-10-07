@@ -6,8 +6,11 @@
  * GraphQL Data Sources (via /src/datasources/graphql/):
  * - Latest blocks list (GET_LATEST_BLOCKS)
  * - Block details and metadata
- * - Proposer information
  * - Transaction counts
+ *
+ * Proposer names come from live staking (/api/validators/live), matched by
+ * consensus address. The indexed description can still contain the
+ * edit-validator sentinel "[do-not-modify]".
  * 
  * Migration Notes:
  * - Replaced RPC websocket subscriptions with GraphQL polling
@@ -59,10 +62,11 @@ import { timeFromNow, trimHash, getTypeMsg, bytesToBech32ConsensusAddress } from
 import { sha256 } from '@cosmjs/crypto'
 import { CopyableHash } from '@/components/CopyableHash'
 import Head from 'next/head'
-// GraphQL imports
-import { graphqlQuery, bytesToHex, parseJsonField } from '@/datasources/graphql/client'
-import { GET_LATEST_BLOCKS, GET_VALIDATORS } from '@/datasources/graphql/queries'
-import { BlocksResponse, Block, ValidatorsResponse, Validator, ValidatorDescription, PageInfo } from '@/datasources/graphql/types'
+import { graphqlQuery } from '@/datasources/graphql/client'
+import { GET_LATEST_BLOCKS } from '@/datasources/graphql/queries'
+import { BlocksResponse, Block, PageInfo } from '@/datasources/graphql/types'
+import { monikerByConsensusAddress } from '@/datasources/live/validators'
+import type { LiveValidatorsResponse } from '@/datasources/live/types'
 
 
 // GraphQL interfaces
@@ -128,36 +132,16 @@ export default function Blocks() {
   )
 
 
-  // GraphQL fetch validators (client-side as per migration plan)
   const fetchValidators = async () => {
     try {
-      console.log('Blocks page: Fetching validators from GraphQL')
-      const response = await graphqlQuery<ValidatorsResponse>(GET_VALIDATORS, { first: 200 })
-      
-      if (response?.validators?.edges) {
-        const map: { [key: string]: string } = {}
-        response.validators.edges.forEach(({ node: validator }) => {
-          // Use consensusAddress field directly for matching
-          if (validator.consensusAddress) {
-            // Description is already parsed as an object, not a JSON string
-            const description = typeof validator.description === 'string' 
-              ? parseJsonField(validator.description) as ValidatorDescription | null
-              : validator.description as ValidatorDescription | null
-            map[validator.consensusAddress] = description?.moniker || 'Unknown'
-            console.log('Validator mapping:', { 
-              consensusAddress: validator.consensusAddress, 
-              moniker: description?.moniker || 'Unknown' 
-            })
-          }
-        })
-        setValidatorMap(map)
-        console.log(
-          'Blocks page: Successfully fetched validators from GraphQL, map size:',
-          Object.keys(map).length
-        )
+      const response = await fetch('/api/validators/live')
+      if (!response.ok) {
+        throw new Error('Failed to fetch validators')
       }
+      const data = (await response.json()) as LiveValidatorsResponse
+      setValidatorMap(monikerByConsensusAddress(data.validators || []))
     } catch (error) {
-      console.error('Error fetching validators from GraphQL:', error)
+      console.error('Error fetching validators:', error)
     }
   }
 

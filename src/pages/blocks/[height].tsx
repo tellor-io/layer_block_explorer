@@ -39,10 +39,11 @@ import { timeFromNow, trimHash, displayDate, getTypeMsg, bytesToBech32ConsensusA
 import { sha256 } from '@cosmjs/crypto'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { FaExpand, FaCompress, FaCopy } from 'react-icons/fa'
-// GraphQL imports
-import { graphqlQuery, bytesToHex, parseJsonField } from '@/datasources/graphql/client'
-import { GET_BLOCK_BY_HEIGHT, GET_VALIDATORS, GET_TRANSACTIONS_BY_BLOCK_HEIGHT } from '@/datasources/graphql/queries'
-import { BlockResponse, ValidatorsResponse, ValidatorDescription, TransactionsResponse, Transaction } from '@/datasources/graphql/types'
+import { graphqlQuery, bytesToHex } from '@/datasources/graphql/client'
+import { GET_BLOCK_BY_HEIGHT, GET_TRANSACTIONS_BY_BLOCK_HEIGHT } from '@/datasources/graphql/queries'
+import { BlockResponse, TransactionsResponse, Transaction } from '@/datasources/graphql/types'
+import { monikerByConsensusAddress } from '@/datasources/live/validators'
+import type { LiveValidatorsResponse } from '@/datasources/live/types'
 import { getBlockResults } from '@/rpc/query'
 import { Tx as TxData } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
 import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin'
@@ -100,36 +101,16 @@ export default function DetailBlock() {
   )
 
 
-  // GraphQL fetch validators (client-side as per migration plan)
   const fetchValidators = async () => {
     try {
-      console.log('Block detail: Fetching validators from GraphQL')
-      const response = await graphqlQuery<ValidatorsResponse>(GET_VALIDATORS, { first: 100 })
-      
-      if (response?.validators?.edges) {
-        const map: { [key: string]: string } = {}
-        response.validators.edges.forEach(({ node: validator }: any) => {
-          // Use consensusAddress field directly for matching (same as blocks/index.tsx)
-          if (validator.consensusAddress) {
-            // Description is already parsed as an object, not a JSON string
-            const description = typeof validator.description === 'string' 
-              ? parseJsonField(validator.description) as ValidatorDescription | null
-              : validator.description as ValidatorDescription | null
-            map[validator.consensusAddress] = description?.moniker || 'Unknown'
-            console.log('Validator mapping:', { 
-              consensusAddress: validator.consensusAddress, 
-              moniker: description?.moniker || 'Unknown' 
-            })
-          }
-        })
-        setValidatorMap(map)
-        console.log(
-          'Block detail: Successfully fetched validators from GraphQL, map size:',
-          Object.keys(map).length
-        )
+      const response = await fetch('/api/validators/live')
+      if (!response.ok) {
+        throw new Error('Failed to fetch validators')
       }
+      const data = (await response.json()) as LiveValidatorsResponse
+      setValidatorMap(monikerByConsensusAddress(data.validators || []))
     } catch (error) {
-      console.error('Error fetching validators from GraphQL:', error)
+      console.error('Error fetching validators:', error)
     }
   }
 
