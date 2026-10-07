@@ -39,8 +39,18 @@ import { selectTmClient } from '@/store/connectSlice'
 import { Account, Coin } from '@cosmjs/stargate'
 import { trimHash, getTypeMsg } from '@/utils/helper'
 import { graphqlQuery } from '@/datasources/graphql/client'
-import { GET_TRANSACTIONS_BY_ACCOUNT } from '@/datasources/graphql/queries'
-import { TransactionsResponse, Transaction } from '@/datasources/graphql/types'
+import {
+  GET_SINGLE_LATEST_BLOCK,
+  GET_TRANSACTIONS_BY_ACCOUNT,
+} from '@/datasources/graphql/queries'
+import {
+  BlocksResponse,
+  TransactionsResponse,
+  Transaction,
+} from '@/datasources/graphql/types'
+
+// How many recent blocks the account transaction search covers
+const ACCOUNT_TX_BLOCK_WINDOW = 10000
 
 export default function DetailAccount() {
   const router = useRouter()
@@ -48,7 +58,8 @@ export default function DetailAccount() {
   const { address } = router.query
   const tmClient = useSelector(selectTmClient)
   const [account, setAccount] = useState<Account | null>(null)
-  const [allBalances, setAllBalances] = useState<readonly Coin[]>([])
+
+  const [allBalances, setAllBalances] = useState<readonly Coin[] | null>(null)
   const [balanceStaked, setBalanceStaked] = useState<Coin | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [txLoading, setTxLoading] = useState(true)
@@ -61,9 +72,18 @@ export default function DetailAccount() {
       setTxLoading(true)
       setTxError(null)
       
+      // txData has no index, so an unbounded substring search times out on the
+      // indexer. Bound the scan to a recent block window via the blockHeight index.
+      const latest = await graphqlQuery<BlocksResponse>(GET_SINGLE_LATEST_BLOCK)
+      const latestHeight = Number(latest.blocks?.edges?.[0]?.node?.blockHeight)
+      if (!Number.isFinite(latestHeight)) {
+        throw new Error('Failed to fetch latest block height')
+      }
+      const minHeight = Math.max(latestHeight - ACCOUNT_TX_BLOCK_WINDOW, 0)
+
       const response = await graphqlQuery<TransactionsResponse>(
         GET_TRANSACTIONS_BY_ACCOUNT,
-        { address: address as string, first: 30 }
+        { address: address as string, minHeight: String(minHeight), first: 30 }
       )
       
       if (response.transactions?.edges) {
@@ -86,7 +106,7 @@ export default function DetailAccount() {
           .catch(showError)
       }
 
-      if (!allBalances.length) {
+      if (!allBalances) {
         getAllBalances(tmClient, address as string)
           .then(setAllBalances)
           .catch(showError)
@@ -97,10 +117,12 @@ export default function DetailAccount() {
           .then(setBalanceStaked)
           .catch(showError)
       }
-
-      fetchAccountTransactions()
     }
   }, [tmClient, account, allBalances, balanceStaked, address])
+
+  useEffect(() => {
+    fetchAccountTransactions()
+  }, [address])
 
   const showError = (err: Error) => {
     const errMsg = err.message
@@ -249,7 +271,7 @@ export default function DetailAccount() {
                       </Tr>
                     </Thead>
                     <Tbody>
-                      {allBalances.map((item, index) => (
+                      {allBalances?.map((item, index) => (
                         <Tr key={index}>
                           <Td>{item.denom}</Td>
                           <Td>{item.amount}</Td>
@@ -288,9 +310,12 @@ export default function DetailAccount() {
           borderRadius="2xl"
           p={4}
         >
-          <Heading size={'md'} mb={4}>
+          <Heading size={'md'} mb={1}>
             Transactions
           </Heading>
+          <Text fontSize="sm" color="gray.500" mb={4}>
+            From the last {ACCOUNT_TX_BLOCK_WINDOW.toLocaleString()} blocks
+          </Text>
           <Divider borderColor={'gray'} mb={4} />
           {txLoading ? (
             <Center py={8}>
