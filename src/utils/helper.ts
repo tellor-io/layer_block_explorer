@@ -54,6 +54,16 @@ export const isBech32Address = (address: string): Boolean => {
   }
 }
 
+export function isValidBech32Address(address: string): boolean {
+  try {
+    const trimmed = address.trim()
+    const decoded = bech32.decode(trimmed)
+    return decoded.words.length > 0 && bech32.encode(decoded.prefix, decoded.words) === trimmed
+  } catch {
+    return false
+  }
+}
+
 export const convertVotingPower = (tokens: string): number => {
   return Math.round(Number(tokens) / 10 ** 6)
 }
@@ -105,6 +115,21 @@ export const getTypeMsg = (typeUrl: string): string => {
 export function convertAddressToOperator(address: string): string {
   // Replace this with your actual conversion logic
   return `operator-${address}`
+}
+
+const ACCOUNT_PREFIX = 'tellor'
+
+// Operator and consensus addresses are the same 20 bytes as the account, with a different bech32 prefix.
+export function toAccountAddress(address: string): string {
+  const trimmed = address.trim()
+  const decoded = bech32.decode(trimmed)
+  if (
+    decoded.prefix === 'tellorvaloper' ||
+    decoded.prefix === 'tellorvalcons'
+  ) {
+    return bech32.encode(ACCOUNT_PREFIX, decoded.words)
+  }
+  return trimmed
 }
 
 export const stripAddressPrefix = (address: string): string => {
