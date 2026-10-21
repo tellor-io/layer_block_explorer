@@ -24,6 +24,43 @@ export interface LiveValidatorsResponse {
   count: number
 }
 
+export interface ValidatorCoin {
+  denom: string
+  amount: string
+}
+
+export interface ValidatorSigningInfo {
+  startHeight: string
+  jailedUntil: string
+  tombstoned: boolean
+  missedBlocksCounter: string
+}
+
+export interface ValidatorDetail {
+  operatorAddress: string
+  consensusAddress: string | null
+  consensusPubkey: string | null
+  moniker: string
+  identity: string
+  website: string
+  details: string
+  securityContact: string
+  status: string
+  jailed: boolean
+  tokens: string
+  delegatorShares: string
+  minSelfDelegation: string
+  unbondingHeight: string
+  unbondingTime: string
+  commissionRate: string
+  commissionMaxRate: string
+  commissionMaxChangeRate: string
+  commissionUpdateTime: string
+  accruedCommission: ValidatorCoin[] | null
+  outstandingRewards: ValidatorCoin[] | null
+  signingInfo: ValidatorSigningInfo | null
+}
+
 export interface LiveReporterMetadata {
   moniker: string
   jailed: boolean

@@ -531,21 +531,11 @@ export default function Home() {
                     left={2}
                     right={2}
                     zIndex={2}
-                    justify="space-between"
-                    align="flex-start"
+                    justify="flex-start"
+                    align="center"
+                    gap={2}
                     pointerEvents="none"
                   >
-                    <Text
-                      fontSize="11px"
-                      fontWeight={500}
-                      letterSpacing="0.12em"
-                      textTransform="uppercase"
-                      color={useColorModeValue('opal.500', '#6B928D')}
-                      noOfLines={2}
-                      lineHeight="1.25"
-                    >
-                      Val Distr.
-                    </Text>
                     <Box
                       backgroundColor={BOX_ICON_BG}
                       height={{ base: '32px', md: 'clamp(28px, 4.5vh, 36px)' }}
@@ -559,6 +549,17 @@ export default function Home() {
                     >
                       <Icon fontSize="16" color={BOX_ICON_COLOR} as={LiaChartPieSolid} />
                     </Box>
+                    <Text
+                      fontSize="11px"
+                      fontWeight={500}
+                      letterSpacing="0.12em"
+                      textTransform="uppercase"
+                      color={useColorModeValue('opal.500', '#6B928D')}
+                      noOfLines={2}
+                      lineHeight="1.25"
+                    >
+                      Val Distr.
+                    </Text>
                   </Flex>
 
                   <Box h="100%" w="100%" minH={0}>
@@ -872,17 +873,7 @@ const BoxInfo = ({
       spacing={{ base: 2, md: 1.5 }}
       overflow="hidden"
     >
-      <HStack w="100%" justify="space-between" align="flex-start" flexShrink={0}>
-        <Text
-          fontSize="11px"
-          fontWeight={500}
-          letterSpacing="0.12em"
-          textTransform="uppercase"
-          color={labelColor}
-          noOfLines={2}
-        >
-          {name}
-        </Text>
+      <HStack w="100%" justify="flex-start" align="center" spacing={2} flexShrink={0}>
         <Box
           backgroundColor={accent ? iconOnAccent : bgColor}
           padding={1.5}
@@ -896,6 +887,16 @@ const BoxInfo = ({
         >
           <Icon fontSize="16" color={accent ? accentFg : color} as={icon} />
         </Box>
+        <Text
+          fontSize="11px"
+          fontWeight={500}
+          letterSpacing="0.12em"
+          textTransform="uppercase"
+          color={labelColor}
+          noOfLines={2}
+        >
+          {name}
+        </Text>
       </HStack>
       <Flex
         flex={1}

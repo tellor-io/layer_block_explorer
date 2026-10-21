@@ -71,6 +71,7 @@ import {
   getRpcEndpointsForNetwork,
 } from '../../utils/constant'
 import { useActiveNetwork } from '@/hooks/useActiveNetwork'
+import { isValidBech32Address } from '@/utils/helper'
 
 const heightRegex = /^\d+$/
 const txhashRegex = /^[A-Z\d]{64}$/
@@ -152,6 +153,15 @@ export default function Navbar() {
     } else if (txhashRegex.test(search)) {
       router.push('/txs/' + search)
     } else if (addrRegex.test(search)) {
+      if (!isValidBech32Address(search)) {
+        toast({
+          title: 'Account not found',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        })
+        return
+      }
       router.push('/accounts/' + search)
     } else {
       toast({
@@ -352,7 +362,7 @@ export default function Navbar() {
 
           {/* Existing buttons */}
           <HStack display={{ base: 'none', md: 'flex' }} spacing={2}>
-            <HStack maxW="md" spacing={2}>
+            <HStack spacing={2}>
               <Input
                 placeholder="Search by height / txhash / address"
                 value={search}
@@ -362,7 +372,7 @@ export default function Navbar() {
                     handleSearch()
                   }
                 }}
-                w="320px"
+                w="480px"
               />
               <IconButton
                 aria-label="Search"

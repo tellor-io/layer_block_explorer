@@ -28,7 +28,7 @@ import { FiChevronRight, FiHome } from 'react-icons/fi'
 import NextLink from 'next/link'
 import Head from 'next/head'
 import { useRouter } from 'next/router'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSelector } from 'react-redux'
 import {
   getAccount,
@@ -37,7 +37,8 @@ import {
 } from '@/rpc/query'
 import { selectTmClient } from '@/store/connectSlice'
 import { Account, Coin } from '@cosmjs/stargate'
-import { trimHash, getTypeMsg } from '@/utils/helper'
+import { trimHash, getTypeMsg, toAccountAddress, isValidBech32Address } from '@/utils/helper'
+import ValidatorOperatorView from '@/components/ValidatorOperatorView'
 import { graphqlQuery } from '@/datasources/graphql/client'
 import {
   GET_SINGLE_LATEST_BLOCK,
@@ -56,6 +57,18 @@ export default function DetailAccount() {
   const router = useRouter()
   const toast = useToast()
   const { address } = router.query
+  const routeAddress = typeof address === 'string' ? address : ''
+  const addressIsValid = !routeAddress || isValidBech32Address(routeAddress)
+  const isOperator = addressIsValid && routeAddress.startsWith('tellorvaloper1')
+  const accountAddress = useMemo(() => {
+    if (!isOperator) return routeAddress
+    try {
+      return toAccountAddress(routeAddress)
+    } catch {
+      return ''
+    }
+  }, [isOperator, routeAddress])
+  const txSearchAddress = isOperator ? routeAddress : accountAddress
   const tmClient = useSelector(selectTmClient)
   const [account, setAccount] = useState<Account | null>(null)
 
@@ -64,9 +77,34 @@ export default function DetailAccount() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [txLoading, setTxLoading] = useState(true)
   const [txError, setTxError] = useState<string | null>(null)
+  const accountLinkColor = useColorModeValue('light-theme', 'dark-theme')
+
+  const showError = (err: Error) => {
+    const errMsg = err.message
+    let error = null
+    try {
+      error = JSON.parse(errMsg)
+    } catch (e) {
+      error = {
+        message: 'Invalid',
+        data: errMsg,
+      }
+    }
+
+    const checksumError = /decoding bech32 failed|invalid checksum/i.test(
+      `${error.message} ${error.data}`
+    )
+    toast({
+      title: checksumError ? 'Account not found' : error.message,
+      description: checksumError ? undefined : error.data,
+      status: 'error',
+      duration: 5000,
+      isClosable: true,
+    })
+  }
 
   const fetchAccountTransactions = async () => {
-    if (!address) return
+    if (!txSearchAddress || !addressIsValid) return
     
     try {
       setTxLoading(true)
@@ -83,7 +121,7 @@ export default function DetailAccount() {
 
       const response = await graphqlQuery<TransactionsResponse>(
         GET_TRANSACTIONS_BY_ACCOUNT,
-        { address: address as string, minHeight: String(minHeight), first: 30 }
+        { address: txSearchAddress, minHeight: String(minHeight), first: 30 }
       )
       
       if (response.transactions?.edges) {
@@ -99,51 +137,45 @@ export default function DetailAccount() {
   }
 
   useEffect(() => {
-    if (tmClient && address) {
-      if (!account) {
-        getAccount(tmClient, address as string)
-          .then(setAccount)
-          .catch(showError)
-      }
+    if (!tmClient || !accountAddress || !addressIsValid) return
 
-      if (!allBalances) {
-        getAllBalances(tmClient, address as string)
-          .then(setAllBalances)
-          .catch(showError)
-      }
+    let cancelled = false
+    setAccount(null)
+    setAllBalances(null)
+    setBalanceStaked(null)
 
-      if (!balanceStaked) {
-        getBalanceStaked(tmClient, address as string)
-          .then(setBalanceStaked)
-          .catch(showError)
-      }
+    getAccount(tmClient, accountAddress)
+      .then((value) => {
+        if (!cancelled) setAccount(value)
+      })
+      .catch((err) => {
+        if (!cancelled) showError(err)
+      })
+
+    getAllBalances(tmClient, accountAddress)
+      .then((value) => {
+        if (!cancelled) setAllBalances(value)
+      })
+      .catch((err) => {
+        if (!cancelled) showError(err)
+      })
+
+    getBalanceStaked(tmClient, accountAddress)
+      .then((value) => {
+        if (!cancelled) setBalanceStaked(value)
+      })
+      .catch((err) => {
+        if (!cancelled) showError(err)
+      })
+
+    return () => {
+      cancelled = true
     }
-  }, [tmClient, account, allBalances, balanceStaked, address])
+  }, [tmClient, accountAddress])
 
   useEffect(() => {
     fetchAccountTransactions()
-  }, [address])
-
-  const showError = (err: Error) => {
-    const errMsg = err.message
-    let error = null
-    try {
-      error = JSON.parse(errMsg)
-    } catch (e) {
-      error = {
-        message: 'Invalid',
-        data: errMsg,
-      }
-    }
-
-    toast({
-      title: error.message,
-      description: error.data,
-      status: 'error',
-      duration: 5000,
-      isClosable: true,
-    })
-  }
+  }, [txSearchAddress])
 
   const renderTransactionType = (txData: string) => {
     // For now, just show a generic transaction tag
@@ -158,14 +190,14 @@ export default function DetailAccount() {
   return (
     <>
       <Head>
-        <title>Detail Account | Tellor Explorer</title>
-        <meta name="description" content="Account | Tellor Explorer" />
+        <title>{isOperator ? 'Validator' : 'Detail Account'} | Tellor Explorer</title>
+        <meta name="description" content={isOperator ? 'Validator | Tellor Explorer' : 'Account | Tellor Explorer'} />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <main>
         <HStack h="24px">
-          <Heading size={'md'}>Account</Heading>
+          <Heading size={'md'}>{isOperator ? 'Validator' : 'Account'}</Heading>
           <Divider borderColor={'gray'} size="10px" orientation="vertical" />
           <Link
             as={NextLink}
@@ -182,10 +214,25 @@ export default function DetailAccount() {
             />
           </Link>
           <Icon fontSize="16" as={FiChevronRight} />
-          <Text>Accounts</Text>
+          <Text>{isOperator ? 'Validators' : 'Accounts'}</Text>
           <Icon fontSize="16" as={FiChevronRight} />
           <Text>Detail</Text>
         </HStack>
+        {routeAddress && !addressIsValid ? (
+          <Box
+            mt={8}
+            bg={useColorModeValue('light-container', 'dark-container')}
+            border="1px solid"
+            borderColor={useColorModeValue('border.light', 'border.dark')}
+            borderRadius="2xl"
+            p={4}
+          >
+            <Text>Account not found</Text>
+          </Box>
+        ) : null}
+        {addressIsValid && (
+          <>
+        {isOperator && <ValidatorOperatorView operatorAddress={routeAddress} />}
         <Box
           mt={8}
           bg={useColorModeValue('light-container', 'dark-container')}
@@ -194,7 +241,7 @@ export default function DetailAccount() {
           p={4}
         >
           <Heading size={'md'} mb={4}>
-            Profile
+            {isOperator ? 'Operator account' : 'Profile'}
           </Heading>
           <Divider borderColor={'gray'} mb={4} />
           <TableContainer>
@@ -204,7 +251,19 @@ export default function DetailAccount() {
                   <Td pl={0} width={150}>
                     <b>Address</b>
                   </Td>
-                  <Td>{address}</Td>
+                  <Td wordBreak="break-all">
+                    {isOperator && accountAddress ? (
+                      <Link
+                        as={NextLink}
+                        href={'/accounts/' + accountAddress}
+                        color={accountLinkColor}
+                      >
+                        {accountAddress}
+                      </Link>
+                    ) : (
+                      accountAddress || address
+                    )}
+                  </Td>
                 </Tr>
                 <Tr>
                   <Td pl={0} width={150}>
@@ -314,7 +373,9 @@ export default function DetailAccount() {
             Transactions
           </Heading>
           <Text fontSize="sm" color="gray.500" mb={4}>
-            From the last {ACCOUNT_TX_BLOCK_WINDOW.toLocaleString()} blocks
+            {isOperator
+              ? `Mentioning this validator, from the last ${ACCOUNT_TX_BLOCK_WINDOW.toLocaleString()} blocks`
+              : `From the last ${ACCOUNT_TX_BLOCK_WINDOW.toLocaleString()} blocks`}
           </Text>
           <Divider borderColor={'gray'} mb={4} />
           {txLoading ? (
@@ -376,6 +437,8 @@ export default function DetailAccount() {
             </TableContainer>
           )}
         </Box>
+          </>
+        )}
       </main>
     </>
   )
