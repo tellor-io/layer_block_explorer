@@ -31,6 +31,8 @@ import {
   normalizeNetwork,
 } from '@/utils/constant'
 import { rpcManager } from '@/utils/rpcManager'
+import { hashFieldToBytes } from '@/utils/helper'
+import { toHex } from '@cosmjs/encoding'
 
 export interface GraphQLError {
   message: string;
@@ -188,20 +190,13 @@ export async function graphqlBatchQuery<T = any>(
   return Promise.all(promises);
 }
 
-/**
- * Convert comma-separated byte string to hex string
- * GraphQL stores hashes as comma-separated byte strings: "65,41,65,23,48,191,116..."
- * 
- * @param byteString - Comma-separated byte string
- * @returns Hex string representation
- */
-export function bytesToHex(byteString: string): string {
+// Shows an indexed hash field as lowercase hex; accepts hex (with or without a 0x prefix) and the older comma-separated byte list
+export function bytesToHex(value: string): string {
   try {
-    const bytes = byteString.split(',').map(byte => parseInt(byte.trim(), 10));
-    return Buffer.from(bytes).toString('hex');
+    return toHex(hashFieldToBytes(value))
   } catch (error) {
-    console.warn('Failed to convert byte string to hex:', byteString);
-    return byteString; // Return original if conversion fails
+    console.warn('Failed to convert hash field to hex:', value)
+    return value
   }
 }
 

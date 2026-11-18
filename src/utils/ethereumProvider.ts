@@ -5,7 +5,7 @@ const ALCHEMY_API_KEY =
 
 // Bridge contract addresses for different networks
 const BRIDGE_CONTRACT_ADDRESSES = {
-  mainnet: '0x5589e306b1920F009979a50B88caE32aecD471E4', // Mainnet address
+  mainnet: '0x6ec401744008f4B018Ed9A36f76e6629799Ee50E', // Mainnet address
   testnet: '0x5acb5977f35b1A91C4fE0F4386eB669E046776F2', // Sepolia address
 }
 

@@ -48,7 +48,8 @@
     "react-redux": "^8.0.5",
     "recharts": "^2.15.3",
     "redux-persist": "^6.0.0",
-    "xstream": "^11.14.0"
+    "xstream": "^11.14.0",
+    "zstd-codec": "0.1.5"
   },
   "devDependencies": {
     "@types/lodash": "^4.17.15",

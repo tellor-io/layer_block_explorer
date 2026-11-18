@@ -151,27 +151,34 @@ export const isActiveValidator = (status: string | number): boolean => {
   return false
 }
 
-/**
- * Convert comma-separated byte string to bech32 consensus address
- * Used for matching proposer addresses with validator consensus addresses
- * 
- * @param byteString - Comma-separated byte string (e.g., "213,57,224,58,...")
- * @returns Bech32 consensus address (e.g., "tellorvalcons165u7qw4f8rzwae5fg0yect2eelfj5fnu7eshrt")
- */
-export const bytesToBech32ConsensusAddress = (byteString: string): string => {
+// Turns an indexed hash field into bytes: hex with or without a 0x prefix, or the older comma-separated decimal byte list
+export const hashFieldToBytes = (value: string): Uint8Array => {
+  const text = (value ?? '').trim()
+  if (text === '') return new Uint8Array(0)
+  if (text.includes(',')) {
+    return Uint8Array.from(
+      text.split(',').map((byte) => parseInt(byte.trim(), 10))
+    )
+  }
+  const hex = text.replace(/^(0x|\\x)/i, '')
+  if (hex.length % 2 !== 0 || !/^[0-9a-f]*$/i.test(hex)) {
+    throw new Error(`not a hex or byte list value: ${value}`)
+  }
+  const bytes = new Uint8Array(hex.length / 2)
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16)
+  }
+  return bytes
+}
+
+// Converts an indexed proposer address (hex or byte list) to the bech32 consensus address used to look up validator monikers
+export const bytesToBech32ConsensusAddress = (value: string): string => {
   try {
-    // Convert comma-separated bytes to Buffer
-    const bytes = byteString.split(',').map(byte => parseInt(byte.trim(), 10))
-    const buffer = Buffer.from(bytes)
-    
-    // Convert to bech32 with consensus prefix
-    const words = bech32.toWords(buffer)
-    const consensusAddress = bech32.encode('tellorvalcons', words)
-    
-    return consensusAddress
+    const words = bech32.toWords(hashFieldToBytes(value))
+    return bech32.encode('tellorvalcons', words)
   } catch (error) {
     console.error('Failed to convert bytes to bech32 consensus address:', error)
-    return byteString // Return original if conversion fails
+    return value
   }
 }
 

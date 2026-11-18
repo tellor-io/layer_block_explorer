@@ -58,7 +58,13 @@ import { FiChevronRight, FiHome, FiCheck, FiX, FiCopy, FiChevronLeft } from 'rea
 import { ChevronLeftIcon, ChevronRightIcon, ArrowLeftIcon, ArrowRightIcon } from '@chakra-ui/icons'
 import { toHex } from '@cosmjs/encoding'
 import { TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
-import { timeFromNow, trimHash, getTypeMsg, bytesToBech32ConsensusAddress } from '@/utils/helper'
+import {
+  timeFromNow,
+  trimHash,
+  getTypeMsg,
+  bytesToBech32ConsensusAddress,
+  hashFieldToBytes,
+} from '@/utils/helper'
 import { sha256 } from '@cosmjs/crypto'
 import { CopyableHash } from '@/components/CopyableHash'
 import Head from 'next/head'
@@ -674,7 +680,7 @@ export default function Blocks() {
                               </Link>
                             </Td>
                             <Td noOfLines={1}>
-                              <CopyableHash hash={Buffer.from(block.appHash.split(',').map(byte => parseInt(byte.trim(), 10)))} />
+                              <CopyableHash hash={hashFieldToBytes(block.appHash)} />
                             </Td>
                             <Td>
                               {getProposerMoniker(block.proposerAddress)}

@@ -23,9 +23,8 @@ import { useEffect, useState } from 'react'
 import NextLink from 'next/link'
 import { FiChevronRight, FiHome } from 'react-icons/fi'
 import { timeFromNow, trimHash, getTypeMsg } from '@/utils/helper'
-import { graphqlQuery } from '@/datasources/graphql/client'
-import { GET_TRANSACTIONS } from '@/datasources/graphql/queries'
-import { TransactionsResponse, Transaction } from '@/datasources/graphql/types'
+import { fetchLatestTransactions } from '@/datasources/indexer/client'
+import { Transaction } from '@/datasources/graphql/types'
 
 const MAX_ROWS = 50
 
@@ -41,11 +40,8 @@ export default function Transactions() {
       setLoading(true)
       setError(null)
       
-      const response = await graphqlQuery<TransactionsResponse>(
-        GET_TRANSACTIONS,
-        { first: MAX_ROWS }
-      )
-      
+      const response = await fetchLatestTransactions(MAX_ROWS)
+
       if (response.transactions?.edges) {
         const txs = response.transactions.edges.map(edge => edge.node)
         setTransactions(txs)

@@ -40,16 +40,20 @@ export const isWithdrawClaimed = async (id: number): Promise<boolean> => {
   return response.data.claimed
 }
 
-// Keep these utility functions
-export const generateDepositQueryId = (depositId: number): string => {
+// Query types the chain has used for deposit reports, current one first; older deposits were reported under the earlier type
+export const DEPOSIT_QUERY_TYPES = ['TRBBridgeV2', 'TRBBridge'] as const
+export type DepositQueryType = (typeof DEPOSIT_QUERY_TYPES)[number]
+
+// Query id of a deposit report, as stored by the indexer: lowercase hex without a 0x prefix
+export const generateDepositQueryId = (
+  depositId: number,
+  queryType: DepositQueryType = DEPOSIT_QUERY_TYPES[0]
+): string => {
   const abiCoder = new ethers.AbiCoder()
 
   const innerData = abiCoder.encode(['bool', 'uint256'], [true, depositId])
 
-  const queryData = abiCoder.encode(
-    ['string', 'bytes'],
-    ['TRBBridge', innerData]
-  )
+  const queryData = abiCoder.encode(['string', 'bytes'], [queryType, innerData])
 
   const queryId = ethers.keccak256(queryData)
   return queryId.slice(2)

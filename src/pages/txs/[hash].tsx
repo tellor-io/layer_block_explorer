@@ -39,9 +39,8 @@ import {
   getTypeMsg,
   displayCoin,
 } from '@/utils/helper'
-import { graphqlQuery } from '@/datasources/graphql/client'
-import { GET_TRANSACTION_BY_HASH } from '@/datasources/graphql/queries'
-import { TransactionResponse, Transaction } from '@/datasources/graphql/types'
+import { fetchTransactionByHash } from '@/datasources/indexer/client'
+import { Transaction } from '@/datasources/graphql/types'
 import { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin'
 
 export default function DetailTransaction() {
@@ -59,11 +58,8 @@ export default function DetailTransaction() {
       setLoading(true)
       setError(null)
       
-      const response = await graphqlQuery<TransactionResponse>(
-        GET_TRANSACTION_BY_HASH,
-        { id: hash as string }
-      )
-      
+      const response = await fetchTransactionByHash(hash as string)
+
       if (response.transaction) {
         setTransaction(response.transaction)
       } else {
