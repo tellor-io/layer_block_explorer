@@ -1,6 +1,8 @@
 import {
   Box,
+  Button,
   Divider,
+  Flex,
   HStack,
   Heading,
   Icon,
@@ -39,19 +41,11 @@ import { selectTmClient } from '@/store/connectSlice'
 import { Account, Coin } from '@cosmjs/stargate'
 import { trimHash, getTypeMsg, toAccountAddress, isValidBech32Address } from '@/utils/helper'
 import ValidatorOperatorView from '@/components/ValidatorOperatorView'
-import { graphqlQuery } from '@/datasources/graphql/client'
-import {
-  GET_SINGLE_LATEST_BLOCK,
-  GET_TRANSACTIONS_BY_ACCOUNT,
-} from '@/datasources/graphql/queries'
-import {
-  BlocksResponse,
-  TransactionsResponse,
-  Transaction,
-} from '@/datasources/graphql/types'
+import { fetchAccountTransactions } from '@/datasources/indexer/client'
+import { PageInfo, Transaction } from '@/datasources/graphql/types'
 
-// How many recent blocks the account transaction search covers
-const ACCOUNT_TX_BLOCK_WINDOW = 10000
+// How many transactions each request for an account's history returns
+const ACCOUNT_TX_PAGE_SIZE = 30
 
 export default function DetailAccount() {
   const router = useRouter()
@@ -75,7 +69,9 @@ export default function DetailAccount() {
   const [allBalances, setAllBalances] = useState<readonly Coin[] | null>(null)
   const [balanceStaked, setBalanceStaked] = useState<Coin | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [txPageInfo, setTxPageInfo] = useState<PageInfo | null>(null)
   const [txLoading, setTxLoading] = useState(true)
+  const [txLoadingMore, setTxLoadingMore] = useState(false)
   const [txError, setTxError] = useState<string | null>(null)
   const accountLinkColor = useColorModeValue('light-theme', 'dark-theme')
 
@@ -103,36 +99,64 @@ export default function DetailAccount() {
     })
   }
 
-  const fetchAccountTransactions = async () => {
+  // First page of the address's history, newest first; for a validator, every transaction that mentions it
+  const loadAccountTransactions = async () => {
     if (!txSearchAddress || !addressIsValid) return
-    
+
     try {
       setTxLoading(true)
       setTxError(null)
-      
-      // txData has no index, so an unbounded substring search times out on the
-      // indexer. Bound the scan to a recent block window via the blockHeight index.
-      const latest = await graphqlQuery<BlocksResponse>(GET_SINGLE_LATEST_BLOCK)
-      const latestHeight = Number(latest.blocks?.edges?.[0]?.node?.blockHeight)
-      if (!Number.isFinite(latestHeight)) {
-        throw new Error('Failed to fetch latest block height')
-      }
-      const minHeight = Math.max(latestHeight - ACCOUNT_TX_BLOCK_WINDOW, 0)
+      setTransactions([])
+      setTxPageInfo(null)
 
-      const response = await graphqlQuery<TransactionsResponse>(
-        GET_TRANSACTIONS_BY_ACCOUNT,
-        { address: txSearchAddress, minHeight: String(minHeight), first: 30 }
+      const response = await fetchAccountTransactions(
+        txSearchAddress,
+        ACCOUNT_TX_PAGE_SIZE
       )
-      
+
       if (response.transactions?.edges) {
-        const txs = response.transactions.edges.map(edge => edge.node)
-        setTransactions(txs)
+        setTransactions(response.transactions.edges.map((edge) => edge.node))
+        setTxPageInfo(response.transactions.pageInfo)
       }
     } catch (err) {
       console.error('Failed to fetch account transactions:', err)
-      setTxError(err instanceof Error ? err.message : 'Failed to fetch transactions')
+      setTxError(
+        err instanceof Error ? err.message : 'Failed to fetch transactions'
+      )
     } finally {
       setTxLoading(false)
+    }
+  }
+
+  // Next page, continued from the cursor the previous page ended on
+  const loadMoreAccountTransactions = async () => {
+    if (!txSearchAddress || !txPageInfo?.hasNextPage || !txPageInfo.endCursor) return
+
+    try {
+      setTxLoadingMore(true)
+
+      const response = await fetchAccountTransactions(
+        txSearchAddress,
+        ACCOUNT_TX_PAGE_SIZE,
+        txPageInfo.endCursor
+      )
+
+      if (response.transactions?.edges) {
+        const more = response.transactions.edges.map((edge) => edge.node)
+        setTransactions((prev) => [...prev, ...more])
+        setTxPageInfo(response.transactions.pageInfo)
+      }
+    } catch (err) {
+      console.error('Failed to fetch more account transactions:', err)
+      toast({
+        title: 'Failed to load more transactions',
+        description: err instanceof Error ? err.message : undefined,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+    } finally {
+      setTxLoadingMore(false)
     }
   }
 
@@ -174,7 +198,7 @@ export default function DetailAccount() {
   }, [tmClient, accountAddress])
 
   useEffect(() => {
-    fetchAccountTransactions()
+    loadAccountTransactions()
   }, [txSearchAddress])
 
   const renderTransactionType = (txData: string) => {
@@ -369,14 +393,14 @@ export default function DetailAccount() {
           borderRadius="2xl"
           p={4}
         >
-          <Heading size={'md'} mb={1}>
+          <Heading size={'md'} mb={4}>
             Transactions
           </Heading>
-          <Text fontSize="sm" color="gray.500" mb={4}>
-            {isOperator
-              ? `Mentioning this validator, from the last ${ACCOUNT_TX_BLOCK_WINDOW.toLocaleString()} blocks`
-              : `From the last ${ACCOUNT_TX_BLOCK_WINDOW.toLocaleString()} blocks`}
-          </Text>
+          {isOperator && (
+            <Text fontSize="sm" color="gray.500" mb={4}>
+              Mentioning this validator
+            </Text>
+          )}
           <Divider borderColor={'gray'} mb={4} />
           {txLoading ? (
             <Center py={8}>
@@ -435,6 +459,18 @@ export default function DetailAccount() {
                 </Tbody>
               </Table>
             </TableContainer>
+          )}
+          {!txLoading && !txError && txPageInfo?.hasNextPage && (
+            <Flex justify="center" mt={4}>
+              <Button
+                onClick={loadMoreAccountTransactions}
+                colorScheme="blue"
+                variant="outline"
+                isLoading={txLoadingMore}
+              >
+                Load More
+              </Button>
+            </Flex>
           )}
         </Box>
           </>

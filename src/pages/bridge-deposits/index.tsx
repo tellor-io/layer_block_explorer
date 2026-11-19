@@ -33,14 +33,18 @@ import { FiHome, FiChevronRight, FiCopy } from 'react-icons/fi'
 import { graphqlQuery } from '@/datasources/graphql/client'
 import {
   GET_BRIDGE_DEPOSITS,
-  GET_AGGREGATE_REPORTS_BY_QUERY_ID,
+  GET_AGGREGATE_REPORTS_BY_QUERY_IDS,
 } from '@/datasources/graphql/queries'
 import type {
   BridgeDepositsResponse,
+  AggregateReport,
   AggregateReportsResponse,
   PageInfo,
 } from '@/datasources/graphql/types'
-import { generateDepositQueryId } from '@/utils/bridgeContract'
+import {
+  DEPOSIT_QUERY_TYPES,
+  generateDepositQueryId,
+} from '@/utils/bridgeContract'
 
 interface Deposit {
   id: number
@@ -82,51 +86,26 @@ export default function BridgeDeposits() {
     pagesCursorsRef.current = pagesCursors
   }, [pagesCursors])
 
-  const fetchReportDetails = async (depositId: number) => {
-    try {
-      const queryId = generateDepositQueryId(depositId)
-
-      const response = await graphqlQuery<AggregateReportsResponse>(
-        GET_AGGREGATE_REPORTS_BY_QUERY_ID,
-        {
-          queryId: queryId,
-          first: 1,
-        }
-      )
-
-      if (!response.aggregateReports.edges.length) {
-        return null
-      }
-
-      const latestReport = response.aggregateReports.edges[0].node
-      const hasValidData = latestReport.value && latestReport.value.length > 0
-
-      if (!hasValidData) {
-        return null
-      }
-
-      return {
-        aggregate: {
-          aggregate_value: latestReport.value,
-          query_id: latestReport.queryId,
-          block_height: latestReport.blockHeight,
-          timestamp: latestReport.timestamp,
-          total_reporters: latestReport.totalReporters,
-          aggregate_power: latestReport.aggregatePower,
-          micro_report_height: latestReport.microReportHeight,
-        },
-        queryId: latestReport.queryId,
-        value: latestReport.value,
-        blockHeight: latestReport.blockHeight,
-        timestamp: latestReport.timestamp,
-        queryData: latestReport.queryData,
-      }
-    } catch (err) {
-      console.error(
-        `Error fetching report details for deposit ${depositId}:`,
-        err
-      )
+  const toReportDetails = (latestReport: AggregateReport | undefined) => {
+    if (!latestReport || !latestReport.value || latestReport.value.length === 0) {
       return null
+    }
+
+    return {
+      aggregate: {
+        aggregate_value: latestReport.value,
+        query_id: latestReport.queryId,
+        block_height: latestReport.blockHeight,
+        timestamp: latestReport.timestamp,
+        total_reporters: latestReport.totalReporters,
+        aggregate_power: latestReport.aggregatePower,
+        micro_report_height: latestReport.microReportHeight,
+      },
+      queryId: latestReport.queryId,
+      value: latestReport.value,
+      blockHeight: latestReport.blockHeight,
+      timestamp: latestReport.timestamp,
+      queryData: latestReport.queryData,
     }
   }
 
@@ -149,23 +128,49 @@ export default function BridgeDeposits() {
       }
     })
 
+  // The report details for every reported deposit on the page come back in one request
   const loadReportStatuses = async (formattedDeposits: Deposit[]) => {
-    const reportedDeposits = formattedDeposits.filter((d) => d.reported)
-    const reportDetails = await Promise.all(
-      reportedDeposits.map((deposit) =>
-        fetchReportDetails(deposit.depositId).then((data) => ({
-          depositId: deposit.depositId,
-          data,
-        }))
-      )
+    // Deposits made before the bridge upgrade were reported under the earlier query type, so that id is listed second
+    const queryIdsByDeposit = new Map(
+      formattedDeposits
+        .filter((d) => d.reported)
+        .map((d) => [
+          d.depositId,
+          DEPOSIT_QUERY_TYPES.map((queryType) =>
+            generateDepositQueryId(d.depositId, queryType)
+          ),
+        ])
     )
+    const queryIds = Array.from(queryIdsByDeposit.values()).flat()
+
+    const latestByQueryId: Record<string, AggregateReport> = {}
+    if (queryIds.length) {
+      try {
+        // The indexer returns at most 100 rows per request, which covers a page even when a deposit has several reports
+        const response = await graphqlQuery<AggregateReportsResponse>(
+          GET_AGGREGATE_REPORTS_BY_QUERY_IDS,
+          { queryIds, first: 100 }
+        )
+        // A deposit can have more than one report, so the one from the highest block is kept
+        for (const edge of response.aggregateReports.edges) {
+          const current = latestByQueryId[edge.node.queryId]
+          if (!current || BigInt(edge.node.blockHeight) > BigInt(current.blockHeight)) {
+            latestByQueryId[edge.node.queryId] = edge.node
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching deposit report details:', err)
+      }
+    }
 
     const statusMap: Record<number, ReportStatus> = {}
     formattedDeposits.forEach((deposit) => {
+      const report = (queryIdsByDeposit.get(deposit.depositId) ?? [])
+        .map((queryId) => latestByQueryId[queryId])
+        .find(Boolean)
       statusMap[deposit.depositId] = {
         isReported: deposit.reported,
-        data: reportDetails.find((r) => r.depositId === deposit.depositId)
-          ?.data,
+        data: toReportDetails(report),
       }
     })
     setReportStatuses(statusMap)

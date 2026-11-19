@@ -38,7 +38,7 @@ export const GET_LATEST_BLOCKS = `
 
 /**
  * Get a single block by height
- * Used for: /blocks/[height] page
+ * Used for: /api/indexer/block/[height], which decodes voteExtensionsCompressed into the voteExtensions text the /blocks/[height] page shows
  */
 export const GET_BLOCK_BY_HEIGHT = `
   query GetBlockByHeight($blockHeight: String!) {
@@ -50,7 +50,7 @@ export const GET_BLOCK_BY_HEIGHT = `
       numberOfTx
       appHash
       chainId
-      voteExtensions
+      voteExtensionsCompressed
       consensusHash
       dataHash
       evidenceHash
@@ -347,17 +347,17 @@ export const GET_REPORTER_COUNT = `
 // ============================================================================
 
 /**
- * Get transactions with pagination
- * Used for: /transactions page
+ * Get the newest transactions
+ * Used for: /api/indexer/transactions, which decodes txDataCompressed for the /transactions page
  */
 export const GET_TRANSACTIONS = `
   query GetTransactions($first: Int, $after: Cursor) {
-    transactions(first: $first, after: $after) {
+    transactions(first: $first, after: $after, orderBy: BLOCK_HEIGHT_DESC) {
       edges {
         node {
           nodeId
           id
-          txData
+          txDataCompressed
           blockHeight
           timestamp
         }
@@ -375,14 +375,14 @@ export const GET_TRANSACTIONS = `
 
 /**
  * Get a single transaction by ID
- * Used for: /txs/[hash] page
+ * Used for: /api/indexer/transaction/[hash], which decodes txDataCompressed for the /txs/[hash] page
  */
 export const GET_TRANSACTION_BY_HASH = `
   query GetTransactionByHash($id: String!) {
     transaction(id: $id) {
       nodeId
       id
-      txData
+      txDataCompressed
       blockHeight
       timestamp
     }
@@ -390,22 +390,47 @@ export const GET_TRANSACTION_BY_HASH = `
 `;
 
 /**
- * Get transactions by account address
- * Used for: /accounts/[address] page
+ * Get the account index entries for an address, newest first; the transaction hash is the part of the id after the first "-"
+ * Used for: /api/indexer/account/[address]/transactions
  */
-export const GET_TRANSACTIONS_BY_ACCOUNT = `
-  query GetTransactionsByAccount($address: String!, $minHeight: BigFloat!, $first: Int, $after: Cursor) {
-    transactions(
+export const GET_ACCOUNT_TRANSACTIONS = `
+  query GetAccountTransactions($address: String!, $first: Int, $after: Cursor) {
+    accountTransactions(
       first: $first
       after: $after
+      filter: { address: { equalTo: $address } }
       orderBy: BLOCK_HEIGHT_DESC
-      filter: { blockHeight: { greaterThan: $minHeight }, txData: { includes: $address } }
     ) {
+      edges {
+        node {
+          id
+          address
+          blockHeight
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+    }
+  }
+`
+
+/**
+ * Get transactions by a list of hashes
+ * Used for: /api/indexer/account/[address]/transactions, after the account index gives the hashes
+ */
+export const GET_TRANSACTIONS_BY_IDS = `
+  query GetTransactionsByIds($ids: [String!]!, $first: Int) {
+    transactions(first: $first, filter: { id: { in: $ids } }) {
       edges {
         node {
           nodeId
           id
-          txData
+          txDataCompressed
           blockHeight
           timestamp
         }
@@ -419,11 +444,11 @@ export const GET_TRANSACTIONS_BY_ACCOUNT = `
       }
     }
   }
-`;
+`
 
 /**
  * Get transactions by block height
- * Used for: /blocks/[height] page
+ * Used for: /api/indexer/block/[height]/transactions, which decodes txDataCompressed for the /blocks/[height] page
  */
 export const GET_TRANSACTIONS_BY_BLOCK_HEIGHT = `
   query GetTransactionsByBlockHeight($blockHeight: BigFloat!, $first: Int, $after: Cursor) {
@@ -432,7 +457,7 @@ export const GET_TRANSACTIONS_BY_BLOCK_HEIGHT = `
         node {
           nodeId
           id
-          txData
+          txDataCompressed
           blockHeight
           timestamp
         }
@@ -813,6 +838,45 @@ export const GET_AGGREGATE_REPORTS_BY_QUERY_ID_AND_DATE = `
         }
       }
       orderBy: BLOCK_HEIGHT_DESC
+    ) {
+      edges {
+        node {
+          id
+          queryId
+          value
+          queryData
+          blockHeight
+          timestamp
+          microReportHeight
+          totalReporters
+          totalPower
+          cyclist
+          aggregatePower
+          flagged
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
+      }
+    }
+  }
+`;
+
+/**
+ * Get the aggregate reports for several query ids at once, grouped by query id
+ * Used for: /bridge-deposits page (report details for every deposit on the page in one request)
+ */
+export const GET_AGGREGATE_REPORTS_BY_QUERY_IDS = `
+  query GetAggregateReportsByQueryIds($queryIds: [String!]!, $first: Int) {
+    # Ordered by the same column the filter uses, so the database answers from the query id index instead of reading the whole table
+    aggregateReports(
+      first: $first
+      filter: { queryId: { in: $queryIds } }
+      orderBy: QUERY_ID_ASC
     ) {
       edges {
         node {

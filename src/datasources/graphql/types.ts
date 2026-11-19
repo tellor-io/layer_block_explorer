@@ -31,18 +31,18 @@ export interface Connection<T> {
 
 export interface Block {
   blockHeight: string;
-  blockHash: string; // Comma-separated byte string
+  blockHash: string; // Lowercase hex; older rows hold a comma-separated byte string
   blockTime: string; // ISO timestamp
-  proposerAddress: string; // Comma-separated byte string
+  proposerAddress: string; // Lowercase hex; older rows hold a comma-separated byte string
   numberOfTx: number;
-  appHash: string; // Comma-separated byte string
+  appHash: string; // Lowercase hex; older rows hold a comma-separated byte string
   chainId: string;
-  voteExtensions?: string; // Vote extension data as JSON string (parsed by indexer)
-  consensusHash?: string; // Comma-separated byte string
-  dataHash?: string; // Comma-separated byte string
-  evidenceHash?: string; // Comma-separated byte string
-  nextValidatorsHash?: string; // Comma-separated byte string
-  validatorsHash?: string; // Comma-separated byte string
+  voteExtensions?: string; // Vote extension transaction as JSON text, empty when the block has none
+  consensusHash?: string; // Lowercase hex; older rows hold a comma-separated byte string
+  dataHash?: string; // Lowercase hex; older rows hold a comma-separated byte string
+  evidenceHash?: string; // Lowercase hex; older rows hold a comma-separated byte string
+  nextValidatorsHash?: string; // Lowercase hex; older rows hold a comma-separated byte string
+  validatorsHash?: string; // Lowercase hex; older rows hold a comma-separated byte string
 }
 
 export interface BlocksResponse {
@@ -51,6 +51,16 @@ export interface BlocksResponse {
 
 export interface BlockResponse {
   block: Block | null;
+}
+
+// Block as the GraphQL API serves it: the vote extension text is zstd-compressed and arrives as hex bytes, null when absent
+export interface BlockNode extends Omit<Block, 'voteExtensions'> {
+  voteExtensionsCompressed?: string | null
+  voteExtensions?: string | null // Only present on an indexer that still stores the text itself
+}
+
+export interface BlockNodeResponse {
+  block: BlockNode | null
 }
 
 // ============================================================================
@@ -167,7 +177,7 @@ export interface ReportersResponse {
 export interface Transaction {
   nodeId: string;
   id: string;
-  txData: string; // Raw transaction data
+  txData: string; // Transaction result and body as JSON text
   blockHeight: string;
   timestamp: string; // ISO timestamp
 }
@@ -178,6 +188,35 @@ export interface TransactionsResponse {
 
 export interface TransactionResponse {
   transaction: Transaction | null;
+}
+
+// Transaction as the GraphQL API serves it: the JSON text is zstd-compressed and arrives as hex bytes
+export interface TransactionNode {
+  nodeId: string
+  id: string
+  txDataCompressed?: string | null
+  txData?: string | null // Only present on an indexer that still stores the text itself
+  blockHeight: string
+  timestamp: string // ISO timestamp
+}
+
+export interface TransactionNodesResponse {
+  transactions: Connection<TransactionNode>
+}
+
+export interface TransactionNodeResponse {
+  transaction: TransactionNode | null
+}
+
+// One row of the account index: id is "<address>-<transaction hash>"
+export interface AccountTransaction {
+  id: string
+  address: string
+  blockHeight: string
+}
+
+export interface AccountTransactionsResponse {
+  accountTransactions: Connection<AccountTransaction>
 }
 
 // ============================================================================

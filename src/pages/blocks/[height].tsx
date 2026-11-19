@@ -39,9 +39,12 @@ import { timeFromNow, trimHash, displayDate, getTypeMsg, bytesToBech32ConsensusA
 import { sha256 } from '@cosmjs/crypto'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { FaExpand, FaCompress, FaCopy } from 'react-icons/fa'
-import { graphqlQuery, bytesToHex } from '@/datasources/graphql/client'
-import { GET_BLOCK_BY_HEIGHT, GET_TRANSACTIONS_BY_BLOCK_HEIGHT } from '@/datasources/graphql/queries'
-import { BlockResponse, TransactionsResponse, Transaction } from '@/datasources/graphql/types'
+import { bytesToHex } from '@/datasources/graphql/client'
+import {
+  fetchBlockByHeight,
+  fetchBlockTransactions,
+} from '@/datasources/indexer/client'
+import { Transaction } from '@/datasources/graphql/types'
 import { monikerByConsensusAddress } from '@/datasources/live/validators'
 import type { LiveValidatorsResponse } from '@/datasources/live/types'
 import { getBlockResults } from '@/rpc/query'
@@ -157,12 +160,10 @@ export default function DetailBlock() {
 
           const blockHeight = Array.isArray(height) ? height[0] : height
 
-          // Fetch block data using GraphQL directly
+          // The block route decodes the vote extension text before it reaches the browser
           console.log('Block detail: Fetching block from GraphQL for height:', blockHeight)
-          const response = await graphqlQuery<BlockResponse>(GET_BLOCK_BY_HEIGHT, { 
-            blockHeight 
-          })
-          
+          const response = await fetchBlockByHeight(blockHeight)
+
           if (response?.block) {
             const blockData: GraphQLBlock = {
               blockHeight: response.block.blockHeight,
@@ -194,10 +195,7 @@ export default function DetailBlock() {
             }
 
             // Fetch transactions for this block
-            const txResponse = await graphqlQuery<TransactionsResponse>(
-              GET_TRANSACTIONS_BY_BLOCK_HEIGHT,
-              { blockHeight, first: 100 }
-            )
+            const txResponse = await fetchBlockTransactions(blockHeight, 100)
             if (txResponse?.transactions?.edges) {
               setTransactions(txResponse.transactions.edges.map(edge => edge.node))
             }
